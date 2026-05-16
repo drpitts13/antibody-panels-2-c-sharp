@@ -1,0 +1,96 @@
+<UserControl x:Class="AntibodyPanels.Views.AnalysisView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:AntibodyPanels.Views">
+    <DockPanel Margin="8">
+        <!-- Top selector -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="260"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Label Content="Specimen:" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Specimens}"
+                      SelectedItem="{Binding SelectedSpecimen}"
+                      DisplayMemberPath="AccessionNumber"
+                      IsEditable="True" IsTextSearchEnabled="True"/>
+            <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center"
+                       Text="⚠ Analysis is stale — reactions have been updated since last analysis."
+                       Foreground="OrangeRed" FontWeight="Bold"
+                       Visibility="{Binding IsStale, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
+            <Button Grid.Column="3" Content="Run Analysis" Command="{Binding AnalyzeCommand}"
+                    Padding="10,2" FontWeight="Bold"/>
+        </Grid>
+
+        <!-- Inner tabs -->
+        <TabControl>
+            <TabItem Header="Suspected Antibodies">
+                <DataGrid ItemsSource="{Binding SuspectedRows}" IsReadOnly="True"
+                          AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
+                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90"/>
+                        <DataGridTextColumn Header="Fisher p-value" Binding="{Binding FisherPValue}" Width="110"/>
+                        <DataGridTextColumn Header="Pattern Score" Binding="{Binding PatternScore}" Width="110"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Ruled Out">
+                <DataGrid ItemsSource="{Binding RuleoutRows}" IsReadOnly="True"
+                          AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
+                        <DataGridTextColumn Header="Rule-out Count" Binding="{Binding Count}" Width="120"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Pattern Matches">
+                <DataGrid ItemsSource="{Binding PatternRows}" IsReadOnly="True"
+                          AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
+                        <DataGridTextColumn Header="Matches" Binding="{Binding Matches}" Width="80"/>
+                        <DataGridTextColumn Header="Mismatches" Binding="{Binding Mismatches}" Width="90"/>
+                        <DataGridTextColumn Header="Confidence" Binding="{Binding Confidence}" Width="90"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Combinations">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Margin="6,6,6,4"
+                               Text="Antibody pairs where the combination score exceeds 50% — suggesting both antibodies may be present together."
+                               TextWrapping="Wrap" Foreground="#555" FontStyle="Italic"/>
+                    <DataGrid ItemsSource="{Binding CombinationRows}" IsReadOnly="True"
+                              AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Antibody Pair" Binding="{Binding Antibodies}" Width="*"/>
+                            <DataGridTextColumn Header="Individual Scores" Binding="{Binding IndividualScores}" Width="140"/>
+                            <DataGridTextColumn Header="Combination Score" Binding="{Binding CombinationScore}" Width="130"/>
+                            <DataGridTextColumn Header="Both +" Binding="{Binding BothSupport}" Width="65"/>
+                            <DataGridTextColumn Header="Ab1 Only" Binding="{Binding Ab1Only}" Width="75"/>
+                            <DataGridTextColumn Header="Ab2 Only" Binding="{Binding Ab2Only}" Width="75"/>
+                            <DataGridTextColumn Header="Neither" Binding="{Binding Neither}" Width="65"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Summary">
+                <ScrollViewer>
+                    <TextBox Text="{Binding SummaryText, Mode=OneWay}"
+                             IsReadOnly="True" FontFamily="Consolas" FontSize="13"
+                             TextWrapping="Wrap" Margin="6"/>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</UserControl>

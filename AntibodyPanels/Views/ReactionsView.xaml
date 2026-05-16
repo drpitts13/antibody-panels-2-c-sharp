@@ -1,0 +1,127 @@
+<UserControl x:Class="AntibodyPanels.Views.ReactionsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:AntibodyPanels.ViewModels"
+             xmlns:views="clr-namespace:AntibodyPanels.Views">
+    <UserControl.Resources>
+        <!-- Header template for antigen columns — binds to AntigenColumnHeader objects -->
+        <DataTemplate x:Key="AntigenHeaderTemplate" DataType="{x:Type views:AntigenColumnHeader}">
+            <TextBlock Text="{Binding Antigen}" FontSize="11" FontWeight="SemiBold"
+                       HorizontalAlignment="Center">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsRuledOut}" Value="True">
+                                <Setter Property="Foreground" Value="#C62828"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="ToolTip" Value="Ruled out for this specimen"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </DataTemplate>
+    </UserControl.Resources>
+    <DockPanel Margin="8">
+        <!-- Top selector bar -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Label Content="Specimen:" Grid.Column="0" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Specimens}"
+                      SelectedItem="{Binding SelectedSpecimen}"
+                      DisplayMemberPath="AccessionNumber"
+                      IsEditable="True" IsTextSearchEnabled="True"/>
+            <Label Content="Panel:" Grid.Column="3" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="4" ItemsSource="{Binding Panels}"
+                      SelectedItem="{Binding SelectedPanel}"
+                      DisplayMemberPath="Name"
+                      IsEditable="True" IsTextSearchEnabled="True"/>
+            <Button Grid.Column="6" Content="Load Reactions" Command="{Binding LoadCommand}"
+                    Margin="8,0,4,0" Padding="8,2"/>
+            <Button Grid.Column="7" Content="Save &amp; Analyze" Command="{Binding SaveAnalyzeCommand}"
+                    Margin="0,0,4,0" Padding="8,2" FontWeight="Bold"/>
+            <Button Grid.Column="8" Content="Clear" Command="{Binding ClearCommand}" Padding="8,2"/>
+        </Grid>
+
+        <!-- Save & Analyze status banner -->
+        <Border DockPanel.Dock="Top"
+                Visibility="{Binding SaveStatusVisibility}"
+                CornerRadius="4" Padding="10,6" Margin="0,0,0,6">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Background" Value="#B71C1C"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SaveStatusIsSuccess}" Value="True">
+                            <Setter Property="Background" Value="#1B5E20"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock FontWeight="Bold" Foreground="White" FontSize="13" Margin="0,0,8,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="&#x2717;"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SaveStatusIsSuccess}" Value="True">
+                                    <Setter Property="Text" Value="&#x2713;"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Text="{Binding SaveStatusMessage}" Foreground="White"
+                           FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Reaction DataGrid — antigen columns are injected in code-behind -->
+        <DataGrid x:Name="ReactionsGrid"
+                  ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  GridLinesVisibility="All" HeadersVisibility="Column"
+                  SelectionUnit="Cell" FontSize="12"
+                  FrozenColumnCount="1"
+                  Loaded="ReactionsGrid_Loaded">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasRuleout}" Value="True">
+                            <Setter Property="Background" Value="#DCEDC8"/>
+                            <Setter Property="ToolTip" Value="{Binding RuledOutNote}"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}"
+                                    Width="48" IsReadOnly="True"/>
+                <!-- antigen columns inserted here by code-behind -->
+                <DataGridComboBoxColumn Header="IS" Width="72"
+                    SelectedItemBinding="{Binding IS, UpdateSourceTrigger=PropertyChanged}"
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
+                <DataGridComboBoxColumn Header="37°C" Width="72"
+                    SelectedItemBinding="{Binding C37, UpdateSourceTrigger=PropertyChanged}"
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
+                <DataGridComboBoxColumn Header="AHG" Width="72"
+                    SelectedItemBinding="{Binding AHG, UpdateSourceTrigger=PropertyChanged}"
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
+                <DataGridComboBoxColumn Header="CC" Width="72"
+                    SelectedItemBinding="{Binding CC, UpdateSourceTrigger=PropertyChanged}"
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
+                <!-- Ruled Out column appended after antigens in code-behind -->
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

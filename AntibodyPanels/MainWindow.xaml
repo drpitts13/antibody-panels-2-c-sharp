@@ -1,0 +1,64 @@
+﻿<Window x:Class="AntibodyPanels.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:AntibodyPanels.Views"
+        Title="Antibody Panel Management System"
+        Height="800" Width="1200" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+    <Window.InputBindings>
+        <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCurrentCommand}"/>
+        <KeyBinding Key="R" Modifiers="Ctrl" Command="{Binding RefreshAllCommand}"/>
+        <KeyBinding Key="N" Modifiers="Ctrl" Command="{Binding NewItemCommand}"/>
+    </Window.InputBindings>
+
+    <DockPanel>
+        <!-- Menu bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Exit" Command="{Binding ExitCommand}" InputGestureText="Alt+F4"/>
+            </MenuItem>
+            <MenuItem Header="_Edit">
+                <MenuItem Header="_Save" Command="{Binding SaveCurrentCommand}" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="_Refresh All" Command="{Binding RefreshAllCommand}" InputGestureText="Ctrl+R"/>
+                <MenuItem Header="_New Item" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="Keyboard _Shortcuts" Command="{Binding ShowShortcutsCommand}" InputGestureText="F1"/>
+                <Separator/>
+                <MenuItem Header="_About" Command="{Binding ShowAboutCommand}"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Status bar -->
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}" Margin="4,0"/>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- Tab control -->
+        <TabControl x:Name="MainTabControl" SelectionChanged="TabControl_SelectionChanged">
+            <TabItem Header="Specimens">
+                <views:SpecimensView DataContext="{Binding SpecimensVM}"/>
+            </TabItem>
+            <TabItem Header="Panels">
+                <views:PanelsView DataContext="{Binding PanelsVM}"/>
+            </TabItem>
+            <TabItem Header="Reactions">
+                <views:ReactionsView DataContext="{Binding ReactionsVM}"/>
+            </TabItem>
+            <TabItem Header="Analysis">
+                <views:AnalysisView DataContext="{Binding AnalysisVM}"/>
+            </TabItem>
+            <TabItem Header="Reports">
+                <views:ReportsView DataContext="{Binding ReportsVM}"/>
+            </TabItem>
+            <TabItem Header="Search">
+                <views:SearchView DataContext="{Binding SearchVM}"/>
+            </TabItem>
+            <TabItem Header="Rules">
+                <views:RulesView DataContext="{Binding RulesVM}"/>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

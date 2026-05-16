@@ -1,0 +1,56 @@
+<UserControl x:Class="AntibodyPanels.Views.ReportsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:AntibodyPanels.Views">
+    <UserControl.Resources>
+        <local:BoolToVisibilityConverter x:Key="BoolToVis"/>
+    </UserControl.Resources>
+    <DockPanel Margin="8">
+        <!-- Controls bar -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="180"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Label Content="Report:" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding ReportTypes}"
+                      SelectedItem="{Binding SelectedReportType}"/>
+
+            <Label Grid.Column="3" Content="Specimen:"
+                   Visibility="{Binding NeedsSpecimen, Converter={StaticResource BoolToVis}}"
+                   VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="4" ItemsSource="{Binding Specimens}"
+                      SelectedItem="{Binding SelectedSpecimen}"
+                      DisplayMemberPath="AccessionNumber"
+                      Visibility="{Binding NeedsSpecimen, Converter={StaticResource BoolToVis}}"/>
+
+            <Label Grid.Column="6" Content="Panel:"
+                   Visibility="{Binding NeedsPanel, Converter={StaticResource BoolToVis}}"
+                   VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="7" ItemsSource="{Binding Panels}"
+                      SelectedItem="{Binding SelectedPanel}"
+                      DisplayMemberPath="Name"
+                      Visibility="{Binding NeedsPanel, Converter={StaticResource BoolToVis}}"/>
+
+            <Button Grid.Column="9" Content="Export CSV" Command="{Binding ExportCsvCommand}"
+                    Margin="0,0,6,0" Padding="8,2"/>
+            <Button Grid.Column="10" Content="Export PDF" Command="{Binding ExportPdfCommand}"
+                    Padding="8,2"/>
+        </Grid>
+
+        <ScrollViewer HorizontalScrollBarVisibility="Auto">
+            <TextBox Text="{Binding PreviewText, Mode=OneWay}"
+                     IsReadOnly="True" FontFamily="Consolas" FontSize="12"
+                     TextWrapping="NoWrap" AcceptsReturn="True"/>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>
