@@ -1,4 +1,6 @@
+using System;
 using System.Windows;
+using System.Windows.Controls;
 using AntibodyPanels.Models;
 
 namespace AntibodyPanels.Views.Dialogs
@@ -8,6 +10,7 @@ namespace AntibodyPanels.Views.Dialogs
         public string AccessionNumber => AccessionBox.Text.Trim();
         public string SpecimenType => TypeBox.SelectedItem?.ToString() ?? TypeBox.Text;
         public string? ExpirationDate => ExpirationPicker.SelectedDate?.ToString("yyyy-MM-dd");
+        public bool ItemIsActive => ActiveCheck.IsChecked == true;
 
         public SpecimenDialog(Specimen? existing = null)
         {
@@ -17,9 +20,9 @@ namespace AntibodyPanels.Views.Dialogs
 
             if (existing == null)
             {
-                // Adding a new specimen
                 Title = "Add Specimen";
                 TypeBox.SelectedIndex = 0;
+                ActiveCheck.IsChecked = true;
             }
             else
             {
@@ -35,8 +38,19 @@ namespace AntibodyPanels.Views.Dialogs
                 TypeBox.SelectedIndex = idx >= 0 ? idx : 0;
 
                 if (existing.ExpirationDate != null &&
-                    System.DateTime.TryParse(existing.ExpirationDate, out var d))
+                    DateTime.TryParse(existing.ExpirationDate, out var d))
                     ExpirationPicker.SelectedDate = d;
+
+                ActiveCheck.IsChecked = existing.IsActive;
+            }
+        }
+
+        private void ExpirationPicker_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ExpirationPicker.SelectedDate.HasValue &&
+                ExpirationPicker.SelectedDate.Value.Date < DateTime.Today)
+            {
+                ActiveCheck.IsChecked = false;
             }
         }
 

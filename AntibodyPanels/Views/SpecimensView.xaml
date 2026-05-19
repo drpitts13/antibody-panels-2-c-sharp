@@ -15,7 +15,8 @@
                 <Button Content="Add" Command="{Binding AddCommand}" Width="60" Margin="0,0,4,0"/>
                 <Button Content="Edit" Command="{Binding EditCommand}" Width="60" Margin="0,0,4,0"/>
                 <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,4,0"/>
-                <Button Content="Refresh" Command="{Binding RefreshCommand}" Width="65"/>
+                <Button Content="Refresh" Command="{Binding RefreshCommand}" Width="65" Margin="0,0,8,0"/>
+                <CheckBox Content="Show Inactive" IsChecked="{Binding ShowInactive}" VerticalAlignment="Center"/>
             </StackPanel>
             <DataGrid ItemsSource="{Binding Specimens}"
                       SelectedItem="{Binding SelectedSpecimen}"
@@ -27,6 +28,7 @@
                     <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="70"/>
                     <DataGridTextColumn Header="Expiration" Binding="{Binding ExpirationDate}" Width="90"/>
                     <DataGridTextColumn Header="Created" Binding="{Binding CreatedDate}" Width="90"/>
+                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" IsReadOnly="True" Width="50"/>
                 </DataGrid.Columns>
             </DataGrid>
         </DockPanel>

@@ -36,6 +36,13 @@ namespace AntibodyPanels.ViewModels
             set => SetField(ref _selectedLinkedPanel, value);
         }
 
+        private bool _showInactive = false;
+        public bool ShowInactive
+        {
+            get => _showInactive;
+            set { if (SetField(ref _showInactive, value)) Refresh(); }
+        }
+
         public ICommand AddCommand { get; }
         public ICommand EditCommand { get; }
         public ICommand DeleteCommand { get; }
@@ -63,7 +70,12 @@ namespace AntibodyPanels.ViewModels
         {
             var selected = SelectedSpecimen?.AccessionNumber;
             Specimens.Clear();
-            foreach (var s in _db.GetAllSpecimens()) Specimens.Add(s);
+            var all = _db.GetAllSpecimens();
+            foreach (var s in all)
+            {
+                if (_showInactive || s.IsActive)
+                    Specimens.Add(s);
+            }
             SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == selected)
                 ?? Specimens.FirstOrDefault();
         }
@@ -99,7 +111,7 @@ namespace AntibodyPanels.ViewModels
             if (dlg.ShowDialog() != true) return;
             try
             {
-                _db.AddSpecimen(dlg.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate);
+                _db.AddSpecimen(dlg.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate, dlg.ItemIsActive);
                 _main.SetStatus($"Specimen {dlg.AccessionNumber} added.");
                 NotifySpecimensChanged();
                 SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == dlg.AccessionNumber);
@@ -118,7 +130,7 @@ namespace AntibodyPanels.ViewModels
             if (dlg.ShowDialog() != true) return;
             try
             {
-                _db.UpdateSpecimen(SelectedSpecimen.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate);
+                _db.UpdateSpecimen(SelectedSpecimen.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate, dlg.ItemIsActive);
                 _main.SetStatus($"Specimen {SelectedSpecimen.AccessionNumber} updated.");
                 NotifySpecimensChanged();
             }
@@ -146,7 +158,7 @@ namespace AntibodyPanels.ViewModels
             var allPanels = _db.GetAllPanels();
             var linked = _db.GetSpecimenPanels(SelectedSpecimen.AccessionNumber)
                 .Select(p => p.PanelId).ToHashSet();
-            var available = allPanels.Where(p => !linked.Contains(p.PanelId)).ToList();
+            var available = allPanels.Where(p => !linked.Contains(p.PanelId) && p.IsActive).ToList();
 
             var dlg = new Views.Dialogs.SelectPanelDialog(available);
             if (dlg.ShowDialog() != true || dlg.SelectedPanel == null) return;

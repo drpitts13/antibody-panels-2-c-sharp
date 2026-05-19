@@ -12,6 +12,7 @@ namespace AntibodyPanels.Models
         public int StartCell { get; set; } = 1;
         public string? ExpirationDate { get; set; }
         public bool IncludeAc { get; set; }
+        public bool IsActive { get; set; } = true;
 
         public List<PanelCell> Cells { get; set; } = new();
 

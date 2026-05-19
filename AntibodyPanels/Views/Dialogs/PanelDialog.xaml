@@ -17,6 +17,7 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
             </Grid.RowDefinitions>
 
             <Label Content="Panel Name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -39,11 +40,16 @@
 
             <Label Content="Expiration Date:" Grid.Row="5" VerticalAlignment="Center"/>
             <DatePicker x:Name="ExpirationPicker" Grid.Row="5" Grid.Column="1"
-                        VerticalAlignment="Center" Margin="0,2"/>
+                        VerticalAlignment="Center" Margin="0,2"
+                        SelectedDateChanged="ExpirationPicker_SelectedDateChanged"/>
 
             <Label Content="Include AC:" Grid.Row="6" VerticalAlignment="Center"/>
             <CheckBox x:Name="IncludeAcCheck" Grid.Row="6" Grid.Column="1"
                       VerticalAlignment="Center" Margin="0,2"/>
+
+            <Label Content="Active:" Grid.Row="7" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ActiveCheck" Grid.Row="7" Grid.Column="1"
+                      VerticalAlignment="Center" Margin="0,2" IsChecked="True"/>
         </Grid>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

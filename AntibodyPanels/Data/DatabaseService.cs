@@ -22,6 +22,9 @@ namespace AntibodyPanels.Data
             CreateTables();
             MigrateSpecimenTimestamps();
             MigratePanelStartCell();
+            MigrateActiveFlag();
+            DeactivateExpiredSpecimens();
+            DeactivateExpiredPanels();
         }
 
         private static string DefaultDbPath()
@@ -155,6 +158,39 @@ namespace AntibodyPanels.Data
                 ExecNonQuery("ALTER TABLE panels ADD COLUMN start_cell INTEGER NOT NULL DEFAULT 1");
         }
 
+        private void MigrateActiveFlag()
+        {
+            var specCols = GetColumnNames("specimens");
+            if (!specCols.Contains("is_active"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
+
+            var panelCols = GetColumnNames("panels");
+            if (!panelCols.Contains("is_active"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
+        }
+
+        private void DeactivateExpiredSpecimens()
+        {
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE specimens SET is_active = 0
+                WHERE expiration_date IS NOT NULL AND expiration_date < $today AND is_active = 1";
+            cmd.Parameters.AddWithValue("$today", today);
+            cmd.ExecuteNonQuery();
+        }
+
+        private void DeactivateExpiredPanels()
+        {
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE panels SET is_active = 0
+                WHERE expiration_date IS NOT NULL AND expiration_date < $today AND is_active = 1";
+            cmd.Parameters.AddWithValue("$today", today);
+            cmd.ExecuteNonQuery();
+        }
+
         private HashSet<string> GetColumnNames(string table)
         {
             var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -167,16 +203,19 @@ namespace AntibodyPanels.Data
 
         // ── Specimens ────────────────────────────────────────────────────────
 
-        public void AddSpecimen(string accessionNumber, string type = "serum", string? expirationDate = null)
+        public void AddSpecimen(string accessionNumber, string type = "serum", string? expirationDate = null, bool? isActive = null)
         {
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            bool active = isActive ?? (expirationDate == null || string.Compare(expirationDate, today) >= 0);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                INSERT INTO specimens (accession_number, type, expiration_date, created_date)
-                VALUES ($acc, $type, $exp, $created)";
+                INSERT INTO specimens (accession_number, type, expiration_date, created_date, is_active)
+                VALUES ($acc, $type, $exp, $created, $active)";
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.Parameters.AddWithValue("$type", type);
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$created", DateTime.Now.ToString("yyyy-MM-dd"));
+            cmd.Parameters.AddWithValue("$created", today);
+            cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
             cmd.ExecuteNonQuery();
         }
 
@@ -199,14 +238,34 @@ namespace AntibodyPanels.Data
             return list;
         }
 
-        public void UpdateSpecimen(string accessionNumber, string type, string? expirationDate)
+        public List<Specimen> GetActiveSpecimens()
+        {
+            var list = new List<Specimen>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM specimens WHERE is_active = 1 ORDER BY created_date DESC";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(ReadSpecimen(r));
+            return list;
+        }
+
+        public void UpdateSpecimen(string accessionNumber, string type, string? expirationDate, bool isActive = true)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                UPDATE specimens SET type = $type, expiration_date = $exp
+                UPDATE specimens SET type = $type, expiration_date = $exp, is_active = $active
                 WHERE accession_number = $acc";
             cmd.Parameters.AddWithValue("$type", type);
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$active", isActive ? 1 : 0);
+            cmd.Parameters.AddWithValue("$acc", accessionNumber);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void SetSpecimenActive(string accessionNumber, bool active)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "UPDATE specimens SET is_active = $active WHERE accession_number = $acc";
+            cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.ExecuteNonQuery();
         }
@@ -358,12 +417,14 @@ namespace AntibodyPanels.Data
         // ── Panels ────────────────────────────────────────────────────────────
 
         public int AddPanel(string name, string? lotNumber, string? vendor,
-            int numCells, string? expirationDate, bool includeAc, int startCell = 1)
+            int numCells, string? expirationDate, bool includeAc, int startCell = 1, bool? isActive = null)
         {
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            bool active = isActive ?? (expirationDate == null || string.Compare(expirationDate, today) >= 0);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                INSERT INTO panels (name, lot_number, vendor, num_cells, expiration_date, include_ac, start_cell)
-                VALUES ($name, $lot, $vendor, $num, $exp, $ac, $sc);
+                INSERT INTO panels (name, lot_number, vendor, num_cells, expiration_date, include_ac, start_cell, is_active)
+                VALUES ($name, $lot, $vendor, $num, $exp, $ac, $sc, $active);
                 SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("$name", name);
             cmd.Parameters.AddWithValue("$lot", (object?)lotNumber ?? DBNull.Value);
@@ -372,6 +433,7 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$ac", includeAc ? 1 : 0);
             cmd.Parameters.AddWithValue("$sc", startCell);
+            cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
             var panelId = Convert.ToInt32(cmd.ExecuteScalar());
 
             for (int i = startCell; i < startCell + numCells; i++)
@@ -401,13 +463,23 @@ namespace AntibodyPanels.Data
             return list;
         }
 
+        public List<Panel> GetActivePanels()
+        {
+            var list = new List<Panel>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM panels WHERE is_active = 1 ORDER BY name";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(ReadPanel(r));
+            return list;
+        }
+
         public void UpdatePanel(int panelId, string name, string? lotNumber, string? vendor,
-            int numCells, string? expirationDate, bool includeAc, int startCell = 1)
+            int numCells, string? expirationDate, bool includeAc, int startCell = 1, bool isActive = true)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 UPDATE panels SET name=$name, lot_number=$lot, vendor=$vendor,
-                num_cells=$num, expiration_date=$exp, include_ac=$ac, start_cell=$sc
+                num_cells=$num, expiration_date=$exp, include_ac=$ac, start_cell=$sc, is_active=$active
                 WHERE panel_id=$id";
             cmd.Parameters.AddWithValue("$name", name);
             cmd.Parameters.AddWithValue("$lot", (object?)lotNumber ?? DBNull.Value);
@@ -416,6 +488,7 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$ac", includeAc ? 1 : 0);
             cmd.Parameters.AddWithValue("$sc", startCell);
+            cmd.Parameters.AddWithValue("$active", isActive ? 1 : 0);
             cmd.Parameters.AddWithValue("$id", panelId);
             cmd.ExecuteNonQuery();
 
@@ -424,6 +497,15 @@ namespace AntibodyPanels.Data
                 AddPanelCell(panelId, i.ToString());
             if (includeAc)
                 AddPanelCell(panelId, "AC");
+        }
+
+        public void SetPanelActive(int panelId, bool active)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "UPDATE panels SET is_active = $active WHERE panel_id = $id";
+            cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
+            cmd.Parameters.AddWithValue("$id", panelId);
+            cmd.ExecuteNonQuery();
         }
 
         public void DeletePanel(int panelId)
@@ -712,6 +794,7 @@ namespace AntibodyPanels.Data
             CreatedDate = r.GetString(r.GetOrdinal("created_date")),
             ReactionsUpdatedAt = SafeGetString(r, "reactions_updated_at"),
             LastAnalyzedAt = SafeGetString(r, "last_analyzed_at"),
+            IsActive = SafeGetInt(r, "is_active", 1) != 0,
         };
 
         private static Panel ReadPanel(SqliteDataReader r) => new Panel
@@ -724,6 +807,7 @@ namespace AntibodyPanels.Data
             StartCell = SafeGetInt(r, "start_cell", 1),
             ExpirationDate = r.IsDBNull(r.GetOrdinal("expiration_date")) ? null : r.GetString(r.GetOrdinal("expiration_date")),
             IncludeAc = r.GetInt32(r.GetOrdinal("include_ac")) != 0,
+            IsActive = SafeGetInt(r, "is_active", 1) != 0,
         };
 
         private static PanelCell ReadPanelCell(SqliteDataReader r)

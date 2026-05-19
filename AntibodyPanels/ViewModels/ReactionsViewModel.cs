@@ -105,9 +105,9 @@ namespace AntibodyPanels.ViewModels
         {
             var s = SelectedSpecimen?.AccessionNumber;
             Specimens.Clear();
-            foreach (var sp in _db.GetAllSpecimens()) Specimens.Add(sp);
+            foreach (var sp in _db.GetActiveSpecimens()) Specimens.Add(sp);
             Panels.Clear();
-            foreach (var p in _db.GetAllPanels()) Panels.Add(p);
+            foreach (var p in _db.GetActivePanels()) Panels.Add(p);
             if (s != null)
                 SelectedSpecimen = Specimens.FirstOrDefault(x => x.AccessionNumber == s);
         }
@@ -182,6 +182,17 @@ namespace AntibodyPanels.ViewModels
         private void LoadReactions()
         {
             if (SelectedSpecimen == null || SelectedPanel == null) return;
+
+            if (SelectedSpecimen.IsActive == false || SelectedPanel.IsActive == false)
+            {
+                var inactiveItem = SelectedSpecimen.IsActive == false ? "specimen" : "panel";
+                MessageBox.Show(
+                    $"Cannot load reactions: the selected {inactiveItem} is inactive. " +
+                    "Reactivate it first if you need to work with its reactions.",
+                    "Inactive Item", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             SaveStatusMessage = string.Empty;
             Rows.Clear();
 
@@ -203,6 +214,17 @@ namespace AntibodyPanels.ViewModels
         private void SaveAndAnalyze()
         {
             if (SelectedSpecimen == null || SelectedPanel == null) return;
+
+            if (SelectedSpecimen.IsActive == false || SelectedPanel.IsActive == false)
+            {
+                var inactiveItem = SelectedSpecimen.IsActive == false ? "specimen" : "panel";
+                MessageBox.Show(
+                    $"Cannot save reactions: the selected {inactiveItem} is inactive. " +
+                    "Reactivate it first if you need to work with its reactions.",
+                    "Inactive Item", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
                 foreach (var row in Rows)

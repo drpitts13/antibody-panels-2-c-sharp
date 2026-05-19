@@ -1,5 +1,7 @@
+using System;
 using System.Windows;
-using AntibodyPanels.Models;
+using System.Windows.Controls;
+using ModelPanel = AntibodyPanels.Models.Panel;
 
 namespace AntibodyPanels.Views.Dialogs
 {
@@ -12,8 +14,9 @@ namespace AntibodyPanels.Views.Dialogs
         public int StartCell => int.TryParse(StartCellBox.Text, out var s) ? s : 1;
         public string? ExpirationDate => ExpirationPicker.SelectedDate?.ToString("yyyy-MM-dd");
         public bool IncludeAc => IncludeAcCheck.IsChecked == true;
+        public bool ItemIsActive => ActiveCheck.IsChecked == true;
 
-        public PanelDialog(Panel? existing = null)
+        public PanelDialog(ModelPanel? existing = null)
         {
             InitializeComponent();
             if (existing != null)
@@ -26,8 +29,22 @@ namespace AntibodyPanels.Views.Dialogs
                 StartCellBox.Text = existing.StartCell.ToString();
                 IncludeAcCheck.IsChecked = existing.IncludeAc;
                 if (existing.ExpirationDate != null &&
-                    System.DateTime.TryParse(existing.ExpirationDate, out var d))
+                    DateTime.TryParse(existing.ExpirationDate, out var d))
                     ExpirationPicker.SelectedDate = d;
+                ActiveCheck.IsChecked = existing.IsActive;
+            }
+            else
+            {
+                ActiveCheck.IsChecked = true;
+            }
+        }
+
+        private void ExpirationPicker_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ExpirationPicker.SelectedDate.HasValue &&
+                ExpirationPicker.SelectedDate.Value.Date < DateTime.Today)
+            {
+                ActiveCheck.IsChecked = false;
             }
         }
 

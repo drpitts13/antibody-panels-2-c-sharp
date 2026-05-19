@@ -16,7 +16,8 @@
                 <Button Content="Add" Command="{Binding AddCommand}" Width="60" Margin="0,0,4,0"/>
                 <Button Content="Edit" Command="{Binding EditCommand}" Width="60" Margin="0,0,4,0"/>
                 <Button Content="Copy" Command="{Binding CopyCommand}" Width="60" Margin="0,0,4,0"/>
-                <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60"/>
+                <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,8,0"/>
+                <CheckBox Content="Show Inactive" IsChecked="{Binding ShowInactive}" VerticalAlignment="Center"/>
             </StackPanel>
             <DataGrid ItemsSource="{Binding Panels}"
                       SelectedItem="{Binding SelectedPanel}"
@@ -28,6 +29,7 @@
                     <DataGridTextColumn Header="Lot #" Binding="{Binding LotNumber}" Width="80"/>
                     <DataGridTextColumn Header="Cells" Binding="{Binding NumCells}" Width="50"/>
                     <DataGridTextColumn Header="Expires" Binding="{Binding ExpirationDate}" Width="90"/>
+                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" IsReadOnly="True" Width="50"/>
                 </DataGrid.Columns>
             </DataGrid>
         </DockPanel>

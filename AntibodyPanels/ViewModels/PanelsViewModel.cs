@@ -26,6 +26,13 @@ namespace AntibodyPanels.ViewModels
             }
         }
 
+        private bool _showInactive = false;
+        public bool ShowInactive
+        {
+            get => _showInactive;
+            set { if (SetField(ref _showInactive, value)) Refresh(); }
+        }
+
         public ICommand AddCommand { get; }
         public ICommand EditCommand { get; }
         public ICommand DeleteCommand { get; }
@@ -50,7 +57,11 @@ namespace AntibodyPanels.ViewModels
         {
             var sid = SelectedPanel?.PanelId;
             Panels.Clear();
-            foreach (var p in _db.GetAllPanels()) Panels.Add(p);
+            foreach (var p in _db.GetAllPanels())
+            {
+                if (_showInactive || p.IsActive)
+                    Panels.Add(p);
+            }
             SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == sid)
                 ?? Panels.FirstOrDefault();
         }
@@ -78,7 +89,7 @@ namespace AntibodyPanels.ViewModels
             var dlg = new Views.Dialogs.PanelDialog();
             if (dlg.ShowDialog() != true) return;
             var id = _db.AddPanel(dlg.PanelName, dlg.LotNumber, dlg.Vendor,
-                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell);
+                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive);
             _main.SetStatus($"Panel '{dlg.PanelName}' created (cells {dlg.StartCell}–{dlg.StartCell + dlg.NumCells - 1}).");
             NotifyPanelsChanged();
             SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == id);
@@ -90,7 +101,7 @@ namespace AntibodyPanels.ViewModels
             var dlg = new Views.Dialogs.PanelDialog(SelectedPanel);
             if (dlg.ShowDialog() != true) return;
             _db.UpdatePanel(SelectedPanel.PanelId, dlg.PanelName, dlg.LotNumber,
-                dlg.Vendor, dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell);
+                dlg.Vendor, dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive);
             _main.SetStatus($"Panel '{dlg.PanelName}' updated.");
             NotifyPanelsChanged();
         }
@@ -122,7 +133,7 @@ namespace AntibodyPanels.ViewModels
             if (dlg.ShowDialog() != true) return;
             // AddPanel creates placeholder cells; CopyPanelCells then replaces them with the real data.
             var newId = _db.AddPanel(dlg.PanelName, dlg.LotNumber, dlg.Vendor,
-                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell);
+                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive);
             _db.CopyPanelCells(SelectedPanel.PanelId, newId);
             _main.SetStatus($"Panel copied as '{dlg.PanelName}'.");
             NotifyPanelsChanged();
