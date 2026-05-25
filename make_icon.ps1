@@ -2,9 +2,10 @@ param()
 
 Add-Type -AssemblyName System.Drawing
 
-$pngPath = "c:\Mac\Home\Documents\antibody-panels-2-c-sharp\AntibodyPanels\blood_bag_icon.png"
-$icoPath = "c:\Mac\Home\Documents\antibody-panels-2-c-sharp\AntibodyPanels\app.ico"
-$exePath = "c:\Mac\Home\Documents\antibody-panels-2-c-sharp\AntibodyPanels\bin\Release\net8.0-windows\AntibodyPanels.exe"
+$repoRoot = $PSScriptRoot
+$pngPath  = Join-Path $repoRoot "AntibodyPanels\blood_bag_icon.png"
+$icoPath  = Join-Path $repoRoot "AntibodyPanels\app.ico"
+$exePath  = Join-Path $repoRoot "AntibodyPanels\bin\Release\net8.0-windows\AntibodyPanels.exe"
 $desktopPath = [System.Environment]::GetFolderPath('Desktop')
 $shortcutPath = Join-Path $desktopPath "Antibody Panel Management System.lnk"
 
