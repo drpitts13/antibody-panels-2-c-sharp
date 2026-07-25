@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using AntibodyPanels.Services;
 using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels
@@ -22,6 +23,7 @@ namespace AntibodyPanels
             vm.NewItemCommand = new RelayCommand(NewItem);
             vm.ShowShortcutsCommand = new RelayCommand(ShowShortcuts);
             vm.ShowAboutCommand = new RelayCommand(ShowAbout);
+            vm.LoadDemoDataCommand = new RelayCommand(LoadDemoData);
 
             // F1 shortcut
             InputBindings.Add(new KeyBinding(vm.ShowShortcutsCommand, Key.F1, ModifierKeys.None));
@@ -77,6 +79,30 @@ namespace AntibodyPanels
                 "  Select cell and choose + or - from dropdown\n" +
                 "  Click 'Save All Changes' to persist",
                 "Keyboard Shortcuts", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void LoadDemoData()
+        {
+            if (MessageBox.Show(
+                    "This will add 7 demo specimens and panels to the database.\n" +
+                    "Existing data will not be removed. Continue?",
+                    "Load Demo Data", MessageBoxButton.YesNo, MessageBoxImage.Question)
+                != MessageBoxResult.Yes) return;
+
+            try
+            {
+                DemoDataSeeder.Seed(ViewModel.Database);
+                ViewModel.RefreshAll();
+                ViewModel.SetStatus("Demo data loaded — 7 scenarios seeded.");
+                MessageBox.Show("7 demo scenarios loaded successfully.\n\n" +
+                    "Each scenario starts with 'DEMO-' in the Specimens list.",
+                    "Done", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (System.Exception ex)
+            {
+                MessageBox.Show($"Failed to seed demo data:\n{ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void ShowAbout()

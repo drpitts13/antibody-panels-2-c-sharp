@@ -1,4 +1,5 @@
 using System;
+using System.Windows;
 using System.Windows.Input;
 using AntibodyPanels.Data;
 using AntibodyPanels.Services;
@@ -25,6 +26,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand? NewItemCommand { get; set; }
         public ICommand? ShowShortcutsCommand { get; set; }
         public ICommand? ShowAboutCommand { get; set; }
+        public ICommand? LoadDemoDataCommand { get; set; }
 
         private string _statusText = "Ready";
         public string StatusText

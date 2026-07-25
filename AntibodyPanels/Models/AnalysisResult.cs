@@ -15,6 +15,70 @@ namespace AntibodyPanels.Models
         public Dictionary<string, Dictionary<string, double>> PhraseProbabilities { get; set; } = new();
         public List<DosageEffect> DosageEffects { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
+
+        // ── Special-panel inference outputs ───────────────────────────────────
+
+        /// <summary>
+        /// Antibodies whose rule-outs were suppressed because the relevant antigen
+        /// was destroyed on the treated cells used to generate the negative reactions.
+        /// e.g. anti-Fya cannot be ruled out from ficin-treated cells.
+        /// </summary>
+        public List<GatedRuleout> GatedRuleouts { get; set; } = new();
+
+        /// <summary>
+        /// Clinical inferences drawn by comparing treated vs untreated runs,
+        /// e.g. "Reactivity lost on ficin cells → Fya system suspect".
+        /// </summary>
+        public List<TreatmentInference> TreatmentInferences { get; set; } = new();
+
+        /// <summary>
+        /// Conclusions about which antibodies survived each allogeneic absorption step.
+        /// </summary>
+        public List<AbsorptionConclusion> AbsorptionConclusions { get; set; } = new();
+    }
+
+    /// <summary>
+    /// An antibody rule-out that could not be counted because the relevant
+    /// antigen was destroyed by the cell treatment on the reacting run.
+    /// </summary>
+    public class GatedRuleout
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Antigen { get; set; } = string.Empty;
+        public string CellTreatmentLabel { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// A clinical interpretation derived from the difference in reactivity
+    /// between a treated and the corresponding untreated run.
+    /// </summary>
+    public class TreatmentInference
+    {
+        public string RunLabel { get; set; } = string.Empty;
+        public string Antibody { get; set; } = string.Empty;
+        public string Observation { get; set; } = string.Empty;
+        public TreatmentInferenceType InferenceType { get; set; }
+    }
+
+    public enum TreatmentInferenceType
+    {
+        ReactivityLostOnEnzyme,    // supports IgM or antigen destroyed by enzyme
+        ReactivityGainedOnEnzyme,  // antigen enhanced by enzyme
+        ReactivityLostOnDTT,       // supports Kell/Lutheran system
+        ReactivitySurvivedAbsorption,  // antibody not removed by absorbing cells
+        ReactivityRemovedByAbsorption, // antibody removed by absorbing cells
+    }
+
+    /// <summary>
+    /// Summary of which antibodies survived or were absorbed out in a
+    /// differential absorption aliquot.
+    /// </summary>
+    public class AbsorptionConclusion
+    {
+        public string AbsorptionLabel { get; set; } = string.Empty;
+        public List<string> AbsorbedOut { get; set; } = new();
+        public List<string> Surviving { get; set; } = new();
     }
 
     public class SuspectedStatistics
@@ -35,6 +99,8 @@ namespace AntibodyPanels.Models
 
     public class RuleoutDetail
     {
+        public int RunId { get; set; }
+        public string RunLabel { get; set; } = string.Empty;
         public int PanelId { get; set; }
         public string PanelName { get; set; } = string.Empty;
         public string CellNumber { get; set; } = string.Empty;
@@ -61,6 +127,8 @@ namespace AntibodyPanels.Models
 
     public class EvidenceCell
     {
+        public int RunId { get; set; }
+        public string RunLabel { get; set; } = string.Empty;
         public int PanelId { get; set; }
         public string PanelName { get; set; } = string.Empty;
         public string CellNumber { get; set; } = string.Empty;

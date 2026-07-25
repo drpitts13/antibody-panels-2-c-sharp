@@ -84,6 +84,55 @@
                 </DockPanel>
             </TabItem>
 
+            <TabItem Header="Special Panels">
+                <ScrollViewer>
+                    <StackPanel Margin="8">
+                        <!-- Gated Rule-outs -->
+                        <TextBlock Text="Gated Rule-outs" FontWeight="Bold" FontSize="14"
+                                   Margin="0,0,0,4"/>
+                        <TextBlock Text="These rule-outs were suppressed because the antigen is destroyed by the cell treatment used."
+                                   FontStyle="Italic" Foreground="#555" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                        <DataGrid ItemsSource="{Binding GatedRuleoutRows}" IsReadOnly="True"
+                                  AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column" MaxHeight="180" Margin="0,0,0,14">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="100"/>
+                                <DataGridTextColumn Header="Treatment" Binding="{Binding TreatmentLabel}" Width="140"/>
+                                <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Treatment Inferences -->
+                        <TextBlock Text="Treatment Inferences" FontWeight="Bold" FontSize="14"
+                                   Margin="0,0,0,4"/>
+                        <TextBlock Text="Clinical interpretations derived from comparing treated vs untreated runs."
+                                   FontStyle="Italic" Foreground="#555" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                        <DataGrid ItemsSource="{Binding TreatmentInferenceRows}" IsReadOnly="True"
+                                  AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column" MaxHeight="180" Margin="0,0,0,14">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Run" Binding="{Binding RunLabel}" Width="140"/>
+                                <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="100"/>
+                                <DataGridTextColumn Header="Observation" Binding="{Binding Observation}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Absorption Conclusions -->
+                        <TextBlock Text="Absorption Conclusions" FontWeight="Bold" FontSize="14"
+                                   Margin="0,0,0,4"/>
+                        <DataGrid ItemsSource="{Binding AbsorptionConclusionRows}" IsReadOnly="True"
+                                  AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column" MaxHeight="180">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Absorption" Binding="{Binding AbsorptionLabel}" Width="160"/>
+                                <DataGridTextColumn Header="Absorbed Out" Binding="{Binding AbsorbedOut}" Width="*"/>
+                                <DataGridTextColumn Header="Surviving" Binding="{Binding Surviving}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem Header="Summary">
                 <ScrollViewer>
                     <TextBox Text="{Binding SummaryText, Mode=OneWay}"

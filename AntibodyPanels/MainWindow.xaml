@@ -22,6 +22,10 @@
                 <MenuItem Header="_Refresh All" Command="{Binding RefreshAllCommand}" InputGestureText="Ctrl+R"/>
                 <MenuItem Header="_New Item" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N"/>
             </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="Load _Demo Data" Command="{Binding LoadDemoDataCommand}"
+                          ToolTip="Seeds seven real-world scenarios for testing"/>
+            </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="Keyboard _Shortcuts" Command="{Binding ShowShortcutsCommand}" InputGestureText="F1"/>
                 <Separator/>

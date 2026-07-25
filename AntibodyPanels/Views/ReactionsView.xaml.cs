@@ -11,7 +11,7 @@ namespace AntibodyPanels.Views
 {
     /// <summary>
     /// Bindable header object for each antigen column.
-    /// Setting IsRuledOut=true turns the header text red via a DataTemplate trigger.
+    /// IsRuledOut colours the header red; IsDestroyed greys it out with strikethrough.
     /// </summary>
     public class AntigenColumnHeader : INotifyPropertyChanged
     {
@@ -22,6 +22,13 @@ namespace AntibodyPanels.Views
         {
             get => _isRuledOut;
             set { _isRuledOut = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRuledOut))); }
+        }
+
+        private bool _isDestroyed;
+        public bool IsDestroyed
+        {
+            get => _isDestroyed;
+            set { _isDestroyed = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDestroyed))); }
         }
 
         public AntigenColumnHeader(string antigen) => Antigen = antigen;
@@ -51,6 +58,8 @@ namespace AntibodyPanels.Views
         {
             if (e.PropertyName == nameof(ReactionsViewModel.RuledOutAntigens))
                 ApplyRuledOutToHeaders();
+            else if (e.PropertyName == nameof(ReactionsViewModel.DestroyedAntigens))
+                ApplyDestroyedToHeaders();
         }
 
         private void ApplyRuledOutToHeaders()
@@ -60,6 +69,13 @@ namespace AntibodyPanels.Views
                 header.IsRuledOut = _vm.RuledOutAntigens.Contains(ag);
         }
 
+        private void ApplyDestroyedToHeaders()
+        {
+            if (_vm == null) return;
+            foreach (var (ag, header) in _antigenHeaders)
+                header.IsDestroyed = _vm.DestroyedAntigens.Contains(ag);
+        }
+
         private void ReactionsGrid_Loaded(object sender, RoutedEventArgs e)
         {
             if (_columnsInjected) return;
@@ -67,11 +83,11 @@ namespace AntibodyPanels.Views
 
             var headerTemplate = (DataTemplate)FindResource("AntigenHeaderTemplate");
             var positiveBg = new SolidColorBrush(Color.FromRgb(200, 230, 201));
+            var destroyedBg = new SolidColorBrush(Color.FromRgb(240, 240, 240));
             var centeredText = new Style(typeof(TextBlock));
             centeredText.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
             centeredText.Setters.Add(new Setter(TextBlock.FontSizeProperty, 11.0));
 
-            // Insert antigen columns at index 1 (after Cell, before IS/37/AHG/CC)
             int insertIdx = 1;
             foreach (var ag in AntigenConstants.Antigens)
             {
@@ -79,6 +95,8 @@ namespace AntibodyPanels.Views
                 _antigenHeaders[ag] = header;
 
                 var cellStyle = new Style(typeof(DataGridCell));
+
+                // Green background for antigen-positive cells
                 var posTrigger = new DataTrigger
                 {
                     Binding = new Binding($"AntigenValues[{ag}]"),
@@ -116,8 +134,8 @@ namespace AntibodyPanels.Views
                 ElementStyle = ruledOutStyle,
             });
 
-            // Apply initial state if a specimen is already selected
             ApplyRuledOutToHeaders();
+            ApplyDestroyedToHeaders();
         }
     }
 }

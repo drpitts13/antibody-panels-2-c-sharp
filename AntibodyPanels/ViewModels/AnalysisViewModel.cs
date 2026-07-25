@@ -20,6 +20,9 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<RuleoutRow> RuleoutRows { get; } = new();
         public ObservableCollection<PatternRow> PatternRows { get; } = new();
         public ObservableCollection<CombinationRow> CombinationRows { get; } = new();
+        public ObservableCollection<GatedRuleoutRow> GatedRuleoutRows { get; } = new();
+        public ObservableCollection<TreatmentInferenceRow> TreatmentInferenceRows { get; } = new();
+        public ObservableCollection<AbsorptionConclusionRow> AbsorptionConclusionRows { get; } = new();
 
         private Specimen? _selectedSpecimen;
         public Specimen? SelectedSpecimen
@@ -114,6 +117,9 @@ namespace AntibodyPanels.ViewModels
             RuleoutRows.Clear();
             PatternRows.Clear();
             CombinationRows.Clear();
+            GatedRuleoutRows.Clear();
+            TreatmentInferenceRows.Clear();
+            AbsorptionConclusionRows.Clear();
             SummaryText = string.Empty;
         }
 
@@ -159,6 +165,30 @@ namespace AntibodyPanels.ViewModels
                 });
             }
 
+            foreach (var g in result.GatedRuleouts)
+                GatedRuleoutRows.Add(new GatedRuleoutRow
+                {
+                    Antibody = g.Antibody,
+                    TreatmentLabel = g.CellTreatmentLabel,
+                    Reason = g.Reason,
+                });
+
+            foreach (var inf in result.TreatmentInferences)
+                TreatmentInferenceRows.Add(new TreatmentInferenceRow
+                {
+                    RunLabel = inf.RunLabel,
+                    Antibody = inf.Antibody,
+                    Observation = inf.Observation,
+                });
+
+            foreach (var abs in result.AbsorptionConclusions)
+                AbsorptionConclusionRows.Add(new AbsorptionConclusionRow
+                {
+                    AbsorptionLabel = abs.AbsorptionLabel,
+                    AbsorbedOut = string.Join(", ", abs.AbsorbedOut),
+                    Surviving = string.Join(", ", abs.Surviving),
+                });
+
             BuildSummary(result);
         }
 
@@ -194,6 +224,36 @@ namespace AntibodyPanels.ViewModels
                 sb.AppendLine("DOSAGE EFFECTS DETECTED:");
                 foreach (var de in r.DosageEffects)
                     sb.AppendLine($"  {de.Antibody}: homo avg {de.AvgHomozygous:F2}, het avg {de.AvgHeterozygous:F2} [{de.Severity}]");
+                sb.AppendLine();
+            }
+
+            if (r.GatedRuleouts.Count > 0)
+            {
+                sb.AppendLine($"GATED RULE-OUTS ({r.GatedRuleouts.Count}):");
+                foreach (var g in r.GatedRuleouts)
+                    sb.AppendLine($"  ⚠ {g.Antibody} — {g.Reason}");
+                sb.AppendLine();
+            }
+
+            if (r.TreatmentInferences.Count > 0)
+            {
+                sb.AppendLine("TREATMENT INFERENCES:");
+                foreach (var inf in r.TreatmentInferences)
+                    sb.AppendLine($"  • {inf.Observation}");
+                sb.AppendLine();
+            }
+
+            if (r.AbsorptionConclusions.Count > 0)
+            {
+                sb.AppendLine("ABSORPTION CONCLUSIONS:");
+                foreach (var abs in r.AbsorptionConclusions)
+                {
+                    sb.AppendLine($"  {abs.AbsorptionLabel}:");
+                    if (abs.AbsorbedOut.Count > 0)
+                        sb.AppendLine($"    Absorbed out: {string.Join(", ", abs.AbsorbedOut)}");
+                    if (abs.Surviving.Count > 0)
+                        sb.AppendLine($"    Surviving: {string.Join(", ", abs.Surviving)}");
+                }
                 sb.AppendLine();
             }
 
@@ -239,5 +299,26 @@ namespace AntibodyPanels.ViewModels
         public int Ab1Only { get; set; }
         public int Ab2Only { get; set; }
         public int Neither { get; set; }
+    }
+
+    public class GatedRuleoutRow
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string TreatmentLabel { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    public class TreatmentInferenceRow
+    {
+        public string RunLabel { get; set; } = string.Empty;
+        public string Antibody { get; set; } = string.Empty;
+        public string Observation { get; set; } = string.Empty;
+    }
+
+    public class AbsorptionConclusionRow
+    {
+        public string AbsorptionLabel { get; set; } = string.Empty;
+        public string AbsorbedOut { get; set; } = string.Empty;
+        public string Surviving { get; set; } = string.Empty;
     }
 }

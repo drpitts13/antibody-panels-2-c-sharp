@@ -107,6 +107,7 @@ namespace AntibodyPanels.Services
             if (specimenId == null) return "No specimen selected.";
             var antibodies = _db.GetSpecimenAntibodies(specimenId);
             var ruleouts = _db.GetSpecimenRuleouts(specimenId);
+            var runs = _db.GetAllSpecimenRuns(specimenId);
             var sb = new StringBuilder();
             sb.AppendLine($"ANALYSIS RESULTS — {specimenId}");
             sb.AppendLine(new string('=', 50));
@@ -115,6 +116,14 @@ namespace AntibodyPanels.Services
             sb.AppendLine();
             sb.AppendLine($"Ruled-out Antibodies: {ruleouts.Count}");
             foreach (var r in ruleouts) sb.AppendLine($"  {r.Antibody}  (x{r.RuleoutCount})");
+
+            if (runs.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"PANEL RUNS ({runs.Count}):");
+                foreach (var run in runs)
+                    sb.AppendLine($"  [{run.PanelName}] {run.DisplayLabel}");
+            }
             return sb.ToString();
         }
 

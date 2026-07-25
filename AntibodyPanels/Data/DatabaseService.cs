@@ -23,6 +23,7 @@ namespace AntibodyPanels.Data
             MigrateSpecimenTimestamps();
             MigratePanelStartCell();
             MigrateActiveFlag();
+            MigrateReactionsToRuns();
             DeactivateExpiredSpecimens();
             DeactivateExpiredPanels();
         }
@@ -115,19 +116,35 @@ namespace AntibodyPanels.Data
                     UNIQUE(specimen_id, panel_id)
                 )");
 
+            // panel_runs: one row per (specimen, panel, cell-treatment, serum-treatment) combination.
+            // This replaces the old implicit single-run assumption in the reactions table.
+            ExecNonQuery(@"
+                CREATE TABLE IF NOT EXISTS panel_runs (
+                    run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    specimen_id TEXT NOT NULL,
+                    panel_id INTEGER NOT NULL,
+                    cell_treatment TEXT NOT NULL DEFAULT 'None',
+                    serum_treatment TEXT NOT NULL DEFAULT 'None',
+                    label TEXT,
+                    created_date TEXT NOT NULL,
+                    FOREIGN KEY (specimen_id) REFERENCES specimens(accession_number) ON DELETE CASCADE,
+                    FOREIGN KEY (panel_id) REFERENCES panels(panel_id) ON DELETE CASCADE,
+                    UNIQUE(specimen_id, panel_id, cell_treatment, serum_treatment)
+                )");
+
+            // New reactions schema keyed on run_id instead of (specimen_id, panel_id).
+            // MigrateReactionsToRuns handles upgrading existing databases.
             ExecNonQuery(@"
                 CREATE TABLE IF NOT EXISTS reactions (
                     reaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    specimen_id TEXT NOT NULL,
-                    panel_id INTEGER NOT NULL,
+                    run_id INTEGER NOT NULL,
                     cell_number TEXT NOT NULL,
                     ""IS"" TEXT DEFAULT 'NT',
                     C37 TEXT DEFAULT 'NT',
                     AHG TEXT DEFAULT 'NT',
                     CC TEXT DEFAULT 'NT',
-                    FOREIGN KEY (specimen_id) REFERENCES specimens(accession_number) ON DELETE CASCADE,
-                    FOREIGN KEY (panel_id) REFERENCES panels(panel_id) ON DELETE CASCADE,
-                    UNIQUE(specimen_id, panel_id, cell_number)
+                    FOREIGN KEY (run_id) REFERENCES panel_runs(run_id) ON DELETE CASCADE,
+                    UNIQUE(run_id, cell_number)
                 )");
 
             ExecNonQuery(@"
@@ -189,6 +206,69 @@ namespace AntibodyPanels.Data
                 WHERE expiration_date IS NOT NULL AND expiration_date < $today AND is_active = 1";
             cmd.Parameters.AddWithValue("$today", today);
             cmd.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// Upgrades existing databases that used the old reactions schema
+        /// (specimen_id, panel_id, cell_number unique) to the new panel_runs-based schema.
+        /// Safe to call on already-migrated databases (no-op when run_id column exists).
+        /// </summary>
+        private void MigrateReactionsToRuns()
+        {
+            var reactionCols = GetColumnNames("reactions");
+            if (reactionCols.Contains("run_id")) return; // already migrated
+
+            // The old reactions table has (specimen_id, panel_id, cell_number) columns.
+            // We need to:
+            //   1. Create panel_runs rows for every unique (specimen_id, panel_id) pair.
+            //   2. Rebuild the reactions table with run_id as the FK.
+
+            using var tx = _conn.BeginTransaction();
+            try
+            {
+                // 1. Seed default (untreated) runs for every existing specimen-panel combo.
+                ExecNonQuery(@"
+                    INSERT OR IGNORE INTO panel_runs
+                        (specimen_id, panel_id, cell_treatment, serum_treatment, label, created_date)
+                    SELECT DISTINCT specimen_id, panel_id, 'None', 'None', 'Untreated', date('now')
+                    FROM reactions");
+
+                // 2. Create new reactions table.
+                ExecNonQuery(@"
+                    CREATE TABLE reactions_v2 (
+                        reaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        run_id INTEGER NOT NULL,
+                        cell_number TEXT NOT NULL,
+                        ""IS"" TEXT DEFAULT 'NT',
+                        C37 TEXT DEFAULT 'NT',
+                        AHG TEXT DEFAULT 'NT',
+                        CC TEXT DEFAULT 'NT',
+                        FOREIGN KEY (run_id) REFERENCES panel_runs(run_id) ON DELETE CASCADE,
+                        UNIQUE(run_id, cell_number)
+                    )");
+
+                // 3. Copy rows; join on the untreated run we just created.
+                ExecNonQuery(@"
+                    INSERT INTO reactions_v2 (run_id, cell_number, ""IS"", C37, AHG, CC)
+                    SELECT pr.run_id, r.cell_number, r.""IS"", r.C37, r.AHG, r.CC
+                    FROM reactions r
+                    JOIN panel_runs pr
+                        ON pr.specimen_id = r.specimen_id
+                       AND pr.panel_id    = r.panel_id
+                       AND pr.cell_treatment  = 'None'
+                       AND pr.serum_treatment = 'None'");
+
+                // 4. Swap tables.
+                ExecNonQuery("DROP TABLE reactions");
+                ExecNonQuery("ALTER TABLE reactions_v2 RENAME TO reactions");
+
+                tx.Commit();
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
         }
 
         private HashSet<string> GetColumnNames(string table)
@@ -622,64 +702,223 @@ namespace AntibodyPanels.Data
             return list;
         }
 
-        // ── Reactions ─────────────────────────────────────────────────────────
+        // ── Panel Runs ────────────────────────────────────────────────────────
 
-        public void SaveReaction(string specimenId, int panelId, string cellNumber,
-            string is_, string c37, string ahg, string cc)
+        /// <summary>
+        /// Creates a new panel run and returns its run_id.
+        /// Throws <see cref="SqliteException"/> if a run with the same
+        /// (specimen, panel, cell_treatment, serum_treatment) already exists.
+        /// </summary>
+        public int AddPanelRun(string specimenId, int panelId,
+            CellTreatment cellTreatment,
+            SerumTreatment serumTreatment,
+            string label = "")
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                INSERT OR REPLACE INTO reactions
-                (specimen_id, panel_id, cell_number, ""IS"", C37, AHG, CC)
-                VALUES ($sid, $pid, $cn, $is, $c37, $ahg, $cc)";
+                INSERT INTO panel_runs (specimen_id, panel_id, cell_treatment, serum_treatment, label, created_date)
+                VALUES ($sid, $pid, $ct, $st, $lbl, $dt);
+                SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("$sid", specimenId);
             cmd.Parameters.AddWithValue("$pid", panelId);
+            cmd.Parameters.AddWithValue("$ct", cellTreatment.ToString());
+            cmd.Parameters.AddWithValue("$st", serumTreatment.ToString());
+            cmd.Parameters.AddWithValue("$lbl", (object?)label ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$dt", DateTime.Now.ToString("yyyy-MM-dd"));
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        /// <summary>
+        /// Returns the run_id of the untreated (default) run for a specimen/panel pair,
+        /// creating one if it does not yet exist.
+        /// </summary>
+        public int GetOrCreateDefaultRun(string specimenId, int panelId)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT run_id FROM panel_runs
+                WHERE specimen_id = $sid AND panel_id = $pid
+                  AND cell_treatment = 'None' AND serum_treatment = 'None'";
+            cmd.Parameters.AddWithValue("$sid", specimenId);
+            cmd.Parameters.AddWithValue("$pid", panelId);
+            var existing = cmd.ExecuteScalar();
+            if (existing != null && existing != DBNull.Value)
+                return Convert.ToInt32(existing);
+
+            return AddPanelRun(specimenId, panelId,
+                CellTreatment.None,
+                SerumTreatment.None,
+                "Untreated");
+        }
+
+        public PanelRun? GetPanelRun(int runId)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT pr.*, p.name AS panel_name
+                FROM panel_runs pr
+                JOIN panels p ON pr.panel_id = p.panel_id
+                WHERE pr.run_id = $id";
+            cmd.Parameters.AddWithValue("$id", runId);
+            using var r = cmd.ExecuteReader();
+            return r.Read() ? ReadPanelRun(r) : null;
+        }
+
+        public List<PanelRun> GetPanelRuns(string specimenId, int panelId)
+        {
+            var list = new List<PanelRun>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT pr.*, p.name AS panel_name
+                FROM panel_runs pr
+                JOIN panels p ON pr.panel_id = p.panel_id
+                WHERE pr.specimen_id = $sid AND pr.panel_id = $pid
+                ORDER BY pr.run_id";
+            cmd.Parameters.AddWithValue("$sid", specimenId);
+            cmd.Parameters.AddWithValue("$pid", panelId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(ReadPanelRun(r));
+            return list;
+        }
+
+        public List<PanelRun> GetAllSpecimenRuns(string specimenId)
+        {
+            var list = new List<PanelRun>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT pr.*, p.name AS panel_name
+                FROM panel_runs pr
+                JOIN panels p ON pr.panel_id = p.panel_id
+                WHERE pr.specimen_id = $sid
+                ORDER BY p.name, pr.run_id";
+            cmd.Parameters.AddWithValue("$sid", specimenId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(ReadPanelRun(r));
+            return list;
+        }
+
+        public void DeletePanelRun(int runId)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM panel_runs WHERE run_id = $id";
+            cmd.Parameters.AddWithValue("$id", runId);
+            cmd.ExecuteNonQuery();
+        }
+
+        // ── Reactions ─────────────────────────────────────────────────────────
+
+        /// <summary>Primary overload: saves a reaction for a specific run.</summary>
+        public void SaveReaction(int runId, string cellNumber,
+            string is_, string c37, string ahg, string cc)
+        {
+            // Need specimen_id to call TouchSpecimenReactionsUpdated
+            var run = GetPanelRun(runId);
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT OR REPLACE INTO reactions (run_id, cell_number, ""IS"", C37, AHG, CC)
+                VALUES ($rid, $cn, $is, $c37, $ahg, $cc)";
+            cmd.Parameters.AddWithValue("$rid", runId);
             cmd.Parameters.AddWithValue("$cn", cellNumber);
             cmd.Parameters.AddWithValue("$is", is_);
             cmd.Parameters.AddWithValue("$c37", c37);
             cmd.Parameters.AddWithValue("$ahg", ahg);
             cmd.Parameters.AddWithValue("$cc", cc);
             cmd.ExecuteNonQuery();
-            TouchSpecimenReactionsUpdated(specimenId);
+            if (run != null) TouchSpecimenReactionsUpdated(run.SpecimenId);
         }
 
-        public List<Reaction> GetReactions(string specimenId, int panelId)
+        /// <summary>
+        /// Compatibility overload: resolves (or creates) the untreated default run,
+        /// then saves the reaction.
+        /// </summary>
+        public void SaveReaction(string specimenId, int panelId, string cellNumber,
+            string is_, string c37, string ahg, string cc)
+        {
+            var runId = GetOrCreateDefaultRun(specimenId, panelId);
+            SaveReaction(runId, cellNumber, is_, c37, ahg, cc);
+        }
+
+        /// <summary>Returns reactions for a specific run.</summary>
+        public List<Reaction> GetReactions(int runId)
         {
             var list = new List<Reaction>();
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                SELECT * FROM reactions WHERE specimen_id = $sid AND panel_id = $pid
-                ORDER BY CASE WHEN cell_number = 'AC' THEN 999
-                              ELSE CAST(cell_number AS INTEGER) END";
-            cmd.Parameters.AddWithValue("$sid", specimenId);
-            cmd.Parameters.AddWithValue("$pid", panelId);
+                SELECT rxn.reaction_id, rxn.run_id, rxn.cell_number,
+                       rxn.""IS"", rxn.C37, rxn.AHG, rxn.CC,
+                       pr.specimen_id, pr.panel_id, pr.cell_treatment, pr.serum_treatment
+                FROM reactions rxn
+                JOIN panel_runs pr ON rxn.run_id = pr.run_id
+                WHERE rxn.run_id = $rid
+                ORDER BY CASE WHEN rxn.cell_number = 'AC' THEN 999
+                              ELSE CAST(rxn.cell_number AS INTEGER) END";
+            cmd.Parameters.AddWithValue("$rid", runId);
             using var r = cmd.ExecuteReader();
-            while (r.Read()) list.Add(ReadReaction(r));
+            while (r.Read()) list.Add(ReadReactionFull(r));
             return list;
         }
 
+        /// <summary>
+        /// Compatibility overload: returns reactions for the untreated default run of
+        /// a (specimen, panel) pair. Returns empty if no default run exists.
+        /// </summary>
+        public List<Reaction> GetReactions(string specimenId, int panelId)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT run_id FROM panel_runs
+                WHERE specimen_id = $sid AND panel_id = $pid
+                  AND cell_treatment = 'None' AND serum_treatment = 'None'";
+            cmd.Parameters.AddWithValue("$sid", specimenId);
+            cmd.Parameters.AddWithValue("$pid", panelId);
+            var runId = cmd.ExecuteScalar();
+            if (runId == null || runId == DBNull.Value) return new();
+            return GetReactions(Convert.ToInt32(runId));
+        }
+
+        /// <summary>Returns all reactions for a specimen across every run.</summary>
         public List<Reaction> GetAllSpecimenReactions(string specimenId)
         {
             var list = new List<Reaction>();
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                SELECT r.* FROM reactions r
-                JOIN panels p ON r.panel_id = p.panel_id
-                WHERE r.specimen_id = $sid
-                ORDER BY p.name,
-                    CASE WHEN r.cell_number = 'AC' THEN 999
-                         ELSE CAST(r.cell_number AS INTEGER) END";
+                SELECT rxn.reaction_id, rxn.run_id, rxn.cell_number,
+                       rxn.""IS"", rxn.C37, rxn.AHG, rxn.CC,
+                       pr.specimen_id, pr.panel_id, pr.cell_treatment, pr.serum_treatment
+                FROM reactions rxn
+                JOIN panel_runs pr ON rxn.run_id = pr.run_id
+                JOIN panels p ON pr.panel_id = p.panel_id
+                WHERE pr.specimen_id = $sid
+                ORDER BY p.name, pr.run_id,
+                    CASE WHEN rxn.cell_number = 'AC' THEN 999
+                         ELSE CAST(rxn.cell_number AS INTEGER) END";
             cmd.Parameters.AddWithValue("$sid", specimenId);
             using var r = cmd.ExecuteReader();
-            while (r.Read()) list.Add(ReadReaction(r));
+            while (r.Read()) list.Add(ReadReactionFull(r));
             return list;
         }
 
+        /// <summary>Deletes all reactions for a specific run.</summary>
+        public void DeleteReactions(int runId)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "DELETE FROM reactions WHERE run_id = $rid";
+            cmd.Parameters.AddWithValue("$rid", runId);
+            cmd.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// Compatibility overload: deletes reactions for the untreated default run.
+        /// </summary>
         public void DeleteReactions(string specimenId, int panelId)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                DELETE FROM reactions WHERE specimen_id = $sid AND panel_id = $pid";
+                DELETE FROM reactions WHERE run_id IN (
+                    SELECT run_id FROM panel_runs
+                    WHERE specimen_id = $sid AND panel_id = $pid
+                      AND cell_treatment = 'None' AND serum_treatment = 'None'
+                )";
             cmd.Parameters.AddWithValue("$sid", specimenId);
             cmd.Parameters.AddWithValue("$pid", panelId);
             cmd.ExecuteNonQuery();
@@ -827,17 +1066,48 @@ namespace AntibodyPanels.Data
             return cell;
         }
 
-        private static Reaction ReadReaction(SqliteDataReader r) => new Reaction
+        private static PanelRun ReadPanelRun(SqliteDataReader r)
         {
-            ReactionId = r.GetInt32(r.GetOrdinal("reaction_id")),
-            SpecimenId = r.GetString(r.GetOrdinal("specimen_id")),
-            PanelId = r.GetInt32(r.GetOrdinal("panel_id")),
-            CellNumber = r.GetString(r.GetOrdinal("cell_number")),
-            IS = r.IsDBNull(r.GetOrdinal("IS")) ? "NT" : r.GetString(r.GetOrdinal("IS")),
-            C37 = r.IsDBNull(r.GetOrdinal("C37")) ? "NT" : r.GetString(r.GetOrdinal("C37")),
-            AHG = r.IsDBNull(r.GetOrdinal("AHG")) ? "NT" : r.GetString(r.GetOrdinal("AHG")),
-            CC = r.IsDBNull(r.GetOrdinal("CC")) ? "NT" : r.GetString(r.GetOrdinal("CC")),
-        };
+            var run = new PanelRun
+            {
+                RunId = r.GetInt32(r.GetOrdinal("run_id")),
+                SpecimenId = r.GetString(r.GetOrdinal("specimen_id")),
+                PanelId = r.GetInt32(r.GetOrdinal("panel_id")),
+                Label = SafeGetString(r, "label") ?? string.Empty,
+                CreatedDate = SafeGetString(r, "created_date") ?? string.Empty,
+                PanelName = SafeGetString(r, "panel_name") ?? string.Empty,
+            };
+            var ctStr = SafeGetString(r, "cell_treatment") ?? "None";
+            var stStr = SafeGetString(r, "serum_treatment") ?? "None";
+            run.CellTreatment = Enum.TryParse<CellTreatment>(ctStr, out var ct) ? ct : CellTreatment.None;
+            run.SerumTreatment = Enum.TryParse<SerumTreatment>(stStr, out var st) ? st : SerumTreatment.None;
+            return run;
+        }
+
+        /// <summary>
+        /// Reads a reaction from a result set that includes denormalized panel_run columns
+        /// (specimen_id, panel_id, cell_treatment, serum_treatment).
+        /// </summary>
+        private static Reaction ReadReactionFull(SqliteDataReader r)
+        {
+            var rxn = new Reaction
+            {
+                ReactionId = r.GetInt32(r.GetOrdinal("reaction_id")),
+                RunId = r.GetInt32(r.GetOrdinal("run_id")),
+                CellNumber = r.GetString(r.GetOrdinal("cell_number")),
+                IS = SafeGetString(r, "IS") ?? "NT",
+                C37 = SafeGetString(r, "C37") ?? "NT",
+                AHG = SafeGetString(r, "AHG") ?? "NT",
+                CC = SafeGetString(r, "CC") ?? "NT",
+                SpecimenId = SafeGetString(r, "specimen_id") ?? string.Empty,
+                PanelId = SafeGetInt(r, "panel_id"),
+            };
+            var ctStr = SafeGetString(r, "cell_treatment") ?? "None";
+            var stStr = SafeGetString(r, "serum_treatment") ?? "None";
+            rxn.CellTreatment = Enum.TryParse<CellTreatment>(ctStr, out var ct) ? ct : CellTreatment.None;
+            rxn.SerumTreatment = Enum.TryParse<SerumTreatment>(stStr, out var st) ? st : SerumTreatment.None;
+            return rxn;
+        }
 
         private static Rule ReadRule(SqliteDataReader r) => new Rule
         {

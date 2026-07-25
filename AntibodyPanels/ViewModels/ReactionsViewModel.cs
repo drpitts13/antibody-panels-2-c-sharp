@@ -18,20 +18,39 @@ namespace AntibodyPanels.ViewModels
 
         public ObservableCollection<Specimen> Specimens { get; } = new();
         public ObservableCollection<Panel> Panels { get; } = new();
+        public ObservableCollection<PanelRun> Runs { get; } = new();
         public ObservableCollection<ReactionRow> Rows { get; } = new();
 
         private Specimen? _selectedSpecimen;
         public Specimen? SelectedSpecimen
         {
             get => _selectedSpecimen;
-            set { if (SetField(ref _selectedSpecimen, value)) RefreshRuledOutAntigens(); }
+            set
+            {
+                if (SetField(ref _selectedSpecimen, value))
+                {
+                    RefreshPanels();
+                    RefreshRuledOutAntigens();
+                }
+            }
         }
 
         private Panel? _selectedPanel;
         public Panel? SelectedPanel
         {
             get => _selectedPanel;
-            set => SetField(ref _selectedPanel, value);
+            set
+            {
+                if (SetField(ref _selectedPanel, value))
+                    RefreshRuns();
+            }
+        }
+
+        private PanelRun? _selectedRun;
+        public PanelRun? SelectedRun
+        {
+            get => _selectedRun;
+            set => SetField(ref _selectedRun, value);
         }
 
         private string _specimenFilter = string.Empty;
@@ -41,16 +60,43 @@ namespace AntibodyPanels.ViewModels
             set { SetField(ref _specimenFilter, value); ApplySpecimenFilter(); }
         }
 
-        /// <summary>
-        /// Set of antigen names (e.g. "D", "K") that are ruled out for the current specimen
-        /// across all attached panels. The view uses this to colour column headers red.
-        /// </summary>
+        /// <summary>Antigen names ruled out for the current specimen (column header colouring).</summary>
         private HashSet<string> _ruledOutAntigens = new();
         public HashSet<string> RuledOutAntigens
         {
             get => _ruledOutAntigens;
             private set => SetField(ref _ruledOutAntigens, value);
         }
+
+        /// <summary>Antigens destroyed by the currently selected run's cell treatment.</summary>
+        private HashSet<string> _destroyedAntigens = new();
+        public HashSet<string> DestroyedAntigens
+        {
+            get => _destroyedAntigens;
+            private set => SetField(ref _destroyedAntigens, value);
+        }
+
+        /// <summary>Phases suppressed by the currently selected run's serum treatment.</summary>
+        private HashSet<string> _nonInterpretablePhases = new();
+        public HashSet<string> NonInterpretablePhases
+        {
+            get => _nonInterpretablePhases;
+            private set => SetField(ref _nonInterpretablePhases, value);
+        }
+
+        private string _treatmentBannerText = string.Empty;
+        public string TreatmentBannerText
+        {
+            get => _treatmentBannerText;
+            private set
+            {
+                if (SetField(ref _treatmentBannerText, value))
+                    OnPropertyChanged(nameof(TreatmentBannerVisibility));
+            }
+        }
+
+        public Visibility TreatmentBannerVisibility =>
+            string.IsNullOrEmpty(_treatmentBannerText) ? Visibility.Collapsed : Visibility.Visible;
 
         private string _saveStatusMessage = string.Empty;
         public string SaveStatusMessage
@@ -82,6 +128,8 @@ namespace AntibodyPanels.ViewModels
         public ICommand LoadCommand { get; }
         public ICommand SaveAnalyzeCommand { get; }
         public ICommand ClearCommand { get; }
+        public ICommand AddRunCommand { get; }
+        public ICommand DeleteRunCommand { get; }
 
         public static string[] ReactionValues => AntigenConstants.ReactionValues.ToArray();
 
@@ -92,11 +140,15 @@ namespace AntibodyPanels.ViewModels
             _main = main;
 
             LoadCommand = new RelayCommand(LoadReactions,
-                () => SelectedSpecimen != null && SelectedPanel != null);
+                () => SelectedSpecimen != null && SelectedRun != null);
             SaveAnalyzeCommand = new RelayCommand(SaveAndAnalyze,
-                () => SelectedSpecimen != null && SelectedPanel != null && Rows.Count > 0);
+                () => SelectedSpecimen != null && SelectedRun != null && Rows.Count > 0);
             ClearCommand = new RelayCommand(ClearReactions,
+                () => SelectedSpecimen != null && SelectedRun != null);
+            AddRunCommand = new RelayCommand(AddRun,
                 () => SelectedSpecimen != null && SelectedPanel != null);
+            DeleteRunCommand = new RelayCommand(DeleteRun,
+                () => SelectedRun != null && !(SelectedRun?.IsUntreated ?? true));
 
             RefreshSpecimens();
         }
@@ -106,17 +158,75 @@ namespace AntibodyPanels.ViewModels
             var s = SelectedSpecimen?.AccessionNumber;
             Specimens.Clear();
             foreach (var sp in _db.GetActiveSpecimens()) Specimens.Add(sp);
-            Panels.Clear();
-            foreach (var p in _db.GetActivePanels()) Panels.Add(p);
-            if (s != null)
-                SelectedSpecimen = Specimens.FirstOrDefault(x => x.AccessionNumber == s);
+            SelectedSpecimen = Specimens.FirstOrDefault(x => x.AccessionNumber == s);
         }
 
-        /// <summary>
-        /// Recomputes which antigens are ruled out for the current specimen across
-        /// ALL panels it has reactions on, then raises PropertyChanged so the view
-        /// can update the column header colours.
-        /// </summary>
+        private void RefreshPanels()
+        {
+            var pid = SelectedPanel?.PanelId;
+            Panels.Clear();
+            if (SelectedSpecimen == null) return;
+
+            // Show only panels linked to this specimen
+            foreach (var p in _db.GetSpecimenPanels(SelectedSpecimen.AccessionNumber))
+                Panels.Add(p);
+
+            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == pid)
+                ?? Panels.FirstOrDefault();
+        }
+
+        private void RefreshRuns()
+        {
+            var rid = SelectedRun?.RunId;
+            Runs.Clear();
+
+            if (SelectedSpecimen == null || SelectedPanel == null)
+            {
+                SelectedRun = null;
+                UpdateTreatmentBanner();
+                return;
+            }
+
+            // Ensure the default (untreated) run exists
+            _db.GetOrCreateDefaultRun(SelectedSpecimen.AccessionNumber, SelectedPanel.PanelId);
+
+            foreach (var r in _db.GetPanelRuns(SelectedSpecimen.AccessionNumber, SelectedPanel.PanelId))
+                Runs.Add(r);
+
+            SelectedRun = Runs.FirstOrDefault(r => r.RunId == rid) ?? Runs.FirstOrDefault();
+            UpdateTreatmentBanner();
+        }
+
+        private void UpdateTreatmentBanner()
+        {
+            if (SelectedRun == null || SelectedRun.IsUntreated)
+            {
+                TreatmentBannerText = string.Empty;
+                DestroyedAntigens = new HashSet<string>();
+                NonInterpretablePhases = new HashSet<string>();
+                return;
+            }
+
+            var parts = new List<string> { SelectedRun.DisplayLabel };
+
+            var destroyed = AntigenConstants.Antigens
+                .Where(ag => AntigenTreatmentEffects.IsAntigenDestroyedOnCell(
+                    SelectedRun.CellTreatment, ag))
+                .ToList();
+            if (destroyed.Count > 0)
+                parts.Add($"Destroyed antigens: {string.Join(", ", destroyed)}");
+
+            var suppressedPhases = AntigenTreatmentEffects
+                .GetNonInterpretablePhases(SelectedRun.SerumTreatment).ToList();
+            if (suppressedPhases.Count > 0)
+                parts.Add($"Non-interpretable phases: {string.Join(", ", suppressedPhases)}");
+
+            TreatmentBannerText = string.Join("  |  ", parts);
+
+            DestroyedAntigens = new HashSet<string>(destroyed);
+            NonInterpretablePhases = new HashSet<string>(suppressedPhases);
+        }
+
         public void RefreshRuledOutAntigens()
         {
             if (SelectedSpecimen == null) { RuledOutAntigens = new(); return; }
@@ -125,31 +235,34 @@ namespace AntibodyPanels.ViewModels
             var rules = _db.GetAllRules();
             var result = new HashSet<string>();
 
-            // Group reactions by panel
-            var byPanel = new Dictionary<int, List<Reaction>>();
+            var byRun = new Dictionary<int, List<Reaction>>();
             foreach (var r in allReactions)
             {
-                if (!byPanel.ContainsKey(r.PanelId)) byPanel[r.PanelId] = new();
-                byPanel[r.PanelId].Add(r);
+                if (!byRun.ContainsKey(r.RunId)) byRun[r.RunId] = new();
+                byRun[r.RunId].Add(r);
             }
 
-            foreach (var (panelId, panelRxns) in byPanel)
+            foreach (var (runId, runRxns) in byRun)
             {
-                var cellDict = _db.GetPanelCells(panelId).ToDictionary(c => c.CellNumber);
-                foreach (var rxn in panelRxns)
+                // We need the run's treatment to gate rule-outs
+                var run = _db.GetPanelRun(runId);
+                if (run == null) continue;
+                var ctx = new RunContext(run);
+
+                var cellDict = _db.GetPanelCells(run.PanelId).ToDictionary(c => c.CellNumber);
+                foreach (var rxn in runRxns)
                 {
-                    if (rxn.CellNumber == "AC" || !rxn.IsNegative) continue;
+                    if (rxn.CellNumber == "AC" || !ctx.IsNegative(rxn)) continue;
                     if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
 
                     foreach (var ag in AntigenConstants.Antigens)
                     {
                         if (cell.GetAntigen(ag) != "+") continue;
-                        if (CanRuleOutAntigen(ag, cell, rules))
-                            result.Add(ag);
+                        if (!ctx.CanContributeRuleout(ag, cell)) continue;
+                        if (CanRuleOutAntigen(ag, cell, rules)) result.Add(ag);
                     }
                 }
             }
-
             RuledOutAntigens = result;
         }
 
@@ -157,7 +270,7 @@ namespace AntibodyPanels.ViewModels
         {
             if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
                 return true;
-            if (cell.GetAntigen(antithetical) == "-") return true; // homozygous
+            if (cell.GetAntigen(antithetical) == "-") return true;
             return RuleAllowsHeterozygous(antigen, rules);
         }
 
@@ -174,16 +287,13 @@ namespace AntibodyPanels.ViewModels
             return false;
         }
 
-        private void ApplySpecimenFilter()
-        {
-            // Filtering is done in the View via CollectionView; ViewModel just needs to raise prop-change.
-        }
+        private void ApplySpecimenFilter() { }
 
         private void LoadReactions()
         {
-            if (SelectedSpecimen == null || SelectedPanel == null) return;
+            if (SelectedSpecimen == null || SelectedRun == null) return;
 
-            if (SelectedSpecimen.IsActive == false || SelectedPanel.IsActive == false)
+            if (SelectedSpecimen.IsActive == false || SelectedPanel?.IsActive == false)
             {
                 var inactiveItem = SelectedSpecimen.IsActive == false ? "specimen" : "panel";
                 MessageBox.Show(
@@ -196,26 +306,30 @@ namespace AntibodyPanels.ViewModels
             SaveStatusMessage = string.Empty;
             Rows.Clear();
 
-            var cells = _db.GetPanelCells(SelectedPanel.PanelId);
-            var reactions = _db.GetReactions(SelectedSpecimen.AccessionNumber, SelectedPanel.PanelId)
+            var cells = _db.GetPanelCells(SelectedRun.PanelId);
+            var reactions = _db.GetReactions(SelectedRun.RunId)
                 .ToDictionary(r => r.CellNumber);
             var rules = _db.GetAllRules();
+            var ctx = new RunContext(SelectedRun);
 
             foreach (var cell in cells)
             {
                 reactions.TryGetValue(cell.CellNumber, out var rxn);
-                Rows.Add(new ReactionRow(cell, rxn, rules));
+                Rows.Add(new ReactionRow(cell, rxn, rules, ctx));
             }
 
+            UpdateTreatmentBanner();
             RefreshRuledOutAntigens();
-            _main.SetStatus($"Loaded {Rows.Count} cells for {SelectedSpecimen.AccessionNumber} / {SelectedPanel.Name}");
+            _main.SetStatus(
+                $"Loaded {Rows.Count} cells for {SelectedSpecimen.AccessionNumber} / " +
+                $"{SelectedRun.PanelName} ({SelectedRun.DisplayLabel})");
         }
 
         private void SaveAndAnalyze()
         {
-            if (SelectedSpecimen == null || SelectedPanel == null) return;
+            if (SelectedSpecimen == null || SelectedRun == null) return;
 
-            if (SelectedSpecimen.IsActive == false || SelectedPanel.IsActive == false)
+            if (SelectedSpecimen.IsActive == false || SelectedPanel?.IsActive == false)
             {
                 var inactiveItem = SelectedSpecimen.IsActive == false ? "specimen" : "panel";
                 MessageBox.Show(
@@ -228,14 +342,14 @@ namespace AntibodyPanels.ViewModels
             try
             {
                 foreach (var row in Rows)
-                    _db.SaveReaction(SelectedSpecimen.AccessionNumber, SelectedPanel.PanelId,
-                        row.CellNumber, row.IS, row.C37, row.AHG, row.CC);
+                    _db.SaveReaction(SelectedRun.RunId, row.CellNumber,
+                        row.IS, row.C37, row.AHG, row.CC);
 
                 _main.SetStatus("Reactions saved. Running analysis...");
-
                 var result = _analyzer.AnalyzeSpecimen(SelectedSpecimen.AccessionNumber);
                 RefreshRuledOutAntigens();
-                var msg = $"Analysis complete — {result.Suspected.Count} suspected, {result.RuledOut.Count} ruled out.";
+                var msg = $"Analysis complete — {result.Suspected.Count} suspected, " +
+                          $"{result.RuledOut.Count} ruled out.";
                 _main.SetStatus(msg);
                 _main.SpecimensVM.Refresh();
                 SetSaveStatus(true, msg);
@@ -250,14 +364,54 @@ namespace AntibodyPanels.ViewModels
 
         private void ClearReactions()
         {
-            if (SelectedSpecimen == null || SelectedPanel == null) return;
-            if (MessageBox.Show("Clear all reactions for this specimen/panel?",
+            if (SelectedSpecimen == null || SelectedRun == null) return;
+            if (MessageBox.Show("Clear all reactions for this run?",
                 "Confirm", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-            _db.DeleteReactions(SelectedSpecimen.AccessionNumber, SelectedPanel.PanelId);
+            _db.DeleteReactions(SelectedRun.RunId);
             SaveStatusMessage = string.Empty;
             Rows.Clear();
             RefreshRuledOutAntigens();
             _main.SetStatus("Reactions cleared.");
+        }
+
+        private void AddRun()
+        {
+            if (SelectedSpecimen == null || SelectedPanel == null) return;
+            var dlg = new Views.Dialogs.PanelRunDialog { Owner = Application.Current.MainWindow };
+            if (dlg.ShowDialog() != true) return;
+
+            try
+            {
+                var runId = _db.AddPanelRun(
+                    SelectedSpecimen.AccessionNumber, SelectedPanel.PanelId,
+                    dlg.SelectedCellTreatment, dlg.SelectedSerumTreatment,
+                    dlg.RunLabel);
+                RefreshRuns();
+                SelectedRun = Runs.FirstOrDefault(r => r.RunId == runId);
+                _main.SetStatus($"Added run: {SelectedRun?.DisplayLabel}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not add run:\n{ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void DeleteRun()
+        {
+            if (SelectedRun == null || SelectedRun.IsUntreated)
+            {
+                MessageBox.Show("The untreated (default) run cannot be deleted.",
+                    "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (MessageBox.Show($"Delete run '{SelectedRun.DisplayLabel}' and all its reactions?",
+                "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+            _db.DeletePanelRun(SelectedRun.RunId);
+            Rows.Clear();
+            RefreshRuns();
+            _main.SetStatus("Run deleted.");
         }
     }
 
@@ -265,10 +419,9 @@ namespace AntibodyPanels.ViewModels
     {
         private readonly IReadOnlyDictionary<string, string> _antigens;
         private readonly IReadOnlyList<Rule> _rules;
+        private readonly RunContext _ctx;
 
         public string CellNumber { get; }
-
-        // Antigen profile for this cell (used by column bindings and rule-out computation)
         public IReadOnlyDictionary<string, string> AntigenValues => _antigens;
 
         private string _IS;
@@ -299,32 +452,37 @@ namespace AntibodyPanels.ViewModels
             set { if (SetField(ref _CC, value)) NotifyRuleout(); }
         }
 
-        // True when the reaction phases indicate a negative result
-        public bool IsNegative =>
-            (AHG == "0" && IsNtOrZero(IS) && IsNtOrZero(C37) && IsNtOrZero(CC)) ||
-            (IS == "0" && C37 == "0" && AHG == "0" && CC == "0");
+        /// <summary>
+        /// True when all interpretable phases are non-reactive.
+        /// CC is a check-cell control, not a reactivity phase.
+        /// </summary>
+        public bool IsNegative => AHG == "0" && IsNtOrZero(IS) && IsNtOrZero(C37);
 
-        // Comma-separated list of antibodies ruled out by this cell
         public string RuledOutNote
         {
             get
             {
                 if (!IsNegative) return string.Empty;
-                var list = new System.Collections.Generic.List<string>();
+                var list = new List<string>();
                 foreach (var ag in AntigenConstants.Antigens)
-                    if (_antigens.TryGetValue(ag, out var v) && v == "+" && CanRuleOut(ag))
-                        list.Add($"anti-{ag}");
+                {
+                    if (!_antigens.TryGetValue(ag, out var v) || v != "+") continue;
+                    // Skip antigens destroyed by the cell treatment
+                    if (_ctx.GetAntigenEffect(ag) == AntigenEffect.Destroyed) continue;
+                    if (CanRuleOut(ag)) list.Add($"anti-{ag}");
+                }
                 return string.Join(", ", list);
             }
         }
 
         public bool HasRuleout => !string.IsNullOrEmpty(RuledOutNote);
 
-        public ReactionRow(PanelCell cell, Reaction? existing, IReadOnlyList<Rule> rules)
+        public ReactionRow(PanelCell cell, Reaction? existing, IReadOnlyList<Rule> rules, RunContext ctx)
         {
             CellNumber = cell.CellNumber;
             _antigens = cell.Antigens;
             _rules = rules;
+            _ctx = ctx;
             _IS  = existing?.IS  ?? "NT";
             _C37 = existing?.C37 ?? "NT";
             _AHG = existing?.AHG ?? "NT";
@@ -343,7 +501,7 @@ namespace AntibodyPanels.ViewModels
             if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
                 return true;
             var antitheticalVal = _antigens.TryGetValue(antithetical, out var av) ? av : "-";
-            if (antitheticalVal == "-") return true; // homozygous
+            if (antitheticalVal == "-") return true;
             return ReactionsViewModel.RuleAllowsHeterozygous(antigen, _rules);
         }
 
