@@ -25,4 +25,10 @@
     <ProjectReference Include="..\AntibodyPanels\AntibodyPanels.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="TestData\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

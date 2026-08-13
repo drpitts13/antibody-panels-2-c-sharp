@@ -1,13 +1,25 @@
-param()
+param(
+    [string]$RepoRoot = $PSScriptRoot
+)
 
 Add-Type -AssemblyName System.Drawing
 
-$repoRoot = $PSScriptRoot
-$pngPath  = Join-Path $repoRoot "AntibodyPanels\blood_bag_icon.png"
-$icoPath  = Join-Path $repoRoot "AntibodyPanels\app.ico"
-$exePath  = Join-Path $repoRoot "AntibodyPanels\bin\Release\net8.0-windows\AntibodyPanels.exe"
+$pngPath  = Join-Path $RepoRoot "AntibodyPanels\blood_bag_icon.png"
+$icoPath  = Join-Path $RepoRoot "AntibodyPanels\app.ico"
+$exePath  = Join-Path $RepoRoot "AntibodyPanels\bin\Release\net8.0-windows\AntibodyPanels.exe"
 $desktopPath = [System.Environment]::GetFolderPath('Desktop')
 $shortcutPath = Join-Path $desktopPath "Antibody Panel Management System.lnk"
+
+if (-not (Test-Path $pngPath)) {
+    throw "Blood bag icon not found: $pngPath"
+}
+if (-not (Test-Path $exePath)) {
+    Write-Host "Building application..."
+    dotnet build (Join-Path $RepoRoot "AntibodyPanels\AntibodyPanels.csproj") -c Release | Out-Host
+    if (-not (Test-Path $exePath)) {
+        throw "Executable not found after build: $exePath"
+    }
+}
 
 # ── Build multi-size ICO ─────────────────────────────────────────────────────
 $src = [System.Drawing.Bitmap]::FromFile($pngPath)
@@ -50,12 +62,15 @@ $fs.Close()
 $src.Dispose()
 Write-Host "ICO written: $icoPath"
 
+Write-Host "Rebuilding with embedded icon..."
+dotnet build (Join-Path $RepoRoot "AntibodyPanels\AntibodyPanels.csproj") -c Release | Out-Host
+
 # ── Create desktop shortcut ──────────────────────────────────────────────────
 $wsh = New-Object -ComObject WScript.Shell
 $lnk = $wsh.CreateShortcut($shortcutPath)
 $lnk.TargetPath       = $exePath
 $lnk.WorkingDirectory = (Split-Path $exePath)
-$lnk.IconLocation     = "$exePath,0"
+$lnk.IconLocation     = "$icoPath,0"
 $lnk.Description      = "Antibody Panel Management System"
 $lnk.WindowStyle      = 1   # Normal window
 $lnk.Save()
