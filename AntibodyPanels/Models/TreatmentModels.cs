@@ -70,6 +70,9 @@ namespace AntibodyPanels.Models
             { "Jka", AntigenEffect.Enhanced },
             { "Jkb", AntigenEffect.Enhanced },
             { "P1",  AntigenEffect.Enhanced },
+
+            // Warehouse — Vel is enzyme-enhanced; others in the catalog are enzyme-resistant
+            { "Vel", AntigenEffect.Enhanced },
         };
 
         // ── DTT / 2-ME ────────────────────────────────────────────────────────
@@ -85,6 +88,12 @@ namespace AntibodyPanels.Models
             { "Jsb", AntigenEffect.Destroyed },
             { "Lua", AntigenEffect.Destroyed },
             { "Lub", AntigenEffect.Destroyed },
+
+            // Warehouse — Dombrock and Cartwright are disulfide-dependent
+            { "Doa", AntigenEffect.Destroyed },
+            { "Dob", AntigenEffect.Destroyed },
+            { "Yta", AntigenEffect.Destroyed },
+            { "Ytb", AntigenEffect.Destroyed },
         };
 
         // ── Allogeneic absorption — antigens removed from serum per absorbing cell phenotype ──

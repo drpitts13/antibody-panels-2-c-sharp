@@ -16,9 +16,9 @@ namespace AntibodyPanels.Views.Dialogs
         public RuleDialog(Rule? existing = null)
         {
             InitializeComponent();
-            var antibodies = AntigenConstants.Antigens.Select(ag => $"anti-{ag}").ToList();
+            var antibodies = AntigenConstants.AllKnownAntigens.Select(ag => $"anti-{ag}").ToList();
             AntibodyBox.ItemsSource = antibodies;
-            ExceptionAntigenBox.ItemsSource = AntigenConstants.Antigens.ToList();
+            ExceptionAntigenBox.ItemsSource = AntigenConstants.AllKnownAntigens.ToList();
 
             if (existing != null)
             {

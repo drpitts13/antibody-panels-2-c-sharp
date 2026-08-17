@@ -1,13 +1,13 @@
 <Window x:Class="AntibodyPanels.Views.Dialogs.SpecimenDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Specimen" SizeToContent="WidthAndHeight" Width="400"
+        Title="Specimen" SizeToContent="WidthAndHeight" Width="460"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Padding="16">
     <StackPanel Margin="16,12,16,12">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="150"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
@@ -15,6 +15,10 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="80"/>
             </Grid.RowDefinitions>
 
             <Label Content="Accession Number:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -30,9 +34,27 @@
                         VerticalAlignment="Center" Margin="0,2"
                         SelectedDateChanged="ExpirationPicker_SelectedDateChanged"/>
 
-            <Label Content="Active:" Grid.Row="3" VerticalAlignment="Center"/>
-            <CheckBox x:Name="ActiveCheck" Grid.Row="3" Grid.Column="1"
+            <Label Content="DAT:" Grid.Row="3" VerticalAlignment="Center"/>
+            <ComboBox x:Name="DatBox" Grid.Row="3" Grid.Column="1"
+                      VerticalAlignment="Center" Margin="0,2"/>
+
+            <Label Content="Phenotype:" Grid.Row="4" VerticalAlignment="Center"/>
+            <TextBox x:Name="PhenotypeBox" Grid.Row="4" Grid.Column="1"
+                     VerticalAlignment="Center" Margin="0,2"
+                     ToolTip="e.g. R1r, K−, Fy(a−b+)"/>
+
+            <Label Content="Previous antibodies:" Grid.Row="5" VerticalAlignment="Center"/>
+            <TextBox x:Name="PreviousAbsBox" Grid.Row="5" Grid.Column="1"
+                     VerticalAlignment="Center" Margin="0,2"/>
+
+            <Label Content="Active:" Grid.Row="6" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ActiveCheck" Grid.Row="6" Grid.Column="1"
                       VerticalAlignment="Center" Margin="0,2" IsChecked="True"/>
+
+            <Label Content="Notes:" Grid.Row="7" VerticalAlignment="Top" Margin="0,4,0,0"/>
+            <TextBox x:Name="NotesBox" Grid.Row="7" Grid.Column="1"
+                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                     Height="70" Margin="0,2"/>
         </Grid>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

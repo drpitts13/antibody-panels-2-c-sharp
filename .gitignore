@@ -36,6 +36,7 @@ bld/
 !**/[Pp]ackages/build/
 *.nuget.props
 *.nuget.targets
+.nuget-packages/
 
 # Build results from dotnet publish
 publish/

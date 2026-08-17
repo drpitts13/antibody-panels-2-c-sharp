@@ -43,6 +43,32 @@
             </TextBlock>
 
             <!-- Linked Panels -->
+            <GroupBox DockPanel.Dock="Top" Header="Clinical Context" Margin="0,0,0,8" Padding="6">
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,2">
+                        <Run FontWeight="SemiBold" Text="Phenotype: "/>
+                        <Run Text="{Binding SelectedSpecimen.Phenotype, TargetNullValue=N/A}"/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,2">
+                        <Run FontWeight="SemiBold" Text="Previous Abs: "/>
+                        <Run Text="{Binding SelectedSpecimen.PreviousAntibodies, TargetNullValue=N/A}"/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,2">
+                        <Run FontWeight="SemiBold" Text="DAT: "/>
+                        <Run Text="{Binding SelectedSpecimen.DatResult, TargetNullValue=NT}"/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,2">
+                        <Run FontWeight="SemiBold" Text="Notes: "/>
+                        <Run Text="{Binding SelectedSpecimen.Notes, TargetNullValue='—'}"/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap">
+                        <Run FontWeight="SemiBold" Text="Final ID: "/>
+                        <Run Text="{Binding SelectedSpecimen.FinalAntibodies, TargetNullValue='Not confirmed'}"/>
+                    </TextBlock>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- Linked Panels -->
             <GroupBox DockPanel.Dock="Top" Header="Linked Panels" Margin="0,0,0,8" Padding="6">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">

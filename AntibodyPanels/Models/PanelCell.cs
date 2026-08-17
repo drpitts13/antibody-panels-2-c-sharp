@@ -14,6 +14,13 @@ namespace AntibodyPanels.Models
         public string GetAntigen(string antigen) =>
             Antigens.TryGetValue(antigen, out var v) ? v : "-";
 
+        /// <summary>
+        /// True when this cell has a typed +/− value for the antigen.
+        /// Warehouse antigens are only present after they have been added to the panel.
+        /// Missing is not the same as antigen-negative.
+        /// </summary>
+        public bool HasTypedAntigen(string antigen) => Antigens.ContainsKey(antigen);
+
         public void SetAntigen(string antigen, string value) =>
             Antigens[antigen] = value;
     }

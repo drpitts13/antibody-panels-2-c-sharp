@@ -80,6 +80,12 @@ namespace AntibodyPanels.ViewModels
                 ?? Specimens.FirstOrDefault();
         }
 
+        public void SelectSpecimen(string accessionNumber)
+        {
+            SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == accessionNumber)
+                ?? SelectedSpecimen;
+        }
+
         private void LoadSpecimenDetails()
         {
             LinkedPanels.Clear();
@@ -103,6 +109,7 @@ namespace AntibodyPanels.ViewModels
             _main.ReactionsVM.RefreshSpecimens();
             _main.AnalysisVM.Refresh();
             _main.ReportsVM.Refresh();
+            _main.WorklistVM.Refresh();
         }
 
         private void AddSpecimen()
@@ -111,7 +118,8 @@ namespace AntibodyPanels.ViewModels
             if (dlg.ShowDialog() != true) return;
             try
             {
-                _db.AddSpecimen(dlg.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate, dlg.ItemIsActive);
+                _db.AddSpecimen(dlg.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate, dlg.ItemIsActive,
+                    dlg.Notes, dlg.Phenotype, dlg.PreviousAntibodies, dlg.DatResult);
                 _main.SetStatus($"Specimen {dlg.AccessionNumber} added.");
                 NotifySpecimensChanged();
                 SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == dlg.AccessionNumber);
@@ -130,7 +138,8 @@ namespace AntibodyPanels.ViewModels
             if (dlg.ShowDialog() != true) return;
             try
             {
-                _db.UpdateSpecimen(SelectedSpecimen.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate, dlg.ItemIsActive);
+                _db.UpdateSpecimen(SelectedSpecimen.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate, dlg.ItemIsActive,
+                    dlg.Notes, dlg.Phenotype, dlg.PreviousAntibodies, dlg.DatResult);
                 _main.SetStatus($"Specimen {SelectedSpecimen.AccessionNumber} updated.");
                 NotifySpecimensChanged();
             }

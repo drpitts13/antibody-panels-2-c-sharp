@@ -35,6 +35,7 @@ namespace AntibodyPanels.Views.Dialogs
                 ? st : SerumTreatment.None;
 
         public string RunLabel => LabelBox.Text.Trim();
+        public bool CopyGradesFromCurrentRun => CopyGradesCheck.IsChecked == true;
 
         public PanelRunDialog()
         {

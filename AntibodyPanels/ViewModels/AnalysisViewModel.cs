@@ -23,6 +23,13 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<GatedRuleoutRow> GatedRuleoutRows { get; } = new();
         public ObservableCollection<TreatmentInferenceRow> TreatmentInferenceRows { get; } = new();
         public ObservableCollection<AbsorptionConclusionRow> AbsorptionConclusionRows { get; } = new();
+        public ObservableCollection<EvidenceCellRow> SupportingCells { get; } = new();
+        public ObservableCollection<EvidenceCellRow> ConflictingCells { get; } = new();
+        public ObservableCollection<RuleoutDetailRow> RuleoutDetailRows { get; } = new();
+        public ObservableCollection<DosageRow> DosageRows { get; } = new();
+        public ObservableCollection<string> SuggestionItems { get; } = new();
+
+        private AnalysisResult? _lastResult;
 
         private Specimen? _selectedSpecimen;
         public Specimen? SelectedSpecimen
@@ -47,6 +54,60 @@ namespace AntibodyPanels.ViewModels
 
         public ICommand AnalyzeCommand { get; }
         public ICommand RefreshSpecimensCommand { get; }
+        public ICommand ConfirmIdCommand { get; }
+        public ICommand ClearConfirmationCommand { get; }
+
+        private string _finalAntibodiesText = string.Empty;
+        public string FinalAntibodiesText
+        {
+            get => _finalAntibodiesText;
+            set => SetField(ref _finalAntibodiesText, value);
+        }
+
+        private string _finalComment = string.Empty;
+        public string FinalComment
+        {
+            get => _finalComment;
+            set => SetField(ref _finalComment, value);
+        }
+
+        private string _identifiedBy = string.Empty;
+        public string IdentifiedBy
+        {
+            get => _identifiedBy;
+            set => SetField(ref _identifiedBy, value);
+        }
+
+        private string _finalCallStatus = "Final identification: not confirmed.";
+        public string FinalCallStatus
+        {
+            get => _finalCallStatus;
+            set => SetField(ref _finalCallStatus, value);
+        }
+
+        private SuspectedRow? _selectedSuspected;
+        public SuspectedRow? SelectedSuspected
+        {
+            get => _selectedSuspected;
+            set
+            {
+                if (SetField(ref _selectedSuspected, value))
+                    LoadSuspectedEvidence();
+            }
+        }
+
+        private RuleoutRow? _selectedRuleout;
+        public RuleoutRow? SelectedRuleout
+        {
+            get => _selectedRuleout;
+            set
+            {
+                if (SetField(ref _selectedRuleout, value))
+                    LoadRuleoutDetails();
+            }
+        }
+
+        public bool HasSuggestions => SuggestionItems.Count > 0;
 
         public AnalysisViewModel(DatabaseService db, AntibodyAnalyzer analyzer, MainViewModel main)
         {
@@ -56,7 +117,15 @@ namespace AntibodyPanels.ViewModels
 
             AnalyzeCommand = new RelayCommand(RunAnalysis, () => SelectedSpecimen != null);
             RefreshSpecimensCommand = new RelayCommand(Refresh);
+            ConfirmIdCommand = new RelayCommand(ConfirmId, () => SelectedSpecimen != null);
+            ClearConfirmationCommand = new RelayCommand(ClearConfirmation, () => SelectedSpecimen != null);
             Refresh();
+        }
+
+        public void SelectSpecimen(string accessionNumber)
+        {
+            SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == accessionNumber)
+                ?? SelectedSpecimen;
         }
 
         public void Refresh()
@@ -83,9 +152,14 @@ namespace AntibodyPanels.ViewModels
         private void AutoLoadAnalysis()
         {
             ClearResults();
-            if (SelectedSpecimen == null) return;
+            if (SelectedSpecimen == null)
+            {
+                LoadFinalCall(null);
+                return;
+            }
 
             IsStale = _db.IsSpecimenAnalysisStale(SelectedSpecimen.AccessionNumber);
+            LoadFinalCall(SelectedSpecimen);
 
             // Only auto-populate if a previous analysis run exists
             if (SelectedSpecimen.LastAnalyzedAt == null) return;
@@ -109,6 +183,7 @@ namespace AntibodyPanels.ViewModels
             IsStale = false;
             _main.SetStatus($"Analysis complete — {SuspectedRows.Count} suspected, {RuleoutRows.Count} ruled out.");
             _main.SpecimensVM.Refresh();
+            _main.WorklistVM.Refresh();
         }
 
         private void ClearResults()
@@ -120,12 +195,24 @@ namespace AntibodyPanels.ViewModels
             GatedRuleoutRows.Clear();
             TreatmentInferenceRows.Clear();
             AbsorptionConclusionRows.Clear();
+            SupportingCells.Clear();
+            ConflictingCells.Clear();
+            RuleoutDetailRows.Clear();
+            DosageRows.Clear();
+            SuggestionItems.Clear();
+            OnPropertyChanged(nameof(HasSuggestions));
             SummaryText = string.Empty;
+            _lastResult = null;
+            _selectedSuspected = null;
+            _selectedRuleout = null;
+            OnPropertyChanged(nameof(SelectedSuspected));
+            OnPropertyChanged(nameof(SelectedRuleout));
         }
 
         private void PopulateFromResult(AnalysisResult result)
         {
             ClearResults();
+            _lastResult = result;
 
             foreach (var (ab, prob) in result.Suspected.OrderByDescending(x => x.Value))
             {
@@ -189,7 +276,130 @@ namespace AntibodyPanels.ViewModels
                     Surviving = string.Join(", ", abs.Surviving),
                 });
 
+            foreach (var de in result.DosageEffects)
+                DosageRows.Add(new DosageRow
+                {
+                    Antibody = de.Antibody,
+                    Antigen = de.Antigen,
+                    AvgHomozygous = de.AvgHomozygous.ToString("F2"),
+                    AvgHeterozygous = de.AvgHeterozygous.ToString("F2"),
+                    HomozygousCount = de.HomozygousCount,
+                    HeterozygousCount = de.HeterozygousCount,
+                    Severity = de.Severity,
+                });
+
+            foreach (var s in result.Suggestions)
+                SuggestionItems.Add(s);
+            OnPropertyChanged(nameof(HasSuggestions));
+
+            SelectedSuspected = SuspectedRows.FirstOrDefault();
+            SelectedRuleout = RuleoutRows.FirstOrDefault();
+
             BuildSummary(result);
+            LoadFinalCall(SelectedSpecimen);
+        }
+
+        private void LoadFinalCall(Specimen? specimen)
+        {
+            if (specimen == null)
+            {
+                FinalAntibodiesText = string.Empty;
+                FinalComment = string.Empty;
+                IdentifiedBy = string.Empty;
+                FinalCallStatus = "Final identification: not confirmed.";
+                return;
+            }
+
+            var fresh = _db.GetSpecimen(specimen.AccessionNumber) ?? specimen;
+            if (fresh.HasFinalCall)
+            {
+                FinalAntibodiesText = fresh.FinalAntibodies ?? "";
+                FinalComment = fresh.FinalComment ?? "";
+                IdentifiedBy = fresh.IdentifiedBy ?? "";
+                FinalCallStatus = $"Final identification: confirmed by {fresh.IdentifiedBy} on {fresh.IdentifiedAt}.";
+            }
+            else
+            {
+                FinalAntibodiesText = string.Join("; ", SuspectedRows.Select(r => r.Antibody));
+                FinalComment = "";
+                FinalCallStatus = "Final identification: not confirmed.";
+            }
+        }
+
+        private void ConfirmId()
+        {
+            if (SelectedSpecimen == null) return;
+            var antibodies = FinalAntibodiesText.Trim();
+            var initials = IdentifiedBy.Trim();
+            if (string.IsNullOrWhiteSpace(antibodies))
+            {
+                MessageBox.Show("Enter the confirmed antibody identification.", "Validation",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(initials))
+            {
+                MessageBox.Show("Initials are required to confirm identification.", "Validation",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _db.SetSpecimenFinalCall(SelectedSpecimen.AccessionNumber, antibodies,
+                string.IsNullOrWhiteSpace(FinalComment) ? null : FinalComment.Trim(), initials);
+            LoadFinalCall(SelectedSpecimen);
+            _main.SpecimensVM.Refresh();
+            _main.ReportsVM.Refresh();
+            _main.SetStatus($"Identification confirmed for {SelectedSpecimen.AccessionNumber}.");
+        }
+
+        private void ClearConfirmation()
+        {
+            if (SelectedSpecimen == null) return;
+            if (MessageBox.Show("Clear the confirmed identification for this specimen?",
+                "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            _db.ClearSpecimenFinalCall(SelectedSpecimen.AccessionNumber);
+            IdentifiedBy = string.Empty;
+            FinalComment = string.Empty;
+            LoadFinalCall(SelectedSpecimen);
+            _main.SpecimensVM.Refresh();
+            _main.ReportsVM.Refresh();
+            _main.SetStatus("Confirmed identification cleared.");
+        }
+
+        private void LoadSuspectedEvidence()
+        {
+            SupportingCells.Clear();
+            ConflictingCells.Clear();
+            if (_lastResult == null || SelectedSuspected == null) return;
+            if (!_lastResult.SuspectedEvidence.TryGetValue(SelectedSuspected.Antibody, out var ev))
+                return;
+            foreach (var c in ev.SupportingCells)
+                SupportingCells.Add(EvidenceCellRow.From(c, "Supporting"));
+            foreach (var c in ev.ConflictingCells)
+                ConflictingCells.Add(EvidenceCellRow.From(c, "Conflicting"));
+        }
+
+        private void LoadRuleoutDetails()
+        {
+            RuleoutDetailRows.Clear();
+            if (_lastResult == null || SelectedRuleout == null) return;
+            if (!_lastResult.DetailedRuleouts.TryGetValue(SelectedRuleout.Antibody, out var details))
+                return;
+            foreach (var d in details)
+            {
+                RuleoutDetailRows.Add(new RuleoutDetailRow
+                {
+                    PanelName = d.PanelName,
+                    RunLabel = d.RunLabel,
+                    CellNumber = d.CellNumber,
+                    Zygosity = d.IsHomozygous ? "Homozygous" : "Heterozygous",
+                    IS = d.IS,
+                    C37 = d.C37,
+                    AHG = d.AHG,
+                    CC = d.CC,
+                });
+            }
         }
 
         private void BuildSummary(AnalysisResult r)
@@ -320,5 +530,54 @@ namespace AntibodyPanels.ViewModels
         public string AbsorptionLabel { get; set; } = string.Empty;
         public string AbsorbedOut { get; set; } = string.Empty;
         public string Surviving { get; set; } = string.Empty;
+    }
+
+    public class EvidenceCellRow
+    {
+        public string Kind { get; set; } = string.Empty;
+        public string PanelName { get; set; } = string.Empty;
+        public string RunLabel { get; set; } = string.Empty;
+        public string CellNumber { get; set; } = string.Empty;
+        public string IS { get; set; } = string.Empty;
+        public string C37 { get; set; } = string.Empty;
+        public string AHG { get; set; } = string.Empty;
+        public string CC { get; set; } = string.Empty;
+        public string Strongest { get; set; } = string.Empty;
+
+        public static EvidenceCellRow From(EvidenceCell c, string kind) => new()
+        {
+            Kind = kind,
+            PanelName = c.PanelName,
+            RunLabel = c.RunLabel,
+            CellNumber = c.CellNumber,
+            IS = c.IS,
+            C37 = c.C37,
+            AHG = c.AHG,
+            CC = c.CC,
+            Strongest = $"{c.StrongestPhase} {c.StrongestValue}".Trim(),
+        };
+    }
+
+    public class RuleoutDetailRow
+    {
+        public string PanelName { get; set; } = string.Empty;
+        public string RunLabel { get; set; } = string.Empty;
+        public string CellNumber { get; set; } = string.Empty;
+        public string Zygosity { get; set; } = string.Empty;
+        public string IS { get; set; } = string.Empty;
+        public string C37 { get; set; } = string.Empty;
+        public string AHG { get; set; } = string.Empty;
+        public string CC { get; set; } = string.Empty;
+    }
+
+    public class DosageRow
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Antigen { get; set; } = string.Empty;
+        public string AvgHomozygous { get; set; } = string.Empty;
+        public string AvgHeterozygous { get; set; } = string.Empty;
+        public int HomozygousCount { get; set; }
+        public int HeterozygousCount { get; set; }
+        public string Severity { get; set; } = string.Empty;
     }
 }

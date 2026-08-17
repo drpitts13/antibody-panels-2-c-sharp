@@ -1,5 +1,6 @@
 using AntibodyPanels.Models;
 using AntibodyPanels.Tests.Infrastructure;
+using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels.Tests;
 
@@ -91,5 +92,18 @@ public class PanelAdministrationTests
         Assert.Equal("Ortho Clinical Diagnostics", ortho.Vendor);
         Assert.True(ortho.IncludeAc);
         Assert.Contains(_fixture.Db.GetPanelCells(ortho.PanelId), c => c.CellNumber == "AC");
+    }
+
+    [Fact]
+    public void PanelCellRow_ToggleAntigen_SwitchesPlusAndMinus()
+    {
+        var cell = new PanelCell { CellNumber = "1" };
+        cell.SetAntigen("E", "+");
+        var row = new PanelCellRow(cell);
+
+        row.ToggleAntigen("E");
+        Assert.Equal("-", row.E);
+        row.ToggleAntigen("E");
+        Assert.Equal("+", row.E);
     }
 }

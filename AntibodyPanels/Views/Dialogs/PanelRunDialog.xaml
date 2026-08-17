@@ -29,6 +29,10 @@
                      ToolTip="Leave blank to auto-generate from selected treatments"/>
         </Grid>
 
+        <CheckBox x:Name="CopyGradesCheck" Content="Copy grades from the current run"
+                  IsChecked="True" Margin="0,10,0,0"
+                  ToolTip="Start this run with the IS / 37°C / AHG / CC grades already entered on the selected run"/>
+
         <TextBlock x:Name="InfoText" FontStyle="Italic" Foreground="#555"
                    FontSize="11" Margin="0,8,0,4" TextWrapping="Wrap"/>
 

@@ -27,16 +27,17 @@ namespace AntibodyPanels.Services
 
             var runs = _db.GetAllSpecimenRuns(specimenId);
             var contexts = BuildContexts(runs);
+            var antigens = RelevantAntigens(contexts);
             var byRun = GroupByRun(reactions);
 
             var rules = _db.GetAllRules();
-            var ruledOut = CalculateRuleouts(byRun, contexts, rules, out var gatedRuleouts);
-            var (suspected, suspectedStats) = CalculateProbabilities(byRun, contexts, ruledOut);
-            var patterns = PatternMatching(byRun, contexts, ruledOut);
-            var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, rules);
+            var ruledOut = CalculateRuleouts(byRun, contexts, antigens, rules, out var gatedRuleouts);
+            var (suspected, suspectedStats) = CalculateProbabilities(byRun, contexts, antigens, ruledOut);
+            var patterns = PatternMatching(byRun, contexts, antigens, ruledOut);
+            var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, antigens, rules);
             var suspectedEvidence = GetSuspectedAntibodyEvidence(byRun, contexts, suspected);
             var combinations = DetectAntibodyCombinations(byRun, contexts, suspected);
-            var phaseProbabilities = CalculatePhaseSpecificProbabilities(byRun, contexts, ruledOut);
+            var phaseProbabilities = CalculatePhaseSpecificProbabilities(byRun, contexts, antigens, ruledOut);
             var dosageEffects = DetectDosageEffects(byRun, contexts, suspected);
             var inferences = BuildTreatmentInferences(byRun, contexts, suspected);
             var absorptionConclusions = BuildAbsorptionConclusions(byRun, contexts, suspected);
@@ -67,9 +68,20 @@ namespace AntibodyPanels.Services
 
         private Dictionary<int, RunContext> BuildContexts(List<PanelRun> runs)
         {
+            var extrasByPanel = new Dictionary<int, List<string>>();
+            foreach (var panelId in runs.Select(r => r.PanelId).Distinct())
+                extrasByPanel[panelId] = _db.GetPanelExtraAntigens(panelId);
+
             var dict = new Dictionary<int, RunContext>();
-            foreach (var run in runs) dict[run.RunId] = new RunContext(run);
+            foreach (var run in runs)
+                dict[run.RunId] = new RunContext(run, extrasByPanel[run.PanelId]);
             return dict;
+        }
+
+        private static IReadOnlyList<string> RelevantAntigens(Dictionary<int, RunContext> contexts)
+        {
+            var extras = contexts.Values.SelectMany(c => c.ExtraAntigens);
+            return AntigenConstants.GetAnalyzedAntigens(extras);
         }
 
         private static Dictionary<int, List<Reaction>> GroupByRun(List<Reaction> reactions)
@@ -88,6 +100,7 @@ namespace AntibodyPanels.Services
         private Dictionary<string, int> CalculateRuleouts(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
+            IReadOnlyList<string> antigens,
             List<Rule> rules,
             out List<GatedRuleout> gatedRuleouts)
         {
@@ -106,8 +119,9 @@ namespace AntibodyPanels.Services
                     if (!ctx.IsNegative(rxn)) continue;
                     if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
 
-                    foreach (var ag in AntigenConstants.Antigens)
+                    foreach (var ag in antigens)
                     {
+                        if (!ctx.TypesAntigen(ag)) continue;
                         if (cell.GetAntigen(ag) != "+") continue;
                         var antibody = $"anti-{ag}";
 
@@ -143,6 +157,7 @@ namespace AntibodyPanels.Services
         private Dictionary<string, List<RuleoutDetail>> GetDetailedRuleouts(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
+            IReadOnlyList<string> antigens,
             List<Rule> rules)
         {
             var result = new Dictionary<string, List<RuleoutDetail>>();
@@ -160,8 +175,9 @@ namespace AntibodyPanels.Services
                     if (!ctx.IsNegative(rxn)) continue;
                     if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
 
-                    foreach (var ag in AntigenConstants.Antigens)
+                    foreach (var ag in antigens)
                     {
+                        if (!ctx.TypesAntigen(ag)) continue;
                         if (cell.GetAntigen(ag) != "+") continue;
                         if (!ctx.CanContributeRuleout(ag, cell)) continue;
                         if (!CanRuleOut(ag, cell, rules)) continue;
@@ -169,8 +185,9 @@ namespace AntibodyPanels.Services
                         var antibody = $"anti-{ag}";
                         var antithetical = AntigenConstants.AntitheticalPairs
                             .TryGetValue(ag, out var at) ? at : null;
-                        var antitheticalVal = antithetical != null ? cell.GetAntigen(antithetical) : null;
-                        var isHomo = antithetical != null && antitheticalVal == "-";
+                        var antitheticalTyped = antithetical != null && cell.HasTypedAntigen(antithetical);
+                        var antitheticalVal = antitheticalTyped ? cell.GetAntigen(antithetical!) : null;
+                        var isHomo = antitheticalTyped && antitheticalVal == "-";
 
                         if (!result.ContainsKey(antibody)) result[antibody] = new();
                         result[antibody].Add(new RuleoutDetail
@@ -201,6 +218,8 @@ namespace AntibodyPanels.Services
             if (cell.GetAntigen(antigen) != "+") return false;
             if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
                 return true;
+            if (!cell.HasTypedAntigen(antithetical))
+                return false;
             var antitheticalVal = cell.GetAntigen(antithetical);
             var isHomozygous = antitheticalVal == "-";
             if (RuleAllowsHeterozygous(antigen, rules)) return true;
@@ -226,12 +245,13 @@ namespace AntibodyPanels.Services
             CalculateProbabilities(
                 Dictionary<int, List<Reaction>> byRun,
                 Dictionary<int, RunContext> contexts,
+                IReadOnlyList<string> antigens,
                 Dictionary<string, int> ruledOut)
         {
             var suspected = new Dictionary<string, double>();
             var stats = new Dictionary<string, SuspectedStatistics>();
 
-            foreach (var ag in AntigenConstants.Antigens)
+            foreach (var ag in antigens)
             {
                 var antibody = $"anti-{ag}";
                 double posWithAg = 0, posWithoutAg = 0, negWithAg = 0, negWithoutAg = 0;
@@ -239,6 +259,7 @@ namespace AntibodyPanels.Services
                 foreach (var (runId, runReactions) in byRun)
                 {
                     if (!contexts.TryGetValue(runId, out var ctx)) continue;
+                    if (!ctx.TypesAntigen(ag)) continue;
                     // Skip this run for this antigen if the treatment destroys it
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
@@ -274,7 +295,7 @@ namespace AntibodyPanels.Services
                     double combined = posWithAg > 0
                         ? (fisherComp + patternScore) / 2 : fisherComp;
 
-                    if (combined <= 0.5) continue;
+                    if (combined <= AppSettings.Current.ProbabilityThreshold) continue;
 
                     bool include;
                     if (ruledOut.TryGetValue(antibody, out var ruleoutCnt))
@@ -303,11 +324,12 @@ namespace AntibodyPanels.Services
         private List<PatternMatch> PatternMatching(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
+            IReadOnlyList<string> antigens,
             Dictionary<string, int> ruledOut)
         {
             var patterns = new List<PatternMatch>();
 
-            foreach (var ag in AntigenConstants.Antigens)
+            foreach (var ag in antigens)
             {
                 var antibody = $"anti-{ag}";
                 if (ruledOut.ContainsKey(antibody)) continue;
@@ -316,6 +338,7 @@ namespace AntibodyPanels.Services
                 foreach (var (runId, runReactions) in byRun)
                 {
                     if (!contexts.TryGetValue(runId, out var ctx)) continue;
+                    if (!ctx.TypesAntigen(ag)) continue;
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
                         continue;
@@ -356,7 +379,7 @@ namespace AntibodyPanels.Services
             foreach (var (antibody, probability) in suspected)
             {
                 var ag = antibody.Replace("anti-", "");
-                if (!AntigenConstants.Antigens.Contains(ag)) continue;
+                if (!AntigenConstants.IsKnown(ag)) continue;
 
                 var supporting = new List<EvidenceCell>();
                 var conflicting = new List<EvidenceCell>();
@@ -364,6 +387,7 @@ namespace AntibodyPanels.Services
                 foreach (var (runId, runReactions) in byRun)
                 {
                     if (!contexts.TryGetValue(runId, out var ctx)) continue;
+                    if (!ctx.TypesAntigen(ag)) continue;
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
                         continue;
@@ -433,13 +457,14 @@ namespace AntibodyPanels.Services
                     var (ab2, p2) = top[j];
                     var ag1 = ab1.Replace("anti-", "");
                     var ag2 = ab2.Replace("anti-", "");
-                    if (!AntigenConstants.Antigens.Contains(ag1) ||
-                        !AntigenConstants.Antigens.Contains(ag2)) continue;
+                    if (!AntigenConstants.IsKnown(ag1) ||
+                        !AntigenConstants.IsKnown(ag2)) continue;
 
                     int both = 0, ab1only = 0, ab2only = 0, neither = 0;
                     foreach (var (runId, runReactions) in byRun)
                     {
                         if (!contexts.TryGetValue(runId, out var ctx)) continue;
+                        if (!ctx.TypesAntigen(ag1) || !ctx.TypesAntigen(ag2)) continue;
                         var cellDict = _db.GetPanelCells(ctx.Run.PanelId).ToDictionary(c => c.CellNumber);
                         foreach (var rxn in runReactions)
                         {
@@ -479,6 +504,7 @@ namespace AntibodyPanels.Services
         private Dictionary<string, Dictionary<string, double>> CalculatePhaseSpecificProbabilities(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
+            IReadOnlyList<string> antigens,
             Dictionary<string, int> ruledOut)
         {
             var result = new Dictionary<string, Dictionary<string, double>>();
@@ -488,7 +514,7 @@ namespace AntibodyPanels.Services
             foreach (var phase in phases)
             {
                 result[phase] = new();
-                foreach (var ag in AntigenConstants.Antigens)
+                foreach (var ag in antigens)
                 {
                     var antibody = $"anti-{ag}";
                     double posWithAg = 0, posWithoutAg = 0, negWithAg = 0, negWithoutAg = 0;
@@ -497,6 +523,7 @@ namespace AntibodyPanels.Services
                     {
                         if (!contexts.TryGetValue(runId, out var ctx)) continue;
                         if (!ctx.IsPhaseInterpretable(phase)) continue;
+                        if (!ctx.TypesAntigen(ag)) continue;
                         if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                                 == AntigenEffect.Destroyed)
                             continue;
@@ -561,6 +588,7 @@ namespace AntibodyPanels.Services
                 foreach (var (runId, runReactions) in byRun)
                 {
                     if (!contexts.TryGetValue(runId, out var ctx)) continue;
+                    if (!ctx.TypesAntigen(ag)) continue;
                     // Use only untreated (or enhanced) runs for dosage analysis
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
@@ -571,8 +599,12 @@ namespace AntibodyPanels.Services
                     {
                         if (rxn.CellNumber == "AC") continue;
                         if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
-                        bool isHomo = cell.GetAntigen(ag) == "+" && cell.GetAntigen(antithetical) == "-";
-                        bool isHet = cell.GetAntigen(ag) == "+" && cell.GetAntigen(antithetical) == "+";
+                        bool isHomo = cell.GetAntigen(ag) == "+" &&
+                                      cell.HasTypedAntigen(antithetical) &&
+                                      cell.GetAntigen(antithetical) == "-";
+                        bool isHet = cell.GetAntigen(ag) == "+" &&
+                                     cell.HasTypedAntigen(antithetical) &&
+                                     cell.GetAntigen(antithetical) == "+";
                         if (!isHomo && !isHet) continue;
                         var (_, sv) = ctx.GetStrongestPhase(rxn);
                         double str = RunContext.ReactionToNumeric(sv);

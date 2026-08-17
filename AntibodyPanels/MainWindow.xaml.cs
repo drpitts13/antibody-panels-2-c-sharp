@@ -24,6 +24,7 @@ namespace AntibodyPanels
             vm.ShowShortcutsCommand = new RelayCommand(ShowShortcuts);
             vm.ShowAboutCommand = new RelayCommand(ShowAbout);
             vm.LoadDemoDataCommand = new RelayCommand(LoadDemoData);
+            vm.ShowSettingsCommand = new RelayCommand(ShowSettings);
 
             // F1 shortcut
             InputBindings.Add(new KeyBinding(vm.ShowShortcutsCommand, Key.F1, ModifierKeys.None));
@@ -40,29 +41,39 @@ namespace AntibodyPanels
 
         private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (MainTabControl.SelectedIndex == 3) // Analysis tab
+            if (e.Source != MainTabControl) return;
+            if (MainTabControl.SelectedItem is TabItem { Header: "Analysis" })
                 ViewModel.AnalysisVM.OnTabSelected();
+            else if (MainTabControl.SelectedItem is TabItem { Header: "Worklist" })
+                ViewModel.WorklistVM.Refresh();
         }
 
         private void SaveCurrent()
         {
-            switch (MainTabControl.SelectedIndex)
+            switch ((MainTabControl.SelectedItem as TabItem)?.Header as string)
             {
-                case 1: ViewModel.PanelsVM.SaveAllCells(); break;
-                case 2: ViewModel.ReactionsVM.SaveAnalyzeCommand.Execute(null); break;
+                case "Panels": ViewModel.PanelsVM.SaveAllCells(); break;
+                case "Reactions": ViewModel.ReactionsVM.SaveAnalyzeCommand.Execute(null); break;
                 default: ViewModel.SetStatus("No save action for this tab."); break;
             }
         }
 
         private void NewItem()
         {
-            switch (MainTabControl.SelectedIndex)
+            switch ((MainTabControl.SelectedItem as TabItem)?.Header as string)
             {
-                case 0: ViewModel.SpecimensVM.AddCommand.Execute(null); break;
-                case 1: ViewModel.PanelsVM.AddCommand.Execute(null); break;
-                case 6: ViewModel.RulesVM.AddCommand.Execute(null); break;
+                case "Specimens": ViewModel.SpecimensVM.AddCommand.Execute(null); break;
+                case "Panels": ViewModel.PanelsVM.AddCommand.Execute(null); break;
+                case "Rules": ViewModel.RulesVM.AddCommand.Execute(null); break;
                 default: ViewModel.SetStatus("No new item action for this tab."); break;
             }
+        }
+
+        private void ShowSettings()
+        {
+            var dlg = new Views.Dialogs.SettingsDialog { Owner = this };
+            if (dlg.ShowDialog() == true)
+                ViewModel.SetStatus("Preferences saved.");
         }
 
         private void ShowShortcuts()
@@ -74,28 +85,36 @@ namespace AntibodyPanels
                 "Ctrl+N     New item (context-aware)\n" +
                 "F1         Show this help\n\n" +
                 "Reaction Entry:\n" +
-                "  Select cell in grid and choose value from dropdown\n\n" +
+                "  0–4     write grade (0, 1+, 2+, 3+, 4+)\n" +
+                "  N       write NT\n" +
+                "  Enter   next phase, then next cell\n\n" +
                 "Panel Antigen Grid:\n" +
-                "  Select cell and choose + or - from dropdown\n" +
-                "  Click 'Save All Changes' to persist",
+                "  Press Edit to enter antigen edit mode\n" +
+                "  Click a cell, or press Enter / Space, to toggle + and −\n" +
+                "  Green = antigen present (+), light gray = antigen absent (−)\n" +
+                "  Save or Cancel to leave edit mode",
                 "Keyboard Shortcuts", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void LoadDemoData()
         {
             if (MessageBox.Show(
-                    "This will add 7 demo specimens and panels to the database.\n" +
+                    "This will add sample specimens, panels, and results if they are not already present.\n" +
                     "Existing data will not be removed. Continue?",
                     "Load Demo Data", MessageBoxButton.YesNo, MessageBoxImage.Question)
                 != MessageBoxResult.Yes) return;
 
             try
             {
+                ClinicalDataSeeder.SeedIfNeeded(ViewModel.Database, ViewModel.Analyzer);
                 DemoDataSeeder.Seed(ViewModel.Database);
                 ViewModel.RefreshAll();
-                ViewModel.SetStatus("Demo data loaded — 7 scenarios seeded.");
-                MessageBox.Show("7 demo scenarios loaded successfully.\n\n" +
-                    "Each scenario starts with 'DEMO-' in the Specimens list.",
+                ViewModel.SetStatus("Sample workload and demo scenarios loaded.");
+                MessageBox.Show(
+                    "Sample data loaded.\n\n" +
+                    "• 10 clinical specimens (2026-001 … 2026-010) on 5 shared panels\n" +
+                    "• Enzyme (ficin) and absorption runs mixed in\n" +
+                    "• 7 DEMO- scenarios for special-panel walkthroughs",
                     "Done", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (System.Exception ex)

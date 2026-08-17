@@ -71,6 +71,20 @@
                     ToolTip="Add a new special-panel run (enzyme, DTT, absorption, etc.)"/>
             <Button Grid.Column="3" Content="Delete Run" Command="{Binding DeleteRunCommand}"
                     Margin="0,0,4,0" Padding="6,2"/>
+            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,8,0">
+                <CheckBox Content="Compare" IsChecked="{Binding CompareMode}"
+                          VerticalAlignment="Center" Margin="0,0,8,0"
+                          ToolTip="Show another run's grades beside this one"/>
+                <ComboBox ItemsSource="{Binding CompareRunChoices}"
+                          SelectedItem="{Binding CompareRun}"
+                          DisplayMemberPath="DisplayLabel"
+                          Width="160"
+                          Visibility="{Binding ComparePanelVisibility}"
+                          ToolTip="Run to compare against"/>
+                <CheckBox Content="Hide ruled-out" IsChecked="{Binding HideRuledOutAntigenColumns}"
+                          VerticalAlignment="Center" Margin="12,0,0,0"
+                          ToolTip="Hide antigen columns already ruled out for this specimen"/>
+            </StackPanel>
             <Button Grid.Column="5" Content="Load Reactions" Command="{Binding LoadCommand}"
                     Margin="4,0,4,0" Padding="8,2"/>
             <Button Grid.Column="6" Content="Save &amp; Analyze" Command="{Binding SaveAnalyzeCommand}"
@@ -121,6 +135,12 @@
         </Border>
 
         <!-- Reaction DataGrid — antigen columns injected in code-behind -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
         <DataGrid x:Name="ReactionsGrid"
                   ItemsSource="{Binding Rows}"
                   AutoGenerateColumns="False"
@@ -128,7 +148,8 @@
                   GridLinesVisibility="All" HeadersVisibility="Column"
                   SelectionUnit="Cell" FontSize="12"
                   FrozenColumnCount="1"
-                  Loaded="ReactionsGrid_Loaded">
+                  Loaded="ReactionsGrid_Loaded"
+                  PreviewKeyDown="ReactionsGrid_PreviewKeyDown">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
@@ -158,5 +179,37 @@
                 <!-- Ruled Out column appended after antigens in code-behind -->
             </DataGrid.Columns>
         </DataGrid>
+            <TextBlock Grid.Row="1" Margin="0,4,0,2" Foreground="#546E7A" FontSize="11"
+                       Text="Keys: 0–4 = grade, N = NT, Enter = next phase. Colors: 1+ yellow, 2+ orange, 3+/4+ red. Pink CC = invalid when AHG is 0."/>
+            <DataGrid x:Name="CompareGrid" Grid.Row="2" Margin="0,4,0,0"
+                      ItemsSource="{Binding CompareRows}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      GridLinesVisibility="All" HeadersVisibility="Column"
+                      FontSize="12" MaxHeight="220"
+                      Visibility="{Binding ComparePanelVisibility}">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding AnyChanged}" Value="True">
+                                <Setter Property="Background" Value="#FFF8E1"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}" Width="48"/>
+                    <DataGridTextColumn Header="This IS" Binding="{Binding LeftIS}" Width="70"/>
+                    <DataGridTextColumn Header="Other IS" Binding="{Binding RightIS}" Width="70"/>
+                    <DataGridTextColumn Header="This 37°C" Binding="{Binding LeftC37}" Width="78"/>
+                    <DataGridTextColumn Header="Other 37°C" Binding="{Binding RightC37}" Width="78"/>
+                    <DataGridTextColumn Header="This AHG" Binding="{Binding LeftAHG}" Width="78"/>
+                    <DataGridTextColumn Header="Other AHG" Binding="{Binding RightAHG}" Width="78"/>
+                    <DataGridTextColumn Header="This CC" Binding="{Binding LeftCC}" Width="70"/>
+                    <DataGridTextColumn Header="Other CC" Binding="{Binding RightCC}" Width="70"/>
+                    <DataGridCheckBoxColumn Header="Changed" Binding="{Binding AnyChanged}" Width="70"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
     </DockPanel>
 </UserControl>

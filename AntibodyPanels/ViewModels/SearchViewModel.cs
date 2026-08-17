@@ -23,7 +23,7 @@ namespace AntibodyPanels.ViewModels
             _db = db;
             _main = main;
 
-            foreach (var ag in AntigenConstants.Antigens)
+            foreach (var ag in AntigenConstants.AllKnownAntigens)
                 Criteria.Add(new AntigenCriterionRow(ag));
 
             SearchCommand = new RelayCommand(RunSearch);
@@ -62,15 +62,36 @@ namespace AntibodyPanels.ViewModels
     {
         public string Antigen { get; }
         public static string[] Options => new[] { "Any", "+", "-" };
+        public ICommand CycleCommand { get; }
 
         private string _selected = "Any";
         public string Selected
         {
             get => _selected;
-            set => SetField(ref _selected, value);
+            set
+            {
+                if (SetField(ref _selected, value))
+                    OnPropertyChanged(nameof(ChipLabel));
+            }
         }
 
-        public AntigenCriterionRow(string antigen) => Antigen = antigen;
+        public string ChipLabel => Selected == "Any" ? Antigen : $"{Antigen} {Selected}";
+
+        public AntigenCriterionRow(string antigen)
+        {
+            Antigen = antigen;
+            CycleCommand = new RelayCommand(Cycle);
+        }
+
+        public void Cycle()
+        {
+            Selected = Selected switch
+            {
+                "Any" => "+",
+                "+" => "-",
+                _ => "Any"
+            };
+        }
     }
 
     public class SearchResultRow
@@ -108,6 +129,17 @@ namespace AntibodyPanels.ViewModels
         public string Lub { get; }
         public string Xga { get; }
         public string P1 { get; }
+        public string Doa { get; }
+        public string Dob { get; }
+        public string Dia { get; }
+        public string Dib { get; }
+        public string Wra { get; }
+        public string Wrb { get; }
+        public string Coa { get; }
+        public string Cob { get; }
+        public string Yta { get; }
+        public string Ytb { get; }
+        public string Vel { get; }
 
         public SearchResultRow(Panel panel, PanelCell cell)
         {
@@ -127,6 +159,15 @@ namespace AntibodyPanels.ViewModels
             S = cell.GetAntigen("S"); s = cell.GetAntigen("s");
             Lua = cell.GetAntigen("Lua"); Lub = cell.GetAntigen("Lub");
             Xga = cell.GetAntigen("Xga"); P1 = cell.GetAntigen("P1");
+            Doa = TypedOrBlank(cell, "Doa"); Dob = TypedOrBlank(cell, "Dob");
+            Dia = TypedOrBlank(cell, "Dia"); Dib = TypedOrBlank(cell, "Dib");
+            Wra = TypedOrBlank(cell, "Wra"); Wrb = TypedOrBlank(cell, "Wrb");
+            Coa = TypedOrBlank(cell, "Coa"); Cob = TypedOrBlank(cell, "Cob");
+            Yta = TypedOrBlank(cell, "Yta"); Ytb = TypedOrBlank(cell, "Ytb");
+            Vel = TypedOrBlank(cell, "Vel");
         }
+
+        private static string TypedOrBlank(PanelCell cell, string antigen) =>
+            cell.HasTypedAntigen(antigen) ? cell.GetAntigen(antigen) : "";
     }
 }

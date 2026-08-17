@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using AntibodyPanels.Models;
+using AntibodyPanels.Services;
 
 namespace AntibodyPanels.Views.Dialogs
 {
@@ -11,22 +12,31 @@ namespace AntibodyPanels.Views.Dialogs
         public string SpecimenType => TypeBox.SelectedItem?.ToString() ?? TypeBox.Text;
         public string? ExpirationDate => ExpirationPicker.SelectedDate?.ToString("yyyy-MM-dd");
         public bool ItemIsActive => ActiveCheck.IsChecked == true;
+        public string? Notes => string.IsNullOrWhiteSpace(NotesBox.Text) ? null : NotesBox.Text.Trim();
+        public string? Phenotype => string.IsNullOrWhiteSpace(PhenotypeBox.Text) ? null : PhenotypeBox.Text.Trim();
+        public string? PreviousAntibodies => string.IsNullOrWhiteSpace(PreviousAbsBox.Text) ? null : PreviousAbsBox.Text.Trim();
+        public string? DatResult => DatBox.SelectedItem?.ToString();
 
         public SpecimenDialog(Specimen? existing = null)
         {
             InitializeComponent();
 
             TypeBox.ItemsSource = AntigenConstants.SpecimenTypes;
+            DatBox.ItemsSource = AntigenConstants.DatResults;
 
             if (existing == null)
             {
                 Title = "Add Specimen";
-                TypeBox.SelectedIndex = 0;
+                var def = AppSettings.Current.DefaultSpecimenType;
+                int t = -1;
+                for (int i = 0; i < AntigenConstants.SpecimenTypes.Count; i++)
+                    if (AntigenConstants.SpecimenTypes[i] == def) { t = i; break; }
+                TypeBox.SelectedIndex = t >= 0 ? t : 0;
+                DatBox.SelectedIndex = 0;
                 ActiveCheck.IsChecked = true;
             }
             else
             {
-                // Editing an existing specimen — accession number is read-only
                 Title = "Edit Specimen";
                 AccessionBox.Text = existing.AccessionNumber;
                 AccessionBox.IsEnabled = false;
@@ -42,6 +52,14 @@ namespace AntibodyPanels.Views.Dialogs
                     ExpirationPicker.SelectedDate = d;
 
                 ActiveCheck.IsChecked = existing.IsActive;
+                PhenotypeBox.Text = existing.Phenotype ?? "";
+                PreviousAbsBox.Text = existing.PreviousAntibodies ?? "";
+                NotesBox.Text = existing.Notes ?? "";
+
+                int datIdx = 0;
+                for (int i = 0; i < AntigenConstants.DatResults.Count; i++)
+                    if (AntigenConstants.DatResults[i] == existing.DatResult) { datIdx = i; break; }
+                DatBox.SelectedIndex = datIdx;
             }
         }
 

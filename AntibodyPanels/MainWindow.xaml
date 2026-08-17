@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:AntibodyPanels.Views"
         Title="Antibody Panel Management System"
-        Height="800" Width="1200" MinWidth="900" MinHeight="600"
+        Height="800" Width="1280" MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen">
     <Window.InputBindings>
         <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCurrentCommand}"/>
@@ -23,6 +23,8 @@
                 <MenuItem Header="_New Item" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N"/>
             </MenuItem>
             <MenuItem Header="_Tools">
+                <MenuItem Header="_Preferences..." Command="{Binding ShowSettingsCommand}"/>
+                <Separator/>
                 <MenuItem Header="Load _Demo Data" Command="{Binding LoadDemoDataCommand}"
                           ToolTip="Seeds seven real-world scenarios for testing"/>
             </MenuItem>
@@ -41,7 +43,11 @@
         </StatusBar>
 
         <!-- Tab control -->
-        <TabControl x:Name="MainTabControl" SelectionChanged="TabControl_SelectionChanged">
+        <TabControl x:Name="MainTabControl" SelectedIndex="{Binding SelectedTabIndex}"
+                    SelectionChanged="TabControl_SelectionChanged">
+            <TabItem Header="Worklist">
+                <views:WorklistView DataContext="{Binding WorklistVM}"/>
+            </TabItem>
             <TabItem Header="Specimens">
                 <views:SpecimensView DataContext="{Binding SpecimensVM}"/>
             </TabItem>

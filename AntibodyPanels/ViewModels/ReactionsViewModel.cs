@@ -20,6 +20,7 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<Panel> Panels { get; } = new();
         public ObservableCollection<PanelRun> Runs { get; } = new();
         public ObservableCollection<ReactionRow> Rows { get; } = new();
+        public ObservableCollection<CompareReactionRow> CompareRows { get; } = new();
 
         private Specimen? _selectedSpecimen;
         public Specimen? SelectedSpecimen
@@ -42,7 +43,10 @@ namespace AntibodyPanels.ViewModels
             set
             {
                 if (SetField(ref _selectedPanel, value))
+                {
+                    RefreshExtraAntigens();
                     RefreshRuns();
+                }
             }
         }
 
@@ -50,7 +54,57 @@ namespace AntibodyPanels.ViewModels
         public PanelRun? SelectedRun
         {
             get => _selectedRun;
-            set => SetField(ref _selectedRun, value);
+            set
+            {
+                if (SetField(ref _selectedRun, value))
+                {
+                    UpdateTreatmentBanner();
+                    RefreshCompareRunChoices();
+                }
+            }
+        }
+
+        private bool _compareMode;
+        public bool CompareMode
+        {
+            get => _compareMode;
+            set
+            {
+                if (SetField(ref _compareMode, value))
+                {
+                    OnPropertyChanged(nameof(ComparePanelVisibility));
+                    RefreshCompareRunChoices();
+                    RebuildCompareRows();
+                }
+            }
+        }
+
+        public Visibility ComparePanelVisibility =>
+            CompareMode ? Visibility.Visible : Visibility.Collapsed;
+
+        private PanelRun? _compareRun;
+        public PanelRun? CompareRun
+        {
+            get => _compareRun;
+            set
+            {
+                if (SetField(ref _compareRun, value))
+                    RebuildCompareRows();
+            }
+        }
+
+        public ObservableCollection<PanelRun> CompareRunChoices { get; } = new();
+
+        public bool HideRuledOutAntigenColumns
+        {
+            get => AppSettings.Current.HideRuledOutAntigenColumns;
+            set
+            {
+                if (AppSettings.Current.HideRuledOutAntigenColumns == value) return;
+                AppSettings.Current.HideRuledOutAntigenColumns = value;
+                SettingsService.Save();
+                ApplyColumnVisibilitySettings();
+            }
         }
 
         private string _specimenFilter = string.Empty;
@@ -97,6 +151,13 @@ namespace AntibodyPanels.ViewModels
 
         public Visibility TreatmentBannerVisibility =>
             string.IsNullOrEmpty(_treatmentBannerText) ? Visibility.Collapsed : Visibility.Visible;
+
+        private IReadOnlyList<string> _extraAntigens = Array.Empty<string>();
+        public IReadOnlyList<string> ExtraAntigens
+        {
+            get => _extraAntigens;
+            private set => SetField(ref _extraAntigens, value);
+        }
 
         private string _saveStatusMessage = string.Empty;
         public string SaveStatusMessage
@@ -153,6 +214,18 @@ namespace AntibodyPanels.ViewModels
             RefreshSpecimens();
         }
 
+        public void ApplyColumnVisibilitySettings()
+        {
+            OnPropertyChanged(nameof(HideRuledOutAntigenColumns));
+            OnPropertyChanged(nameof(RuledOutAntigens));
+        }
+
+        public void SelectSpecimen(string accessionNumber)
+        {
+            SelectedSpecimen = Specimens.FirstOrDefault(x => x.AccessionNumber == accessionNumber)
+                ?? SelectedSpecimen;
+        }
+
         public void RefreshSpecimens()
         {
             var s = SelectedSpecimen?.AccessionNumber;
@@ -195,6 +268,47 @@ namespace AntibodyPanels.ViewModels
 
             SelectedRun = Runs.FirstOrDefault(r => r.RunId == rid) ?? Runs.FirstOrDefault();
             UpdateTreatmentBanner();
+            RefreshCompareRunChoices();
+        }
+
+        private void RefreshCompareRunChoices()
+        {
+            var keep = CompareRun?.RunId;
+            CompareRunChoices.Clear();
+            foreach (var r in Runs)
+            {
+                if (SelectedRun != null && r.RunId == SelectedRun.RunId) continue;
+                CompareRunChoices.Add(r);
+            }
+            CompareRun = CompareRunChoices.FirstOrDefault(r => r.RunId == keep)
+                ?? CompareRunChoices.FirstOrDefault();
+        }
+
+        private void RebuildCompareRows()
+        {
+            CompareRows.Clear();
+            if (!CompareMode || SelectedRun == null || CompareRun == null || Rows.Count == 0)
+                return;
+
+            var other = _db.GetReactions(CompareRun.RunId).ToDictionary(r => r.CellNumber);
+            foreach (var row in Rows)
+            {
+                other.TryGetValue(row.CellNumber, out var rxn);
+                CompareRows.Add(new CompareReactionRow
+                {
+                    CellNumber = row.CellNumber,
+                    LeftIS = row.IS,
+                    LeftC37 = row.C37,
+                    LeftAHG = row.AHG,
+                    LeftCC = row.CC,
+                    RightIS = rxn?.IS ?? "NT",
+                    RightC37 = rxn?.C37 ?? "NT",
+                    RightAHG = rxn?.AHG ?? "NT",
+                    RightCC = rxn?.CC ?? "NT",
+                    LeftLabel = SelectedRun.DisplayLabel,
+                    RightLabel = CompareRun.DisplayLabel,
+                });
+            }
         }
 
         private void UpdateTreatmentBanner()
@@ -209,7 +323,7 @@ namespace AntibodyPanels.ViewModels
 
             var parts = new List<string> { SelectedRun.DisplayLabel };
 
-            var destroyed = AntigenConstants.Antigens
+            var destroyed = VisibleAntigens
                 .Where(ag => AntigenTreatmentEffects.IsAntigenDestroyedOnCell(
                     SelectedRun.CellTreatment, ag))
                 .ToList();
@@ -247,16 +361,18 @@ namespace AntibodyPanels.ViewModels
                 // We need the run's treatment to gate rule-outs
                 var run = _db.GetPanelRun(runId);
                 if (run == null) continue;
-                var ctx = new RunContext(run);
+                var ctx = CreateRunContext(run);
 
                 var cellDict = _db.GetPanelCells(run.PanelId).ToDictionary(c => c.CellNumber);
+                var antigens = AntigenConstants.GetAnalyzedAntigens(ctx.ExtraAntigens);
                 foreach (var rxn in runRxns)
                 {
                     if (rxn.CellNumber == "AC" || !ctx.IsNegative(rxn)) continue;
                     if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
 
-                    foreach (var ag in AntigenConstants.Antigens)
+                    foreach (var ag in antigens)
                     {
+                        if (!ctx.TypesAntigen(ag)) continue;
                         if (cell.GetAntigen(ag) != "+") continue;
                         if (!ctx.CanContributeRuleout(ag, cell)) continue;
                         if (CanRuleOutAntigen(ag, cell, rules)) result.Add(ag);
@@ -270,6 +386,8 @@ namespace AntibodyPanels.ViewModels
         {
             if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
                 return true;
+            if (!cell.HasTypedAntigen(antithetical))
+                return false;
             if (cell.GetAntigen(antithetical) == "-") return true;
             return RuleAllowsHeterozygous(antigen, rules);
         }
@@ -286,6 +404,19 @@ namespace AntibodyPanels.ViewModels
             }
             return false;
         }
+
+        private void RefreshExtraAntigens()
+        {
+            ExtraAntigens = SelectedPanel == null
+                ? Array.Empty<string>()
+                : _db.GetPanelExtraAntigens(SelectedPanel.PanelId);
+        }
+
+        private IReadOnlyList<string> VisibleAntigens =>
+            AntigenConstants.GetAnalyzedAntigens(ExtraAntigens);
+
+        private RunContext CreateRunContext(PanelRun run) =>
+            new(run, _db.GetPanelExtraAntigens(run.PanelId));
 
         private void ApplySpecimenFilter() { }
 
@@ -310,7 +441,7 @@ namespace AntibodyPanels.ViewModels
             var reactions = _db.GetReactions(SelectedRun.RunId)
                 .ToDictionary(r => r.CellNumber);
             var rules = _db.GetAllRules();
-            var ctx = new RunContext(SelectedRun);
+            var ctx = CreateRunContext(SelectedRun);
 
             foreach (var cell in cells)
             {
@@ -320,6 +451,7 @@ namespace AntibodyPanels.ViewModels
 
             UpdateTreatmentBanner();
             RefreshRuledOutAntigens();
+            RebuildCompareRows();
             _main.SetStatus(
                 $"Loaded {Rows.Count} cells for {SelectedSpecimen.AccessionNumber} / " +
                 $"{SelectedRun.PanelName} ({SelectedRun.DisplayLabel})");
@@ -352,6 +484,8 @@ namespace AntibodyPanels.ViewModels
                           $"{result.RuledOut.Count} ruled out.";
                 _main.SetStatus(msg);
                 _main.SpecimensVM.Refresh();
+                _main.WorklistVM.Refresh();
+                RebuildCompareRows();
                 SetSaveStatus(true, msg);
             }
             catch (Exception ex)
@@ -370,6 +504,7 @@ namespace AntibodyPanels.ViewModels
             _db.DeleteReactions(SelectedRun.RunId);
             SaveStatusMessage = string.Empty;
             Rows.Clear();
+            CompareRows.Clear();
             RefreshRuledOutAntigens();
             _main.SetStatus("Reactions cleared.");
         }
@@ -380,15 +515,37 @@ namespace AntibodyPanels.ViewModels
             var dlg = new Views.Dialogs.PanelRunDialog { Owner = Application.Current.MainWindow };
             if (dlg.ShowDialog() != true) return;
 
+            var sourceRun = SelectedRun;
+            var inGridGrades = Rows.Select(r => (r.CellNumber, r.IS, r.C37, r.AHG, r.CC)).ToList();
+
             try
             {
                 var runId = _db.AddPanelRun(
                     SelectedSpecimen.AccessionNumber, SelectedPanel.PanelId,
                     dlg.SelectedCellTreatment, dlg.SelectedSerumTreatment,
                     dlg.RunLabel);
+
+                int copied = 0;
+                if (dlg.CopyGradesFromCurrentRun)
+                {
+                    if (inGridGrades.Count > 0)
+                    {
+                        foreach (var g in inGridGrades)
+                            _db.SaveReaction(runId, g.CellNumber, g.IS, g.C37, g.AHG, g.CC);
+                        copied = inGridGrades.Count;
+                    }
+                    else if (sourceRun != null)
+                    {
+                        copied = _db.CopyReactions(sourceRun.RunId, runId);
+                    }
+                }
+
                 RefreshRuns();
                 SelectedRun = Runs.FirstOrDefault(r => r.RunId == runId);
-                _main.SetStatus($"Added run: {SelectedRun?.DisplayLabel}");
+                LoadReactions();
+                _main.SetStatus(copied > 0
+                    ? $"Added run: {SelectedRun?.DisplayLabel} (copied {copied} cell grades)."
+                    : $"Added run: {SelectedRun?.DisplayLabel}");
             }
             catch (Exception ex)
             {
@@ -464,7 +621,8 @@ namespace AntibodyPanels.ViewModels
             {
                 if (!IsNegative) return string.Empty;
                 var list = new List<string>();
-                foreach (var ag in AntigenConstants.Antigens)
+                foreach (var ag in AntigenConstants.GetAnalyzedAntigens(
+                             _antigens.Keys.Where(AntigenConstants.IsWarehouse)))
                 {
                     if (!_antigens.TryGetValue(ag, out var v) || v != "+") continue;
                     // Skip antigens destroyed by the cell treatment
@@ -476,6 +634,9 @@ namespace AntibodyPanels.ViewModels
         }
 
         public bool HasRuleout => !string.IsNullOrEmpty(RuledOutNote);
+
+        public bool IsCcInvalid =>
+            AHG == "0" && (CC == "0" || CC == "NT" || string.IsNullOrEmpty(CC));
 
         public ReactionRow(PanelCell cell, Reaction? existing, IReadOnlyList<Rule> rules, RunContext ctx)
         {
@@ -494,17 +655,39 @@ namespace AntibodyPanels.ViewModels
             OnPropertyChanged(nameof(IsNegative));
             OnPropertyChanged(nameof(RuledOutNote));
             OnPropertyChanged(nameof(HasRuleout));
+            OnPropertyChanged(nameof(IsCcInvalid));
         }
 
         private bool CanRuleOut(string antigen)
         {
             if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
                 return true;
+            if (!_antigens.ContainsKey(antithetical))
+                return false;
             var antitheticalVal = _antigens.TryGetValue(antithetical, out var av) ? av : "-";
             if (antitheticalVal == "-") return true;
             return ReactionsViewModel.RuleAllowsHeterozygous(antigen, _rules);
         }
 
         private static bool IsNtOrZero(string v) => v == "NT" || v == "0" || string.IsNullOrEmpty(v);
+    }
+
+    public class CompareReactionRow
+    {
+        public string CellNumber { get; set; } = string.Empty;
+        public string LeftLabel { get; set; } = string.Empty;
+        public string RightLabel { get; set; } = string.Empty;
+        public string LeftIS { get; set; } = "NT";
+        public string LeftC37 { get; set; } = "NT";
+        public string LeftAHG { get; set; } = "NT";
+        public string LeftCC { get; set; } = "NT";
+        public string RightIS { get; set; } = "NT";
+        public string RightC37 { get; set; } = "NT";
+        public string RightAHG { get; set; } = "NT";
+        public string RightCC { get; set; } = "NT";
+
+        public bool AhgChanged => LeftAHG != RightAHG;
+        public bool AnyChanged =>
+            LeftIS != RightIS || LeftC37 != RightC37 || LeftAHG != RightAHG || LeftCC != RightCC;
     }
 }

@@ -1,8 +1,18 @@
 <UserControl x:Class="AntibodyPanels.Views.PanelsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:AntibodyPanels.Views">
+             xmlns:views="clr-namespace:AntibodyPanels.Views">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="AntigenPositiveBrush" Color="#C8E6C9"/>
+        <SolidColorBrush x:Key="AntigenNegativeBrush" Color="#F5F5F5"/>
+        <SolidColorBrush x:Key="AntigenCellTextBrush" Color="#424242"/>
+        <SolidColorBrush x:Key="AntigenSelectedBorderBrush" Color="#757575"/>
+    </UserControl.Resources>
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="340" MinWidth="200"/>
             <ColumnDefinition Width="5"/>
@@ -12,13 +22,26 @@
         <!-- Left: Panel List -->
         <DockPanel Grid.Column="0" Margin="6">
             <TextBlock DockPanel.Dock="Top" Text="Panels" FontWeight="Bold" FontSize="14" Margin="0,0,0,6"/>
-            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
-                <Button Content="Add" Command="{Binding AddCommand}" Width="60" Margin="0,0,4,0"/>
-                <Button Content="Edit" Command="{Binding EditCommand}" Width="60" Margin="0,0,4,0"/>
-                <Button Content="Copy" Command="{Binding CopyCommand}" Width="60" Margin="0,0,4,0"/>
-                <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,8,0"/>
-                <CheckBox Content="Show Inactive" IsChecked="{Binding ShowInactive}" VerticalAlignment="Center"/>
-            </StackPanel>
+            <WrapPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                <Button Content="Add" Command="{Binding AddCommand}" Width="60" Margin="0,0,4,4"/>
+                <Button Content="Edit" Command="{Binding EditCommand}" Width="60" Margin="0,0,4,4"/>
+                <Button Content="Details" Command="{Binding EditDetailsCommand}" Width="60" Margin="0,0,4,4"/>
+                <Button Content="Copy" Command="{Binding CopyCommand}" Width="60" Margin="0,0,4,4"/>
+                <Button Content="Import" Command="{Binding ImportCsvCommand}" Width="60" Margin="0,0,4,4"
+                        ToolTip="Create a panel from a CSV lot sheet (Cell, D, C, c, ...)"/>
+                <Button Content="Export" Command="{Binding ExportCsvCommand}" Width="60" Margin="0,0,4,4"
+                        ToolTip="Export the selected panel antigen grid as CSV"/>
+                <Button Content="Antigram" Command="{Binding PrintAntigramCommand}" Width="70" Margin="0,0,4,4"
+                        ToolTip="Save a bench-copy PDF of this panel's antigen grid"/>
+                <Button Content="Add antigen…" Command="{Binding AddExtraAntigenCommand}" Width="100" Margin="0,0,4,4"
+                        ToolTip="Add a non-standard antigen (Doa, Dob, Dia, …) to this panel only"/>
+                <Button Content="Remove antigen…" Command="{Binding RemoveExtraAntigenCommand}" Width="120" Margin="0,0,4,4"
+                        ToolTip="Remove a non-standard antigen column from this panel"/>
+                <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,8,4"/>
+                <CheckBox Content="Show Inactive" IsChecked="{Binding ShowInactive}"
+                          IsEnabled="{Binding IsEditingAntigens, Converter={x:Static views:InverseBoolConverter.Instance}}"
+                          VerticalAlignment="Center" Margin="0,0,0,4"/>
+            </WrapPanel>
             <DataGrid ItemsSource="{Binding Panels}"
                       SelectedItem="{Binding SelectedPanel}"
                       AutoGenerateColumns="False" IsReadOnly="True"
@@ -43,53 +66,37 @@
                     <Run Text="Antigen Grid: "/>
                     <Run Text="{Binding SelectedPanel.Name}"/>
                 </TextBlock>
-                <Button Content="Save All Changes" Command="{Binding SaveCellsCommand}"
-                        HorizontalAlignment="Right" Padding="8,2"/>
             </DockPanel>
+            <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Foreground="#546E7A" FontSize="12"
+                       Text="Press Edit to change antigens. Green = +, light gray = −. Save or Cancel to leave edit mode."/>
 
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <DataGrid x:Name="AntigenGrid"
                           ItemsSource="{Binding CellRows}"
                           AutoGenerateColumns="False"
+                          IsReadOnly="True"
                           GridLinesVisibility="All"
                           HeadersVisibility="Column"
                           CanUserAddRows="False"
                           CanUserDeleteRows="False"
                           SelectionUnit="Cell"
-                          FontSize="13">
+                          FontSize="13"
+                          Loaded="AntigenGrid_Loaded"
+                          PreviewMouseLeftButtonDown="AntigenGrid_PreviewMouseLeftButtonDown"
+                          PreviewKeyDown="AntigenGrid_PreviewKeyDown">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}" Width="50" IsReadOnly="True"/>
-                        <DataGridComboBoxColumn Header="D"   SelectedItemBinding="{Binding D,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="C"   SelectedItemBinding="{Binding C,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="c"   SelectedItemBinding="{Binding c,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="E"   SelectedItemBinding="{Binding E,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="e"   SelectedItemBinding="{Binding e,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="f"   SelectedItemBinding="{Binding f,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="Cw"  SelectedItemBinding="{Binding Cw,  UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="V"   SelectedItemBinding="{Binding V,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="K"   SelectedItemBinding="{Binding K,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="k"   SelectedItemBinding="{Binding k,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="Kpa" SelectedItemBinding="{Binding Kpa, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Kpb" SelectedItemBinding="{Binding Kpb, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Jsa" SelectedItemBinding="{Binding Jsa, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Jsb" SelectedItemBinding="{Binding Jsb, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Jka" SelectedItemBinding="{Binding Jka, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Jkb" SelectedItemBinding="{Binding Jkb, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Fya" SelectedItemBinding="{Binding Fya, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Fyb" SelectedItemBinding="{Binding Fyb, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Lea" SelectedItemBinding="{Binding Lea, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Leb" SelectedItemBinding="{Binding Leb, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="M"   SelectedItemBinding="{Binding M,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="N"   SelectedItemBinding="{Binding N,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="S"   SelectedItemBinding="{Binding S,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="s"   SelectedItemBinding="{Binding s,   UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
-                        <DataGridComboBoxColumn Header="Lua" SelectedItemBinding="{Binding Lua, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Lub" SelectedItemBinding="{Binding Lub, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="Xga" SelectedItemBinding="{Binding Xga, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="45"/>
-                        <DataGridComboBoxColumn Header="P1"  SelectedItemBinding="{Binding P1,  UpdateSourceTrigger=PropertyChanged}" ItemsSource="{x:Static local:PanelsView.AntigenValues}" Width="40"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </ScrollViewer>
         </DockPanel>
+
+        <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="6,0,6,6">
+            <Button Content="Save" Command="{Binding SaveCellsCommand}" Padding="12,4" Margin="0,0,8,0" MinWidth="80"
+                    Visibility="{Binding IsEditingAntigens, Converter={x:Static views:BoolToVisibilityConverter.Instance}}"/>
+            <Button Content="Cancel" Command="{Binding CancelEditCommand}" Padding="12,4" MinWidth="80"
+                    Visibility="{Binding IsEditingAntigens, Converter={x:Static views:BoolToVisibilityConverter.Instance}}"/>
+        </StackPanel>
     </Grid>
 </UserControl>

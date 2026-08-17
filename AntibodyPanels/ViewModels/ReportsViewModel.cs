@@ -24,7 +24,9 @@ namespace AntibodyPanels.ViewModels
             "Panel Summary",
             "Analysis Results",
             "All Specimens",
-            "All Panels"
+            "All Panels",
+            "Clinical Identification",
+            "Panel Antigram"
         };
 
         private string _selectedReportType = "All Specimens";
@@ -56,9 +58,9 @@ namespace AntibodyPanels.ViewModels
         }
 
         public bool NeedsSpecimen => SelectedReportType is
-            "Specimen Summary" or "Analysis Results";
+            "Specimen Summary" or "Analysis Results" or "Clinical Identification";
 
-        public bool NeedsPanel => SelectedReportType == "Panel Summary";
+        public bool NeedsPanel => SelectedReportType is "Panel Summary" or "Panel Antigram";
 
         public ICommand ExportCsvCommand { get; }
         public ICommand ExportPdfCommand { get; }
@@ -104,6 +106,8 @@ namespace AntibodyPanels.ViewModels
             "Specimen Summary" => ReportType.SpecimenSummary,
             "Panel Summary" => ReportType.PanelSummary,
             "Analysis Results" => ReportType.AnalysisResults,
+            "Clinical Identification" => ReportType.ClinicalIdentification,
+            "Panel Antigram" => ReportType.PanelAntigram,
             "All Panels" => ReportType.AllPanels,
             _ => ReportType.AllSpecimens
         };

@@ -16,15 +16,31 @@ namespace AntibodyPanels.Services
 
         private readonly HashSet<string> _nonInterpretablePhases;
         private readonly IReadOnlyList<string> _absorbedAntibodies;
+        private readonly HashSet<string> _extraAntigens;
 
-        public RunContext(PanelRun run)
+        public RunContext(PanelRun run, IEnumerable<string>? extraAntigens = null)
         {
             Run = run;
             _nonInterpretablePhases = new HashSet<string>(
                 AntigenTreatmentEffects.GetNonInterpretablePhases(run.SerumTreatment),
                 StringComparer.OrdinalIgnoreCase);
             _absorbedAntibodies = AntigenTreatmentEffects.GetAbsorbedAntibodies(run.SerumTreatment);
+            _extraAntigens = extraAntigens != null
+                ? new HashSet<string>(extraAntigens, StringComparer.Ordinal)
+                : new HashSet<string>(StringComparer.Ordinal);
         }
+
+        /// <summary>
+        /// Warehouse antigens typed on this run's panel.
+        /// </summary>
+        public IReadOnlyCollection<string> ExtraAntigens => _extraAntigens;
+
+        /// <summary>
+        /// Standard antigens are always typed. Warehouse antigens are typed only
+        /// when they have been added to this panel.
+        /// </summary>
+        public bool TypesAntigen(string antigen) =>
+            AntigenConstants.IsStandard(antigen) || _extraAntigens.Contains(antigen);
 
         // ── Antigen queries ───────────────────────────────────────────────────
 

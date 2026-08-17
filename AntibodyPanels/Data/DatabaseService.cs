@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Microsoft.Data.Sqlite;
 using AntibodyPanels.Models;
 
@@ -24,6 +25,9 @@ namespace AntibodyPanels.Data
             MigratePanelStartCell();
             MigrateActiveFlag();
             MigrateReactionsToRuns();
+            MigrateSpecimenClinical();
+            MigrateSpecimenFinalCall();
+            MigrateWarehouseAntigens();
             DeactivateExpiredSpecimens();
             DeactivateExpiredPanels();
         }
@@ -186,6 +190,56 @@ namespace AntibodyPanels.Data
                 ExecNonQuery("ALTER TABLE panels ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
         }
 
+        private void MigrateSpecimenClinical()
+        {
+            var cols = GetColumnNames("specimens");
+            if (!cols.Contains("notes"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN notes TEXT");
+            if (!cols.Contains("phenotype"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN phenotype TEXT");
+            if (!cols.Contains("previous_antibodies"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN previous_antibodies TEXT");
+            if (!cols.Contains("dat_result"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN dat_result TEXT");
+        }
+
+        private void MigrateSpecimenFinalCall()
+        {
+            var cols = GetColumnNames("specimens");
+            if (!cols.Contains("final_antibodies"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN final_antibodies TEXT");
+            if (!cols.Contains("final_comment"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN final_comment TEXT");
+            if (!cols.Contains("identified_by"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN identified_by TEXT");
+            if (!cols.Contains("identified_at"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN identified_at TEXT");
+        }
+
+        /// <summary>
+        /// Warehouse antigens are stored per-panel rather than as wide columns so
+        /// existing panels are not silently typed as antigen-negative.
+        /// </summary>
+        private void MigrateWarehouseAntigens()
+        {
+            ExecNonQuery(@"
+                CREATE TABLE IF NOT EXISTS panel_extra_antigens (
+                    panel_id INTEGER NOT NULL,
+                    antigen_name TEXT NOT NULL,
+                    PRIMARY KEY (panel_id, antigen_name),
+                    FOREIGN KEY (panel_id) REFERENCES panels(panel_id) ON DELETE CASCADE
+                )");
+
+            ExecNonQuery(@"
+                CREATE TABLE IF NOT EXISTS panel_cell_extra_antigens (
+                    cell_id INTEGER NOT NULL,
+                    antigen_name TEXT NOT NULL,
+                    value TEXT NOT NULL DEFAULT '-',
+                    PRIMARY KEY (cell_id, antigen_name),
+                    FOREIGN KEY (cell_id) REFERENCES panel_cells(id) ON DELETE CASCADE
+                )");
+        }
+
         private void DeactivateExpiredSpecimens()
         {
             var today = DateTime.Now.ToString("yyyy-MM-dd");
@@ -283,19 +337,25 @@ namespace AntibodyPanels.Data
 
         // ── Specimens ────────────────────────────────────────────────────────
 
-        public void AddSpecimen(string accessionNumber, string type = "serum", string? expirationDate = null, bool? isActive = null)
+        public void AddSpecimen(string accessionNumber, string type = "serum", string? expirationDate = null, bool? isActive = null,
+            string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null)
         {
             var today = DateTime.Now.ToString("yyyy-MM-dd");
             bool active = isActive ?? (expirationDate == null || string.Compare(expirationDate, today) >= 0);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                INSERT INTO specimens (accession_number, type, expiration_date, created_date, is_active)
-                VALUES ($acc, $type, $exp, $created, $active)";
+                INSERT INTO specimens (accession_number, type, expiration_date, created_date, is_active,
+                    notes, phenotype, previous_antibodies, dat_result)
+                VALUES ($acc, $type, $exp, $created, $active, $notes, $pheno, $prev, $dat)";
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.Parameters.AddWithValue("$type", type);
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$created", today);
             cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
+            cmd.Parameters.AddWithValue("$notes", (object?)notes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pheno", (object?)phenotype ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$prev", (object?)previousAntibodies ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$dat", (object?)datResult ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
 
@@ -328,15 +388,21 @@ namespace AntibodyPanels.Data
             return list;
         }
 
-        public void UpdateSpecimen(string accessionNumber, string type, string? expirationDate, bool isActive = true)
+        public void UpdateSpecimen(string accessionNumber, string type, string? expirationDate, bool isActive = true,
+            string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                UPDATE specimens SET type = $type, expiration_date = $exp, is_active = $active
+                UPDATE specimens SET type = $type, expiration_date = $exp, is_active = $active,
+                    notes = $notes, phenotype = $pheno, previous_antibodies = $prev, dat_result = $dat
                 WHERE accession_number = $acc";
             cmd.Parameters.AddWithValue("$type", type);
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$active", isActive ? 1 : 0);
+            cmd.Parameters.AddWithValue("$notes", (object?)notes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pheno", (object?)phenotype ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$prev", (object?)previousAntibodies ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$dat", (object?)datResult ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.ExecuteNonQuery();
         }
@@ -349,6 +415,30 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.ExecuteNonQuery();
         }
+
+        public void SetSpecimenFinalCall(string accessionNumber,
+            string? antibodies, string? comment, string? identifiedBy)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE specimens SET
+                    final_antibodies = $ab,
+                    final_comment = $comment,
+                    identified_by = $by,
+                    identified_at = $at
+                WHERE accession_number = $acc";
+            cmd.Parameters.AddWithValue("$ab", (object?)antibodies ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$comment", (object?)comment ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$by", (object?)identifiedBy ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$at", antibodies == null
+                ? DBNull.Value
+                : DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
+            cmd.Parameters.AddWithValue("$acc", accessionNumber);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void ClearSpecimenFinalCall(string accessionNumber) =>
+            SetSpecimenFinalCall(accessionNumber, null, null, null);
 
         public void DeleteSpecimen(string accessionNumber)
         {
@@ -602,13 +692,23 @@ namespace AntibodyPanels.Data
         {
             var cols = string.Join(", ", AntigenMapper.AllColumns);
             var vals = string.Join(", ", GetAllAntigenColumns(_ => "'-'"));
-            using var cmd = _conn.CreateCommand();
-            cmd.CommandText = $@"
-                INSERT INTO panel_cells (panel_id, cell_number, {cols})
-                VALUES ($pid, $cn, {vals})";
-            cmd.Parameters.AddWithValue("$pid", panelId);
-            cmd.Parameters.AddWithValue("$cn", cellNumber);
-            cmd.ExecuteNonQuery();
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = $@"
+                    INSERT INTO panel_cells (panel_id, cell_number, {cols})
+                    VALUES ($pid, $cn, {vals})";
+                cmd.Parameters.AddWithValue("$pid", panelId);
+                cmd.Parameters.AddWithValue("$cn", cellNumber);
+                cmd.ExecuteNonQuery();
+            }
+
+            long cellId;
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT last_insert_rowid()";
+                cellId = (long)(cmd.ExecuteScalar() ?? 0L);
+            }
+            SeedExtraAntigensForCell(panelId, (int)cellId);
         }
 
         public List<PanelCell> GetPanelCells(int panelId)
@@ -622,11 +722,18 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$id", panelId);
             using var r = cmd.ExecuteReader();
             while (r.Read()) list.Add(ReadPanelCell(r));
+            AttachExtraAntigens(list);
             return list;
         }
 
         public void UpdatePanelCellAntigen(int cellId, string antigen, string value)
         {
+            if (AntigenConstants.IsWarehouse(antigen))
+            {
+                UpsertExtraCellAntigen(cellId, antigen, value);
+                return;
+            }
+
             var col = AntigenMapper.GetColumn(antigen);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = $"UPDATE panel_cells SET {col} = $val WHERE id = $id";
@@ -639,6 +746,11 @@ namespace AntibodyPanels.Data
         {
             foreach (var ag in AntigenConstants.Antigens)
                 UpdatePanelCellAntigen(cell.Id, ag, cell.GetAntigen(ag));
+            foreach (var ag in AntigenConstants.WarehouseAntigens)
+            {
+                if (!cell.HasTypedAntigen(ag)) continue;
+                UpdatePanelCellAntigen(cell.Id, ag, cell.GetAntigen(ag));
+            }
         }
 
         public void DeletePanelCells(int panelId)
@@ -649,17 +761,215 @@ namespace AntibodyPanels.Data
             cmd.ExecuteNonQuery();
         }
 
+        public void ReplacePanelCells(int panelId, IReadOnlyList<PanelCell> cells)
+        {
+            DeletePanelCells(panelId);
+            int numeric = 0;
+            bool includeAc = false;
+            int startCell = 1;
+            bool startSet = false;
+            foreach (var imported in cells)
+            {
+                AddPanelCell(panelId, imported.CellNumber);
+                if (string.Equals(imported.CellNumber, "AC", StringComparison.OrdinalIgnoreCase))
+                {
+                    includeAc = true;
+                    continue;
+                }
+                numeric++;
+                if (int.TryParse(imported.CellNumber, out var n) && !startSet)
+                {
+                    startCell = n;
+                    startSet = true;
+                }
+            }
+
+            var created = GetPanelCells(panelId).ToDictionary(c => c.CellNumber, StringComparer.OrdinalIgnoreCase);
+            var extrasOnImport = cells
+                .SelectMany(c => c.Antigens.Keys)
+                .Where(AntigenConstants.IsWarehouse)
+                .Distinct()
+                .ToList();
+            foreach (var ag in extrasOnImport)
+                AddPanelExtraAntigen(panelId, ag);
+
+            foreach (var imported in cells)
+            {
+                if (!created.TryGetValue(imported.CellNumber, out var cell)) continue;
+                foreach (var ag in AntigenConstants.Antigens)
+                    cell.SetAntigen(ag, imported.GetAntigen(ag));
+                foreach (var ag in extrasOnImport)
+                    cell.SetAntigen(ag, imported.GetAntigen(ag));
+                UpdatePanelCell(cell);
+            }
+
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE panels SET num_cells = $num, include_ac = $ac, start_cell = $sc
+                WHERE panel_id = $id";
+            cmd.Parameters.AddWithValue("$num", numeric);
+            cmd.Parameters.AddWithValue("$ac", includeAc ? 1 : 0);
+            cmd.Parameters.AddWithValue("$sc", startCell);
+            cmd.Parameters.AddWithValue("$id", panelId);
+            cmd.ExecuteNonQuery();
+        }
+
         public void CopyPanelCells(int sourcePanelId, int targetPanelId)
         {
             DeletePanelCells(targetPanelId);
             var agCols = string.Join(", ", AntigenMapper.AllColumns);
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = $@"
+                    INSERT INTO panel_cells (panel_id, cell_number, {agCols})
+                    SELECT {targetPanelId}, cell_number, {agCols}
+                    FROM panel_cells WHERE panel_id = $src";
+                cmd.Parameters.AddWithValue("$src", sourcePanelId);
+                cmd.ExecuteNonQuery();
+            }
+
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    DELETE FROM panel_extra_antigens WHERE panel_id = $tgt;
+                    INSERT INTO panel_extra_antigens (panel_id, antigen_name)
+                    SELECT $tgt, antigen_name FROM panel_extra_antigens WHERE panel_id = $src";
+                cmd.Parameters.AddWithValue("$tgt", targetPanelId);
+                cmd.Parameters.AddWithValue("$src", sourcePanelId);
+                cmd.ExecuteNonQuery();
+            }
+
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    INSERT INTO panel_cell_extra_antigens (cell_id, antigen_name, value)
+                    SELECT t.id, x.antigen_name, x.value
+                    FROM panel_cell_extra_antigens x
+                    JOIN panel_cells s ON s.id = x.cell_id AND s.panel_id = $src
+                    JOIN panel_cells t ON t.panel_id = $tgt AND t.cell_number = s.cell_number";
+                cmd.Parameters.AddWithValue("$src", sourcePanelId);
+                cmd.Parameters.AddWithValue("$tgt", targetPanelId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        // ── Warehouse / extra antigens ────────────────────────────────────────
+
+        public List<string> GetPanelExtraAntigens(int panelId)
+        {
+            var assigned = new HashSet<string>(StringComparer.Ordinal);
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT antigen_name FROM panel_extra_antigens WHERE panel_id = $id";
+            cmd.Parameters.AddWithValue("$id", panelId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) assigned.Add(r.GetString(0));
+            return AntigenConstants.WarehouseAntigens.Where(assigned.Contains).ToList();
+        }
+
+        public List<string> GetExtraAntigensForPanels(IEnumerable<int> panelIds)
+        {
+            var ids = panelIds.Distinct().ToList();
+            if (ids.Count == 0) return new();
+            var assigned = new HashSet<string>(StringComparer.Ordinal);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = $@"
-                INSERT INTO panel_cells (panel_id, cell_number, {agCols})
-                SELECT {targetPanelId}, cell_number, {agCols}
-                FROM panel_cells WHERE panel_id = $src";
-            cmd.Parameters.AddWithValue("$src", sourcePanelId);
+                SELECT DISTINCT antigen_name FROM panel_extra_antigens
+                WHERE panel_id IN ({string.Join(",", ids)})";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) assigned.Add(r.GetString(0));
+            return AntigenConstants.WarehouseAntigens.Where(assigned.Contains).ToList();
+        }
+
+        public bool PanelHasExtraAntigen(int panelId, string antigen)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT 1 FROM panel_extra_antigens
+                WHERE panel_id = $id AND antigen_name = $ag LIMIT 1";
+            cmd.Parameters.AddWithValue("$id", panelId);
+            cmd.Parameters.AddWithValue("$ag", antigen);
+            return cmd.ExecuteScalar() != null;
+        }
+
+        public void AddPanelExtraAntigen(int panelId, string antigen)
+        {
+            if (!AntigenConstants.IsWarehouse(antigen)) return;
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    INSERT OR IGNORE INTO panel_extra_antigens (panel_id, antigen_name)
+                    VALUES ($pid, $ag)";
+                cmd.Parameters.AddWithValue("$pid", panelId);
+                cmd.Parameters.AddWithValue("$ag", antigen);
+                cmd.ExecuteNonQuery();
+            }
+
+            foreach (var cell in GetPanelCells(panelId))
+            {
+                if (cell.HasTypedAntigen(antigen)) continue;
+                UpsertExtraCellAntigen(cell.Id, antigen, "-");
+            }
+        }
+
+        public void RemovePanelExtraAntigen(int panelId, string antigen)
+        {
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    DELETE FROM panel_cell_extra_antigens
+                    WHERE antigen_name = $ag
+                      AND cell_id IN (SELECT id FROM panel_cells WHERE panel_id = $pid)";
+                cmd.Parameters.AddWithValue("$ag", antigen);
+                cmd.Parameters.AddWithValue("$pid", panelId);
+                cmd.ExecuteNonQuery();
+            }
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    DELETE FROM panel_extra_antigens
+                    WHERE panel_id = $pid AND antigen_name = $ag";
+                cmd.Parameters.AddWithValue("$pid", panelId);
+                cmd.Parameters.AddWithValue("$ag", antigen);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void SeedExtraAntigensForCell(int panelId, int cellId)
+        {
+            foreach (var ag in GetPanelExtraAntigens(panelId))
+                UpsertExtraCellAntigen(cellId, ag, "-");
+        }
+
+        private void UpsertExtraCellAntigen(int cellId, string antigen, string value)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO panel_cell_extra_antigens (cell_id, antigen_name, value)
+                VALUES ($id, $ag, $val)
+                ON CONFLICT(cell_id, antigen_name) DO UPDATE SET value = $val";
+            cmd.Parameters.AddWithValue("$id", cellId);
+            cmd.Parameters.AddWithValue("$ag", antigen);
+            cmd.Parameters.AddWithValue("$val", value);
             cmd.ExecuteNonQuery();
+        }
+
+        private void AttachExtraAntigens(IReadOnlyList<PanelCell> cells)
+        {
+            if (cells.Count == 0) return;
+            var byId = cells.ToDictionary(c => c.Id);
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $@"
+                SELECT cell_id, antigen_name, value
+                FROM panel_cell_extra_antigens
+                WHERE cell_id IN ({string.Join(",", byId.Keys)})";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var cellId = r.GetInt32(0);
+                if (!byId.TryGetValue(cellId, out var cell)) continue;
+                cell.Antigens[r.GetString(1)] = r.GetString(2);
+            }
         }
 
         // ── Specimen-Panel Linking ─────────────────────────────────────────────
@@ -805,6 +1115,14 @@ namespace AntibodyPanels.Data
             cmd.ExecuteNonQuery();
         }
 
+        public int CopyReactions(int sourceRunId, int targetRunId)
+        {
+            var source = GetReactions(sourceRunId);
+            foreach (var rxn in source)
+                SaveReaction(targetRunId, rxn.CellNumber, rxn.IS, rxn.C37, rxn.AHG, rxn.CC);
+            return source.Count;
+        }
+
         // ── Reactions ─────────────────────────────────────────────────────────
 
         /// <summary>Primary overload: saves a reaction for a specific run.</summary>
@@ -924,6 +1242,133 @@ namespace AntibodyPanels.Data
             cmd.ExecuteNonQuery();
         }
 
+        // ── Worklist ──────────────────────────────────────────────────────────
+
+        public List<WorklistItem> GetWorklistItems(int expirationWarningDays = 14)
+        {
+            var items = new List<WorklistItem>();
+            var today = DateTime.Now.Date;
+            var horizon = today.AddDays(expirationWarningDays).ToString("yyyy-MM-dd");
+            var todayStr = today.ToString("yyyy-MM-dd");
+
+            foreach (var s in GetAllSpecimens().Where(s => s.IsActive))
+            {
+                var panels = GetSpecimenPanels(s.AccessionNumber);
+                if (panels.Count == 0)
+                {
+                    items.Add(new WorklistItem
+                    {
+                        Kind = WorklistKind.IncompleteReactions,
+                        KindLabel = "Incomplete",
+                        Title = s.AccessionNumber,
+                        Detail = "No panel attached.",
+                        AccessionNumber = s.AccessionNumber,
+                        TargetTab = "Specimens"
+                    });
+                }
+                else
+                {
+                    bool incomplete = false;
+                    var missing = new List<string>();
+                    foreach (var p in panels)
+                    {
+                        var runs = GetPanelRuns(s.AccessionNumber, p.PanelId);
+                        var run = runs.FirstOrDefault(r => r.IsUntreated) ?? runs.FirstOrDefault();
+                        if (run == null)
+                        {
+                            incomplete = true;
+                            missing.Add(p.Name);
+                            continue;
+                        }
+                        var cells = GetPanelCells(p.PanelId);
+                        var rxns = GetReactions(run.RunId).ToDictionary(r => r.CellNumber);
+                        int entered = 0;
+                        foreach (var cell in cells)
+                        {
+                            if (!rxns.TryGetValue(cell.CellNumber, out var rxn)) continue;
+                            if (HasEnteredGrade(rxn)) entered++;
+                        }
+                        if (entered == 0 || entered < cells.Count)
+                        {
+                            incomplete = true;
+                            missing.Add($"{p.Name} ({entered}/{cells.Count})");
+                        }
+                    }
+                    if (incomplete)
+                    {
+                        items.Add(new WorklistItem
+                        {
+                            Kind = WorklistKind.IncompleteReactions,
+                            KindLabel = "Incomplete",
+                            Title = s.AccessionNumber,
+                            Detail = "Reactions not finished: " + string.Join("; ", missing),
+                            AccessionNumber = s.AccessionNumber,
+                            TargetTab = "Reactions"
+                        });
+                    }
+                }
+
+                if (s.IsAnalysisStale || (s.LastAnalyzedAt == null && panels.Count > 0))
+                {
+                    items.Add(new WorklistItem
+                    {
+                        Kind = WorklistKind.StaleAnalysis,
+                        KindLabel = "Stale analysis",
+                        Title = s.AccessionNumber,
+                        Detail = s.LastAnalyzedAt == null
+                            ? "Never analyzed."
+                            : "Reactions changed since last analysis.",
+                        AccessionNumber = s.AccessionNumber,
+                        TargetTab = "Analysis"
+                    });
+                }
+
+                if (s.ExpirationDate != null &&
+                    string.Compare(s.ExpirationDate, todayStr, StringComparison.Ordinal) >= 0 &&
+                    string.Compare(s.ExpirationDate, horizon, StringComparison.Ordinal) <= 0)
+                {
+                    items.Add(new WorklistItem
+                    {
+                        Kind = WorklistKind.ExpiringSpecimen,
+                        KindLabel = "Expiring specimen",
+                        Title = s.AccessionNumber,
+                        Detail = $"Expires {s.ExpirationDate}.",
+                        AccessionNumber = s.AccessionNumber,
+                        TargetTab = "Specimens"
+                    });
+                }
+            }
+
+            foreach (var p in GetAllPanels().Where(p => p.IsActive))
+            {
+                if (p.ExpirationDate == null) continue;
+                if (string.Compare(p.ExpirationDate, todayStr, StringComparison.Ordinal) >= 0 &&
+                    string.Compare(p.ExpirationDate, horizon, StringComparison.Ordinal) <= 0)
+                {
+                    items.Add(new WorklistItem
+                    {
+                        Kind = WorklistKind.ExpiringPanel,
+                        KindLabel = "Expiring panel",
+                        Title = p.Name,
+                        Detail = $"Lot {p.LotNumber ?? "N/A"} expires {p.ExpirationDate}.",
+                        PanelId = p.PanelId,
+                        TargetTab = "Panels"
+                    });
+                }
+            }
+
+            return items
+                .OrderBy(i => i.Kind)
+                .ThenBy(i => i.Title)
+                .ToList();
+        }
+
+        private static bool HasEnteredGrade(Reaction rxn) =>
+            IsEntered(rxn.IS) || IsEntered(rxn.C37) || IsEntered(rxn.AHG);
+
+        private static bool IsEntered(string v) =>
+            !string.IsNullOrEmpty(v) && v != "NT";
+
         // ── Rules ─────────────────────────────────────────────────────────────
 
         public int AddRule(string name, string? description, string antibody,
@@ -986,13 +1431,31 @@ namespace AntibodyPanels.Data
             Dictionary<string, string> antigenCriteria)
         {
             var whereClauses = new List<string>();
+            int param = 0;
+            var parameters = new List<(string name, string value)>();
+
             foreach (var kvp in antigenCriteria)
             {
-                if (AntigenConstants.Antigens.Contains(kvp.Key) &&
-                    (kvp.Value == "+" || kvp.Value == "-"))
+                if (kvp.Value != "+" && kvp.Value != "-") continue;
+                var pName = $"$v{param++}";
+                parameters.Add((pName, kvp.Value));
+
+                if (AntigenConstants.IsStandard(kvp.Key))
                 {
                     var col = AntigenMapper.GetColumn(kvp.Key);
-                    whereClauses.Add($"pc.{col} = '{kvp.Value}'");
+                    whereClauses.Add($"pc.{col} = {pName}");
+                }
+                else if (AntigenConstants.IsWarehouse(kvp.Key))
+                {
+                    var agName = $"$ag{param++}";
+                    parameters.Add((agName, kvp.Key));
+                    whereClauses.Add($@"
+                        EXISTS (
+                            SELECT 1 FROM panel_cell_extra_antigens x
+                            WHERE x.cell_id = pc.id
+                              AND x.antigen_name = {agName}
+                              AND x.value = {pName}
+                        )");
                 }
             }
             if (whereClauses.Count == 0) return new();
@@ -1005,21 +1468,28 @@ namespace AntibodyPanels.Data
                 JOIN panels p ON pc.panel_id = p.panel_id
                 WHERE {where}
                 ORDER BY p.name, pc.cell_number";
+            foreach (var (name, value) in parameters)
+                cmd.Parameters.AddWithValue(name, value);
 
             var results = new List<(Panel, PanelCell)>();
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
+            var cells = new List<PanelCell>();
+            using (var r = cmd.ExecuteReader())
             {
-                var panel = new Panel
+                while (r.Read())
                 {
-                    PanelId = r.GetInt32(r.GetOrdinal("panel_id")),
-                    Name = r.GetString(r.GetOrdinal("name")),
-                    LotNumber = r.IsDBNull(r.GetOrdinal("lot_number")) ? null : r.GetString(r.GetOrdinal("lot_number")),
-                    Vendor = r.IsDBNull(r.GetOrdinal("vendor")) ? null : r.GetString(r.GetOrdinal("vendor")),
-                };
-                var cell = ReadPanelCell(r);
-                results.Add((panel, cell));
+                    var panel = new Panel
+                    {
+                        PanelId = r.GetInt32(r.GetOrdinal("panel_id")),
+                        Name = r.GetString(r.GetOrdinal("name")),
+                        LotNumber = r.IsDBNull(r.GetOrdinal("lot_number")) ? null : r.GetString(r.GetOrdinal("lot_number")),
+                        Vendor = r.IsDBNull(r.GetOrdinal("vendor")) ? null : r.GetString(r.GetOrdinal("vendor")),
+                    };
+                    var cell = ReadPanelCell(r);
+                    results.Add((panel, cell));
+                    cells.Add(cell);
+                }
             }
+            AttachExtraAntigens(cells);
             return results;
         }
 
@@ -1034,6 +1504,14 @@ namespace AntibodyPanels.Data
             ReactionsUpdatedAt = SafeGetString(r, "reactions_updated_at"),
             LastAnalyzedAt = SafeGetString(r, "last_analyzed_at"),
             IsActive = SafeGetInt(r, "is_active", 1) != 0,
+            Notes = SafeGetString(r, "notes"),
+            Phenotype = SafeGetString(r, "phenotype"),
+            PreviousAntibodies = SafeGetString(r, "previous_antibodies"),
+            DatResult = SafeGetString(r, "dat_result"),
+            FinalAntibodies = SafeGetString(r, "final_antibodies"),
+            FinalComment = SafeGetString(r, "final_comment"),
+            IdentifiedBy = SafeGetString(r, "identified_by"),
+            IdentifiedAt = SafeGetString(r, "identified_at"),
         };
 
         private static Panel ReadPanel(SqliteDataReader r) => new Panel

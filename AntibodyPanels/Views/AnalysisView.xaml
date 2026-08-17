@@ -24,30 +24,156 @@
                     Padding="10,2" FontWeight="Bold"/>
         </Grid>
 
+        <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8,6" Background="#FFF8E1" BorderBrush="#F9A825"
+                BorderThickness="1" CornerRadius="3"
+                Visibility="{Binding HasSuggestions, Converter={x:Static local:BoolToVisibilityConverter.Instance}}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Suggestions" FontWeight="Bold" Margin="0,0,0,4"/>
+                <ItemsControl ItemsSource="{Binding SuggestionItems}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding StringFormat='• {0}'}" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+        </Border>
+
         <!-- Inner tabs -->
         <TabControl>
             <TabItem Header="Suspected Antibodies">
-                <DataGrid ItemsSource="{Binding SuspectedRows}" IsReadOnly="True"
-                          AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
-                          HeadersVisibility="Column">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
-                        <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90"/>
-                        <DataGridTextColumn Header="Fisher p-value" Binding="{Binding FisherPValue}" Width="110"/>
-                        <DataGridTextColumn Header="Pattern Score" Binding="{Binding PatternScore}" Width="110"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="6"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DataGrid ItemsSource="{Binding SuspectedRows}"
+                              SelectedItem="{Binding SelectedSuspected}"
+                              IsReadOnly="True"
+                              AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
+                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90"/>
+                            <DataGridTextColumn Header="Fisher p-value" Binding="{Binding FisherPValue}" Width="110"/>
+                            <DataGridTextColumn Header="Pattern Score" Binding="{Binding PatternScore}" Width="110"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch"/>
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Supporting cells" FontWeight="SemiBold" Margin="4,2"/>
+                            <DataGrid ItemsSource="{Binding SupportingCells}" IsReadOnly="True"
+                                      AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                                      HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Panel" Binding="{Binding PanelName}" Width="*"/>
+                                    <DataGridTextColumn Header="Run" Binding="{Binding RunLabel}" Width="90"/>
+                                    <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}" Width="50"/>
+                                    <DataGridTextColumn Header="IS" Binding="{Binding IS}" Width="40"/>
+                                    <DataGridTextColumn Header="37°C" Binding="{Binding C37}" Width="45"/>
+                                    <DataGridTextColumn Header="AHG" Binding="{Binding AHG}" Width="45"/>
+                                    <DataGridTextColumn Header="Strongest" Binding="{Binding Strongest}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch"/>
+                        <DockPanel Grid.Column="2">
+                            <TextBlock DockPanel.Dock="Top" Text="Conflicting cells (Ag− but reactive)" FontWeight="SemiBold" Margin="4,2"/>
+                            <DataGrid ItemsSource="{Binding ConflictingCells}" IsReadOnly="True"
+                                      AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                                      HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Panel" Binding="{Binding PanelName}" Width="*"/>
+                                    <DataGridTextColumn Header="Run" Binding="{Binding RunLabel}" Width="90"/>
+                                    <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}" Width="50"/>
+                                    <DataGridTextColumn Header="IS" Binding="{Binding IS}" Width="40"/>
+                                    <DataGridTextColumn Header="37°C" Binding="{Binding C37}" Width="45"/>
+                                    <DataGridTextColumn Header="AHG" Binding="{Binding AHG}" Width="45"/>
+                                    <DataGridTextColumn Header="Strongest" Binding="{Binding Strongest}" Width="80"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Grid>
+                    <Border Grid.Row="3" Margin="0,8,0,0" Padding="8,6" Background="#E8F5E9" BorderBrush="#2E7D32"
+                            BorderThickness="1" CornerRadius="3">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.ColumnSpan="8" Text="{Binding FinalCallStatus}"
+                                       FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <Label Grid.Row="1" Content="Final ID:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FinalAntibodiesText, UpdateSourceTrigger=PropertyChanged}"
+                                     VerticalAlignment="Center" Margin="0,2,8,2"
+                                     ToolTip="Confirmed antibody identification, e.g. anti-E; anti-K"/>
+                            <Label Grid.Row="1" Grid.Column="2" Content="Comment:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding FinalComment, UpdateSourceTrigger=PropertyChanged}"
+                                     VerticalAlignment="Center" Margin="0,2,8,2"/>
+                            <Label Grid.Row="1" Grid.Column="4" Content="Initials:" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding IdentifiedBy, UpdateSourceTrigger=PropertyChanged}"
+                                     VerticalAlignment="Center" Margin="0,2,8,2"/>
+                            <Button Grid.Row="1" Grid.Column="6" Content="Confirm ID" Command="{Binding ConfirmIdCommand}"
+                                    Margin="0,0,6,0" FontWeight="Bold"/>
+                            <Button Grid.Row="1" Grid.Column="7" Content="Clear" Command="{Binding ClearConfirmationCommand}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
             </TabItem>
 
             <TabItem Header="Ruled Out">
-                <DataGrid ItemsSource="{Binding RuleoutRows}" IsReadOnly="True"
-                          AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
-                          HeadersVisibility="Column">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
-                        <DataGridTextColumn Header="Rule-out Count" Binding="{Binding Count}" Width="120"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="6"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DataGrid ItemsSource="{Binding RuleoutRows}"
+                              SelectedItem="{Binding SelectedRuleout}"
+                              IsReadOnly="True"
+                              AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
+                            <DataGridTextColumn Header="Rule-out Count" Binding="{Binding Count}" Width="120"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch"/>
+                    <DockPanel Grid.Row="2">
+                        <TextBlock DockPanel.Dock="Top" Text="Cells that counted toward this rule-out" FontWeight="SemiBold" Margin="4,2"/>
+                        <DataGrid ItemsSource="{Binding RuleoutDetailRows}" IsReadOnly="True"
+                                  AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Panel" Binding="{Binding PanelName}" Width="*"/>
+                                <DataGridTextColumn Header="Run" Binding="{Binding RunLabel}" Width="100"/>
+                                <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}" Width="50"/>
+                                <DataGridTextColumn Header="Zygosity" Binding="{Binding Zygosity}" Width="100"/>
+                                <DataGridTextColumn Header="IS" Binding="{Binding IS}" Width="40"/>
+                                <DataGridTextColumn Header="37°C" Binding="{Binding C37}" Width="45"/>
+                                <DataGridTextColumn Header="AHG" Binding="{Binding AHG}" Width="45"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Grid>
             </TabItem>
 
             <TabItem Header="Pattern Matches">
@@ -84,10 +210,30 @@
                 </DockPanel>
             </TabItem>
 
+            <TabItem Header="Dosage">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Margin="6,6,6,4"
+                               Text="Homozygous vs heterozygous reaction strength for suspected antibodies."
+                               TextWrapping="Wrap" Foreground="#555" FontStyle="Italic"/>
+                    <DataGrid ItemsSource="{Binding DosageRows}" IsReadOnly="True"
+                              AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
+                            <DataGridTextColumn Header="Antigen" Binding="{Binding Antigen}" Width="80"/>
+                            <DataGridTextColumn Header="Homo avg" Binding="{Binding AvgHomozygous}" Width="90"/>
+                            <DataGridTextColumn Header="Het avg" Binding="{Binding AvgHeterozygous}" Width="90"/>
+                            <DataGridTextColumn Header="Homo n" Binding="{Binding HomozygousCount}" Width="70"/>
+                            <DataGridTextColumn Header="Het n" Binding="{Binding HeterozygousCount}" Width="70"/>
+                            <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="80"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
             <TabItem Header="Special Panels">
                 <ScrollViewer>
                     <StackPanel Margin="8">
-                        <!-- Gated Rule-outs -->
                         <TextBlock Text="Gated Rule-outs" FontWeight="Bold" FontSize="14"
                                    Margin="0,0,0,4"/>
                         <TextBlock Text="These rule-outs were suppressed because the antigen is destroyed by the cell treatment used."
@@ -102,7 +248,6 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <!-- Treatment Inferences -->
                         <TextBlock Text="Treatment Inferences" FontWeight="Bold" FontSize="14"
                                    Margin="0,0,0,4"/>
                         <TextBlock Text="Clinical interpretations derived from comparing treated vs untreated runs."
@@ -117,7 +262,6 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <!-- Absorption Conclusions -->
                         <TextBlock Text="Absorption Conclusions" FontWeight="Bold" FontSize="14"
                                    Margin="0,0,0,4"/>
                         <DataGrid ItemsSource="{Binding AbsorptionConclusionRows}" IsReadOnly="True"
