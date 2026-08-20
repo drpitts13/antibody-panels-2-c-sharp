@@ -56,9 +56,12 @@
                               HeadersVisibility="Column">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
-                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90"/>
-                            <DataGridTextColumn Header="Fisher p-value" Binding="{Binding FisherPValue}" Width="110"/>
-                            <DataGridTextColumn Header="Pattern Score" Binding="{Binding PatternScore}" Width="110"/>
+                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="80"/>
+                            <DataGridTextColumn Header="Fisher p-value" Binding="{Binding FisherPValue}" Width="100"/>
+                            <DataGridTextColumn Header="Pattern Score" Binding="{Binding PatternScore}" Width="100"/>
+                            <DataGridTextColumn Header="Ag+ reactive" Binding="{Binding AgPositiveReactive}" Width="100"/>
+                            <DataGridTextColumn Header="Ag- nonreactive" Binding="{Binding AgNegativeNonreactive}" Width="120"/>
+                            <DataGridTextColumn Header="ID rule" Binding="{Binding IdentificationRule}" Width="110"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch"/>

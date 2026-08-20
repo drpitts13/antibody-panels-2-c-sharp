@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using AntibodyPanels.Models;
 using AntibodyPanels.Services;
 using AntibodyPanels.ViewModels;
 
@@ -25,9 +26,13 @@ namespace AntibodyPanels
             vm.ShowAboutCommand = new RelayCommand(ShowAbout);
             vm.LoadDemoDataCommand = new RelayCommand(LoadDemoData);
             vm.ShowSettingsCommand = new RelayCommand(ShowSettings);
+            vm.ShowPurgeDatabaseCommand = new RelayCommand(ShowPurgeDatabase);
+            vm.ShowOpenArchiveCommand = new RelayCommand(ShowOpenArchive);
 
             // F1 shortcut
             InputBindings.Add(new KeyBinding(vm.ShowShortcutsCommand, Key.F1, ModifierKeys.None));
+
+            Loaded += MainWindow_Loaded;
 
             Closing += (s, e) =>
             {
@@ -37,6 +42,66 @@ namespace AntibodyPanels
                 else
                     vm.Dispose();
             };
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            ViewModel.NotifyCapacityIfNeeded();
+            if (!ViewModel.IsDatabaseNearCapacity) return;
+
+            var cap = ViewModel.GetCapacityStatus();
+            var result = MessageBox.Show(
+                $"The database is {cap.PercentUsed:0}% of the configured maximum size " +
+                $"({DatabaseCapacityStatus.FormatBytes(cap.FileBytes)} / {DatabaseCapacityStatus.FormatBytes(cap.MaxBytes)}).\n\n" +
+                "Would you like to purge old specimen data?",
+                "Database nearly full",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Yes)
+                ShowPurgeDatabase();
+        }
+
+        private void ShowPurgeDatabase()
+        {
+            var dlg = new Views.Dialogs.PurgeDatabaseDialog(ViewModel.Database) { Owner = this };
+            if (dlg.ShowDialog() != true) return;
+
+            ViewModel.RefreshAll();
+            var status = $"Purged {dlg.DeletedCount} specimen(s). Database is now {dlg.SizeAfterDisplay}.";
+            if (!string.IsNullOrEmpty(dlg.ArchivePath))
+                status += $" Archive: {dlg.ArchivePath}";
+            ViewModel.SetStatus(status);
+            ViewModel.NotifyCapacityIfNeeded();
+
+            var archiveNote = string.IsNullOrEmpty(dlg.ArchivePath)
+                ? ""
+                : $"\n\nArchive saved to:\n{dlg.ArchivePath}";
+            MessageBox.Show(
+                $"Removed {dlg.DeletedCount} specimen(s).\nDatabase size is now {dlg.SizeAfterDisplay}.{archiveNote}",
+                "Purge complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
+        private void ShowOpenArchive()
+        {
+            var dlg = new Views.Dialogs.RestoreArchiveDialog(ViewModel.Database) { Owner = this };
+            if (dlg.ShowDialog() != true || dlg.RestoreResult == null) return;
+
+            ViewModel.RefreshAll();
+            var result = dlg.RestoreResult;
+            var status =
+                $"Restored {result.SpecimensRestored} specimen(s)" +
+                (result.SpecimensSkipped > 0 ? $", skipped {result.SpecimensSkipped} already present" : "") +
+                ".";
+            ViewModel.SetStatus(status);
+            ViewModel.NotifyCapacityIfNeeded();
+            MessageBox.Show(
+                status +
+                (result.PanelsRestored > 0 ? $"\nAlso restored {result.PanelsRestored} panel(s)." : ""),
+                "Restore complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
 
         private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -73,7 +138,10 @@ namespace AntibodyPanels
         {
             var dlg = new Views.Dialogs.SettingsDialog { Owner = this };
             if (dlg.ShowDialog() == true)
+            {
                 ViewModel.SetStatus("Preferences saved.");
+                ViewModel.NotifyCapacityIfNeeded();
+            }
         }
 
         private void ShowShortcuts()

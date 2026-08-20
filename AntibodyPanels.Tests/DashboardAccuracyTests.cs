@@ -45,6 +45,23 @@ public class DashboardAccuracyTests
     }
 
     [Fact]
+    public void AnalysisDashboard_IdentificationRuleMatchesStatistics()
+    {
+        var result = _fixture.Analyzer.AnalyzeSpecimen("2024-001", updateDb: false);
+        var dashboard = BuildDashboardSnapshot(result);
+
+        foreach (var row in dashboard.SuspectedRows)
+        {
+            Assert.True(result.SuspectedStatistics.TryGetValue(row.Antibody, out var stats));
+            Assert.Equal($"{stats.PositiveAgPositiveCount} / {stats.IdentificationRequired}",
+                row.AgPositiveReactive);
+            Assert.Equal($"{stats.NegativeAgNegativeCount} / {stats.IdentificationRequired}",
+                row.AgNegativeNonreactive);
+            Assert.Equal(stats.IdentificationStatus, row.IdentificationRule);
+        }
+    }
+
+    [Fact]
     public void AnalysisDashboard_PatternRowsReflectTopMatches()
     {
         var result = _fixture.Analyzer.AnalyzeSpecimen("2024-001", updateDb: true);
@@ -137,6 +154,11 @@ public class DashboardAccuracyTests
                 Score = $"{prob * 100:F1}%",
                 FisherPValue = stats != null ? $"{stats.FisherPValue:F4}" : "-",
                 PatternScore = stats != null ? $"{stats.PatternScore:F3}" : "-",
+                AgPositiveReactive = stats != null
+                    ? $"{stats.PositiveAgPositiveCount} / {stats.IdentificationRequired}" : "-",
+                AgNegativeNonreactive = stats != null
+                    ? $"{stats.NegativeAgNegativeCount} / {stats.IdentificationRequired}" : "-",
+                IdentificationRule = stats?.IdentificationStatus ?? "-",
             });
         }
 
@@ -172,7 +194,11 @@ public class DashboardAccuracyTests
         {
             sb.AppendLine("SUSPECTED ANTIBODIES:");
             foreach (var (ab, prob) in r.Suspected.OrderByDescending(x => x.Value))
-                sb.AppendLine($"  {ab}  ({prob * 100:F1}%)");
+            {
+                r.SuspectedStatistics.TryGetValue(ab, out var stats);
+                var id = stats != null ? $"  {stats.IdentificationDetail}" : "";
+                sb.AppendLine($"  {ab}  ({prob * 100:F1}%){id}");
+            }
         }
         if (r.RuledOut.Count > 0)
         {
@@ -197,6 +223,9 @@ public class DashboardAccuracyTests
         public string Score { get; set; } = "";
         public string FisherPValue { get; set; } = "";
         public string PatternScore { get; set; } = "";
+        public string AgPositiveReactive { get; set; } = "";
+        public string AgNegativeNonreactive { get; set; } = "";
+        public string IdentificationRule { get; set; } = "";
     }
 
     private sealed class DashboardRuleoutRow

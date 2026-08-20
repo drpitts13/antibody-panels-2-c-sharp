@@ -255,6 +255,8 @@ namespace AntibodyPanels.Services
             {
                 var antibody = $"anti-{ag}";
                 double posWithAg = 0, posWithoutAg = 0, negWithAg = 0, negWithoutAg = 0;
+                var posAgPosCells = new HashSet<(int PanelId, string CellNumber)>();
+                var negAgNegCells = new HashSet<(int PanelId, string CellNumber)>();
 
                 foreach (var (runId, runReactions) in byRun)
                 {
@@ -274,10 +276,17 @@ namespace AntibodyPanels.Services
                         if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
                         bool agPresent = ctx.IsAntigenPresent(cell, ag);
                         bool isPos = ctx.IsPositive(rxn);
-                        if (isPos && agPresent) posWithAg += weight;
+                        if (isPos && agPresent)
+                        {
+                            posWithAg += weight;
+                            posAgPosCells.Add((ctx.Run.PanelId, rxn.CellNumber));
+                        }
                         else if (isPos && !agPresent) posWithoutAg += weight;
                         else if (!isPos && agPresent) negWithAg += weight;
                         else negWithoutAg += weight;
+
+                        if (!isPos && !agPresent && ctx.IsNegative(rxn))
+                            negAgNegCells.Add((ctx.Run.PanelId, rxn.CellNumber));
                     }
                 }
 
@@ -305,13 +314,21 @@ namespace AntibodyPanels.Services
 
                     if (!include) continue;
                     double rounded = Math.Round(combined, 3);
+                    int required = AppSettings.Current.IdentificationCellCount;
+                    if (required < 1 || required > 3) required = 3;
+                    int posCount = posAgPosCells.Count;
+                    int negCount = negAgNegCells.Count;
                     suspected[antibody] = rounded;
                     stats[antibody] = new SuspectedStatistics
                     {
                         FisherPValue = Math.Round(pvalue, 4),
                         PatternScore = Math.Round(patternScore, 4),
                         FisherComponent = Math.Round(fisherComp, 4),
-                        CombinedScore = rounded
+                        CombinedScore = rounded,
+                        PositiveAgPositiveCount = posCount,
+                        NegativeAgNegativeCount = negCount,
+                        IdentificationRequired = required,
+                        MeetsIdentificationRule = posCount >= required && negCount >= required
                     };
                 }
                 catch { /* skip */ }
@@ -781,6 +798,32 @@ namespace AntibodyPanels.Services
                 if (ev.Probability > 0.7 && ev.PatternQuality < 0.8)
                     important.Add($"{ab} has high support score ({ev.Probability * 100:F1}%) but " +
                         "imperfect pattern fit. Consider additional testing to confirm.");
+
+            foreach (var (ab, stats) in result.SuspectedStatistics)
+            {
+                var ag = ab.Replace("anti-", "");
+                var n = stats.IdentificationRequired;
+                if (stats.MeetsIdentificationRule)
+                {
+                    informational.Add($"{ab} meets the {stats.IdentificationRuleLabel} identification rule " +
+                        $"({stats.PositiveAgPositiveCount} Ag+ reactive, {stats.NegativeAgNegativeCount} Ag- nonreactive).");
+                }
+                else
+                {
+                    if (stats.PositiveAgPositiveCount < n)
+                    {
+                        var need = n - stats.PositiveAgPositiveCount;
+                        important.Add($"{ab} has {stats.PositiveAgPositiveCount} of {n} required {ag}+ reactive cells. " +
+                            $"Add {need} more {ag}+ cell(s) that react.");
+                    }
+                    if (stats.NegativeAgNegativeCount < n)
+                    {
+                        var need = n - stats.NegativeAgNegativeCount;
+                        important.Add($"{ab} has {stats.NegativeAgNegativeCount} of {n} required {ag}- nonreactive cells. " +
+                            $"Add {need} more {ag}- cell(s) that do not react.");
+                    }
+                }
+            }
 
             if (result.Suspected.Count > 1)
             {

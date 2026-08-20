@@ -1,0 +1,44 @@
+<Window x:Class="AntibodyPanels.Views.Dialogs.PurgeDatabaseDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Purge Database" SizeToContent="WidthAndHeight" Width="520"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <StackPanel Margin="16,12,16,12">
+        <TextBlock x:Name="CapacityText" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <GroupBox Header="What to remove" Padding="8,6">
+            <StackPanel>
+                <RadioButton x:Name="KeepDaysRadio" IsChecked="True"
+                             Checked="CutoffChanged" Margin="0,2,0,6">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Keep specimens from the last" VerticalAlignment="Center"/>
+                        <TextBox x:Name="KeepDaysBox" Width="64" Margin="8,0" VerticalAlignment="Center"
+                                 Text="365" TextChanged="CutoffTextChanged" GotFocus="KeepDaysBox_GotFocus"/>
+                        <TextBlock Text="days" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="BeforeDateRadio" Checked="CutoffChanged" Margin="0,2">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Delete specimens created before" VerticalAlignment="Center"/>
+                        <DatePicker x:Name="BeforeDatePicker" Width="160" Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    SelectedDateChanged="CutoffDateChanged"
+                                    GotFocus="BeforeDatePicker_GotFocus"/>
+                    </StackPanel>
+                </RadioButton>
+            </StackPanel>
+        </GroupBox>
+
+        <TextBlock x:Name="PreviewText" Margin="0,12,0,8" TextWrapping="Wrap" FontWeight="SemiBold"/>
+
+        <CheckBox x:Name="ArchiveCheck" IsChecked="True" Margin="0,0,0,4"
+                  Content="Create an archive of the purged data"/>
+        <TextBlock Text="Archives contain specimen records and should be stored securely."
+                   FontStyle="Italic" Foreground="Gray" Margin="22,0,0,12" TextWrapping="Wrap"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Purge" Width="84" Margin="0,0,8,0" Click="PurgeClick" IsDefault="True"/>
+            <Button Content="Cancel" Width="84" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

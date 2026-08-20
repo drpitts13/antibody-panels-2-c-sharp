@@ -7,10 +7,15 @@ namespace AntibodyPanels.Models
         public string LabName { get; set; } = "Immunohematology Laboratory";
         public string Department { get; set; } = "";
         public double ProbabilityThreshold { get; set; } = 0.5;
+        public int IdentificationCellCount { get; set; } = 3;
         public string DefaultSpecimenType { get; set; } = "serum";
         public bool ShowInactiveByDefault { get; set; }
         public bool HideRuledOutAntigenColumns { get; set; }
         public int ExpirationWarningDays { get; set; } = 14;
+        public int MaxDatabaseSizeMb { get; set; } = 500;
+
+        public string IdentificationRuleLabel =>
+            $"{IdentificationCellCount} + {IdentificationCellCount}";
 
         public static LabSettings CreateDefault() => new();
 
@@ -18,8 +23,12 @@ namespace AntibodyPanels.Models
         {
             if (ProbabilityThreshold < 0.3) ProbabilityThreshold = 0.3;
             if (ProbabilityThreshold > 0.95) ProbabilityThreshold = 0.95;
+            if (IdentificationCellCount < 1 || IdentificationCellCount > 3)
+                IdentificationCellCount = 3;
             if (ExpirationWarningDays < 1) ExpirationWarningDays = 1;
             if (ExpirationWarningDays > 90) ExpirationWarningDays = 90;
+            if (MaxDatabaseSizeMb < 50) MaxDatabaseSizeMb = 50;
+            if (MaxDatabaseSizeMb > 10240) MaxDatabaseSizeMb = 10240;
             if (string.IsNullOrWhiteSpace(LabName))
                 LabName = "Immunohematology Laboratory";
             if (string.IsNullOrWhiteSpace(DefaultSpecimenType) ||

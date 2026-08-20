@@ -14,10 +14,12 @@ namespace AntibodyPanels.Data
     {
         private readonly SqliteConnection _conn;
 
+        public string DbPath { get; }
+
         public DatabaseService(string? dbPath = null)
         {
-            dbPath ??= DefaultDbPath();
-            _conn = new SqliteConnection($"Data Source={dbPath}");
+            DbPath = dbPath ?? DefaultDbPath();
+            _conn = new SqliteConnection($"Data Source={DbPath};Pooling=False");
             _conn.Open();
             EnableForeignKeys();
             CreateTables();
@@ -37,17 +39,19 @@ namespace AntibodyPanels.Data
             var envPath = Environment.GetEnvironmentVariable("ANTIBODY_PANELS_DB");
             if (!string.IsNullOrEmpty(envPath))
                 return envPath;
-            // Look beside the executable, then beside the source DB in the Python project
+
+            // Prefer an existing database beside the executable (dev / portable runs).
             var exeDir = AppDomain.CurrentDomain.BaseDirectory;
             var local = Path.Combine(exeDir, "antibody_panels.db");
-            if (File.Exists(local)) return local;
-            // Fall back to the Python project sibling folder
-            var sibling = Path.Combine(
-                Path.GetDirectoryName(exeDir.TrimEnd('\\', '/')) ?? exeDir,
-                "..", "antibody-panels", "antibody_panels.db");
-            var full = Path.GetFullPath(sibling);
-            if (File.Exists(full)) return full;
-            return local; // Will be created fresh
+            if (File.Exists(local))
+                return local;
+
+            // Installed / first-run: store user data in AppData (Program Files is not writable).
+            var appData = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "AntibodyPanels");
+            Directory.CreateDirectory(appData);
+            return Path.Combine(appData, "antibody_panels.db");
         }
 
         private void EnableForeignKeys()
@@ -338,9 +342,11 @@ namespace AntibodyPanels.Data
         // ── Specimens ────────────────────────────────────────────────────────
 
         public void AddSpecimen(string accessionNumber, string type = "serum", string? expirationDate = null, bool? isActive = null,
-            string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null)
+            string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null,
+            string? createdDate = null)
         {
             var today = DateTime.Now.ToString("yyyy-MM-dd");
+            var created = string.IsNullOrWhiteSpace(createdDate) ? today : createdDate.Trim();
             bool active = isActive ?? (expirationDate == null || string.Compare(expirationDate, today) >= 0);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
@@ -350,7 +356,7 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.Parameters.AddWithValue("$type", type);
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("$created", today);
+            cmd.Parameters.AddWithValue("$created", created);
             cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
             cmd.Parameters.AddWithValue("$notes", (object?)notes ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$pheno", (object?)phenotype ?? DBNull.Value);
@@ -1631,6 +1637,468 @@ namespace AntibodyPanels.Data
                 return r.IsDBNull(ord) ? defaultValue : r.GetInt32(ord);
             }
             catch { return defaultValue; }
+        }
+
+        // ── Capacity / purge ──────────────────────────────────────────────────
+
+        public static string CutoffForKeepDays(int days) =>
+            DateTime.Today.AddDays(-Math.Max(0, days)).ToString("yyyy-MM-dd");
+
+        public long GetFileSizeBytes()
+        {
+            try
+            {
+                var info = new FileInfo(DbPath);
+                info.Refresh();
+                return info.Exists ? info.Length : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        public DatabaseCapacityStatus GetCapacityStatus(long maxBytes)
+        {
+            if (maxBytes <= 0) maxBytes = 1;
+            var fileBytes = GetFileSizeBytes();
+            var percent = fileBytes * 100.0 / maxBytes;
+            return new DatabaseCapacityStatus
+            {
+                FileBytes = fileBytes,
+                MaxBytes = maxBytes,
+                PercentUsed = percent,
+                IsNearCapacity = percent >= DatabaseCapacityStatus.WarningPercent
+            };
+        }
+
+        public void ApplyMaxPageCount(long maxBytes)
+        {
+            if (maxBytes <= 0) return;
+            var pageSize = PragmaLong("page_size");
+            if (pageSize <= 0) return;
+            var pageCount = PragmaLong("page_count");
+            var maxPages = maxBytes / pageSize;
+            if (maxPages < pageCount) maxPages = pageCount;
+            if (maxPages < 1) maxPages = 1;
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"PRAGMA max_page_count = {maxPages};";
+            cmd.ExecuteNonQuery();
+        }
+
+        public int CountSpecimensCreatedBefore(string cutoffDate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM specimens WHERE created_date < $cutoff";
+            cmd.Parameters.AddWithValue("$cutoff", cutoffDate);
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        public PurgeResult PurgeSpecimensCreatedBefore(string cutoffDate, string? archivePath = null)
+        {
+            if (string.IsNullOrWhiteSpace(cutoffDate))
+                throw new ArgumentException("Cutoff date is required.", nameof(cutoffDate));
+
+            var count = CountSpecimensCreatedBefore(cutoffDate);
+            if (count == 0)
+            {
+                return new PurgeResult
+                {
+                    SpecimensDeleted = 0,
+                    ArchivePath = null,
+                    FileSizeBytesAfter = GetFileSizeBytes()
+                };
+            }
+
+            string? createdArchive = null;
+            if (!string.IsNullOrWhiteSpace(archivePath))
+            {
+                createdArchive = Path.GetFullPath(archivePath);
+                if (string.Equals(createdArchive, Path.GetFullPath(DbPath), StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Archive path cannot be the live database file.");
+                CreateSpecimenArchive(cutoffDate, createdArchive);
+            }
+
+            using (var cmd = _conn.CreateCommand())
+            {
+                cmd.CommandText = "DELETE FROM specimens WHERE created_date < $cutoff";
+                cmd.Parameters.AddWithValue("$cutoff", cutoffDate);
+                cmd.ExecuteNonQuery();
+            }
+
+            Vacuum();
+
+            return new PurgeResult
+            {
+                SpecimensDeleted = count,
+                ArchivePath = createdArchive,
+                FileSizeBytesAfter = GetFileSizeBytes()
+            };
+        }
+
+        public ArchiveInspection InspectArchive(string archivePath)
+        {
+            var path = ResolveArchivePath(archivePath);
+            var liveAccessions = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var s in GetAllSpecimens())
+                liveAccessions.Add(s.AccessionNumber);
+
+            using var conn = OpenArchiveReadOnly(path);
+            EnsureArchiveSpecimensTable(conn);
+
+            var specimens = new List<ArchiveSpecimenRow>();
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+                    SELECT accession_number, type, created_date
+                    FROM specimens
+                    ORDER BY created_date, accession_number";
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    var acc = reader.GetString(0);
+                    specimens.Add(new ArchiveSpecimenRow
+                    {
+                        AccessionNumber = acc,
+                        Type = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                        CreatedDate = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                        ExistsInLive = liveAccessions.Contains(acc)
+                    });
+                }
+            }
+
+            var panelCount = 0;
+            if (TableExists(conn, "panels"))
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT COUNT(*) FROM panels";
+                panelCount = Convert.ToInt32(cmd.ExecuteScalar());
+            }
+
+            string? earliest = null;
+            string? latest = null;
+            if (specimens.Count > 0)
+            {
+                earliest = specimens.Min(s => s.CreatedDate);
+                latest = specimens.Max(s => s.CreatedDate);
+            }
+
+            var info = new FileInfo(path);
+            return new ArchiveInspection
+            {
+                Path = path,
+                FileBytes = info.Exists ? info.Length : 0,
+                SpecimenCount = specimens.Count,
+                PanelCount = panelCount,
+                EarliestCreatedDate = earliest,
+                LatestCreatedDate = latest,
+                AlreadyInLiveCount = specimens.Count(s => s.ExistsInLive),
+                Specimens = specimens
+            };
+        }
+
+        public RestoreResult RestoreArchive(string archivePath)
+        {
+            var path = ResolveArchivePath(archivePath);
+            using (var probe = OpenArchiveReadOnly(path))
+                EnsureArchiveSpecimensTable(probe);
+
+            var skip = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var s in GetAllSpecimens())
+                skip.Add(s.AccessionNumber);
+
+            var panelsBefore = CountRows("panels");
+            var archiveSpecimenCount = 0;
+            var restored = 0;
+
+            try
+            {
+                AttachArchive(path);
+                FillRestoreSkipTable(skip);
+
+                using (var cmd = _conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT COUNT(*) FROM archive.specimens";
+                    archiveSpecimenCount = Convert.ToInt32(cmd.ExecuteScalar());
+                }
+
+                CopyFromArchive("panels");
+                CopyFromArchive("panel_cells");
+                if (AttachedTableExists("panel_extra_antigens"))
+                    CopyFromArchive("panel_extra_antigens", "panel_id IN (SELECT panel_id FROM panels)");
+                if (AttachedTableExists("panel_cell_extra_antigens"))
+                    CopyFromArchive("panel_cell_extra_antigens", "cell_id IN (SELECT id FROM panel_cells)");
+
+                restored = CopyFromArchive(
+                    "specimens",
+                    "accession_number NOT IN (SELECT accession_number FROM restore_skip)");
+                CopyFromArchive(
+                    "specimen_antibodies",
+                    "specimen_id NOT IN (SELECT accession_number FROM restore_skip)");
+                CopyFromArchive(
+                    "specimen_ruleouts",
+                    "specimen_id NOT IN (SELECT accession_number FROM restore_skip)");
+                CopyFromArchive(
+                    "specimen_panels",
+                    "specimen_id NOT IN (SELECT accession_number FROM restore_skip)");
+                CopyFromArchive(
+                    "panel_runs",
+                    "specimen_id NOT IN (SELECT accession_number FROM restore_skip)");
+                CopyFromArchive(
+                    "reactions",
+                    "run_id IN (SELECT run_id FROM panel_runs)");
+            }
+            finally
+            {
+                try { ExecNonQuery("DROP TABLE IF EXISTS restore_skip"); } catch { /* ignore */ }
+                try { DetachArchive(); } catch { /* ignore if not attached */ }
+            }
+
+            BumpSequence("panels", "panel_id");
+            BumpSequence("panel_cells", "id");
+            BumpSequence("specimen_antibodies", "id");
+            BumpSequence("specimen_ruleouts", "id");
+            BumpSequence("specimen_panels", "id");
+            BumpSequence("panel_runs", "run_id");
+            BumpSequence("reactions", "reaction_id");
+
+            return new RestoreResult
+            {
+                SpecimensRestored = restored,
+                SpecimensSkipped = Math.Max(0, archiveSpecimenCount - restored),
+                PanelsRestored = Math.Max(0, CountRows("panels") - panelsBefore),
+                FileSizeBytesAfter = GetFileSizeBytes()
+            };
+        }
+
+        private string ResolveArchivePath(string archivePath)
+        {
+            if (string.IsNullOrWhiteSpace(archivePath))
+                throw new ArgumentException("Archive path is required.", nameof(archivePath));
+            var path = Path.GetFullPath(archivePath);
+            if (!File.Exists(path))
+                throw new FileNotFoundException("Archive file not found.", path);
+            if (string.Equals(path, Path.GetFullPath(DbPath), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("That file is the live database, not an archive.");
+            return path;
+        }
+
+        private static SqliteConnection OpenArchiveReadOnly(string path)
+        {
+            var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly;Pooling=False");
+            try
+            {
+                conn.Open();
+                return conn;
+            }
+            catch
+            {
+                conn.Dispose();
+                throw;
+            }
+        }
+
+        private static void EnsureArchiveSpecimensTable(SqliteConnection conn)
+        {
+            if (!TableExists(conn, "specimens"))
+                throw new InvalidOperationException("This file is not a valid Antibody Panels archive.");
+        }
+
+        private static bool TableExists(SqliteConnection conn, string table)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $n LIMIT 1";
+            cmd.Parameters.AddWithValue("$n", table);
+            return cmd.ExecuteScalar() != null;
+        }
+
+        private bool AttachedTableExists(string table)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT 1 FROM archive.sqlite_master WHERE type = 'table' AND name = $n LIMIT 1";
+            cmd.Parameters.AddWithValue("$n", table);
+            return cmd.ExecuteScalar() != null;
+        }
+
+        private int CountRows(string table)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"SELECT COUNT(*) FROM {table}";
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        private int CopyFromArchive(string table, string? extraWhere = null)
+        {
+            var liveCols = GetColumnNamesOrdered(table);
+            var archiveCols = new HashSet<string>(GetAttachedColumnNamesOrdered(table), StringComparer.OrdinalIgnoreCase);
+            var cols = liveCols.Where(archiveCols.Contains).ToList();
+            if (cols.Count == 0) return 0;
+            var quoted = string.Join(", ", cols.Select(QuoteIdent));
+            var sql = $"INSERT OR IGNORE INTO {table} ({quoted}) SELECT {quoted} FROM archive.{table}";
+            if (!string.IsNullOrEmpty(extraWhere))
+                sql += " WHERE " + extraWhere;
+            return ExecNonQueryCount(sql);
+        }
+
+        private List<string> GetColumnNamesOrdered(string table)
+        {
+            var list = new List<string>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info({table})";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(r.GetString(1));
+            return list;
+        }
+
+        private List<string> GetAttachedColumnNamesOrdered(string table)
+        {
+            var list = new List<string>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"PRAGMA archive.table_info({table})";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(r.GetString(1));
+            return list;
+        }
+
+        private static string QuoteIdent(string name) => "\"" + name.Replace("\"", "\"\"") + "\"";
+
+        private void FillRestoreSkipTable(HashSet<string> skip)
+        {
+            ExecNonQuery("DROP TABLE IF EXISTS restore_skip");
+            ExecNonQuery("CREATE TEMP TABLE restore_skip (accession_number TEXT PRIMARY KEY)");
+            foreach (var acc in skip)
+            {
+                using var cmd = _conn.CreateCommand();
+                cmd.CommandText = "INSERT INTO restore_skip (accession_number) VALUES ($a)";
+                cmd.Parameters.AddWithValue("$a", acc);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private int ExecNonQueryCount(string sql)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = sql;
+            return cmd.ExecuteNonQuery();
+        }
+
+        private void BumpSequence(string table, string idColumn)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $@"
+                INSERT INTO sqlite_sequence(name, seq)
+                SELECT '{table}', COALESCE(MAX({idColumn}), 0) FROM {table}
+                WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = '{table}');
+                UPDATE sqlite_sequence
+                SET seq = MAX(seq, (SELECT COALESCE(MAX({idColumn}), 0) FROM {table}))
+                WHERE name = '{table}';";
+            cmd.ExecuteNonQuery();
+        }
+
+        private void CreateSpecimenArchive(string cutoffDate, string archivePath)
+        {
+            var dir = Path.GetDirectoryName(archivePath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+            if (File.Exists(archivePath))
+                File.Delete(archivePath);
+
+            using (new DatabaseService(archivePath))
+            {
+                // Creates the same schema, then releases the file for ATTACH.
+            }
+
+            try
+            {
+                AttachArchive(archivePath);
+                CopyArchiveTable(@"
+                    INSERT INTO archive.panels
+                    SELECT * FROM panels
+                    WHERE panel_id IN (
+                        SELECT panel_id FROM specimen_panels
+                        WHERE specimen_id IN (SELECT accession_number FROM specimens WHERE created_date < $cutoff)
+                        UNION
+                        SELECT panel_id FROM panel_runs
+                        WHERE specimen_id IN (SELECT accession_number FROM specimens WHERE created_date < $cutoff)
+                    )", cutoffDate);
+                ExecNonQuery(@"
+                    INSERT INTO archive.panel_cells
+                    SELECT * FROM panel_cells
+                    WHERE panel_id IN (SELECT panel_id FROM archive.panels)");
+                ExecNonQuery(@"
+                    INSERT INTO archive.panel_extra_antigens
+                    SELECT * FROM panel_extra_antigens
+                    WHERE panel_id IN (SELECT panel_id FROM archive.panels)");
+                ExecNonQuery(@"
+                    INSERT INTO archive.panel_cell_extra_antigens
+                    SELECT * FROM panel_cell_extra_antigens
+                    WHERE cell_id IN (SELECT id FROM archive.panel_cells)");
+                CopyArchiveTable(
+                    "INSERT INTO archive.specimens SELECT * FROM specimens WHERE created_date < $cutoff",
+                    cutoffDate);
+                ExecNonQuery(@"
+                    INSERT INTO archive.specimen_antibodies
+                    SELECT * FROM specimen_antibodies
+                    WHERE specimen_id IN (SELECT accession_number FROM archive.specimens)");
+                ExecNonQuery(@"
+                    INSERT INTO archive.specimen_ruleouts
+                    SELECT * FROM specimen_ruleouts
+                    WHERE specimen_id IN (SELECT accession_number FROM archive.specimens)");
+                ExecNonQuery(@"
+                    INSERT INTO archive.specimen_panels
+                    SELECT * FROM specimen_panels
+                    WHERE specimen_id IN (SELECT accession_number FROM archive.specimens)");
+                ExecNonQuery(@"
+                    INSERT INTO archive.panel_runs
+                    SELECT * FROM panel_runs
+                    WHERE specimen_id IN (SELECT accession_number FROM archive.specimens)");
+                ExecNonQuery(@"
+                    INSERT INTO archive.reactions
+                    SELECT * FROM reactions
+                    WHERE run_id IN (SELECT run_id FROM archive.panel_runs)");
+            }
+            finally
+            {
+                DetachArchive();
+            }
+        }
+
+        private void CopyArchiveTable(string sql, string cutoffDate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Parameters.AddWithValue("$cutoff", cutoffDate);
+            cmd.ExecuteNonQuery();
+        }
+
+        private void AttachArchive(string path)
+        {
+            var escaped = path.Replace("'", "''");
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"ATTACH DATABASE '{escaped}' AS archive";
+            cmd.ExecuteNonQuery();
+        }
+
+        private void DetachArchive()
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "DETACH DATABASE archive";
+            cmd.ExecuteNonQuery();
+        }
+
+        private void Vacuum()
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "VACUUM";
+            cmd.ExecuteNonQuery();
+        }
+
+        private long PragmaLong(string name)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"PRAGMA {name};";
+            var value = cmd.ExecuteScalar();
+            return value == null || value is DBNull ? 0 : Convert.ToInt64(value);
         }
 
         public void Dispose() => _conn?.Dispose();

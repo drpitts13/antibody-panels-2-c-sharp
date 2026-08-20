@@ -17,6 +17,8 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
             </Grid.RowDefinitions>
 
             <Label Content="Lab name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -29,17 +31,25 @@
                    ToolTip="Minimum combined score to list an antibody as suspected (0.30–0.95)."/>
             <TextBox x:Name="ThresholdBox" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <Label Content="Default specimen type:" Grid.Row="3" VerticalAlignment="Center"/>
-            <ComboBox x:Name="DefaultTypeBox" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+            <Label Content="ID cell rule:" Grid.Row="3" VerticalAlignment="Center"
+                   ToolTip="Minimum antigen-positive reactive cells and antigen-negative nonreactive cells required to identify an antibody (AABB 3 + 3 is the usual standard)."/>
+            <ComboBox x:Name="IdRuleBox" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <Label Content="Expiration warning (days):" Grid.Row="4" VerticalAlignment="Center"/>
-            <TextBox x:Name="ExpiryDaysBox" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+            <Label Content="Default specimen type:" Grid.Row="4" VerticalAlignment="Center"/>
+            <ComboBox x:Name="DefaultTypeBox" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <CheckBox x:Name="ShowInactiveCheck" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+            <Label Content="Expiration warning (days):" Grid.Row="5" VerticalAlignment="Center"/>
+            <TextBox x:Name="ExpiryDaysBox" Grid.Row="5" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+
+            <Label Content="Max database size (MB):" Grid.Row="6" VerticalAlignment="Center"
+                   ToolTip="Warn when the database file reaches 80% of this size. Allowed range: 50–10240 MB."/>
+            <TextBox x:Name="MaxDbSizeBox" Grid.Row="6" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+
+            <CheckBox x:Name="ShowInactiveCheck" Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
                       Content="Show inactive specimens and panels by default"
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
 
-            <CheckBox x:Name="HideRuledOutCheck" Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+            <CheckBox x:Name="HideRuledOutCheck" Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
                       Content="Hide ruled-out antigen columns on the Reactions tab"
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
         </Grid>

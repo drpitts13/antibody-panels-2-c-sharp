@@ -14,10 +14,15 @@ namespace AntibodyPanels.Views.Dialogs
             LabNameBox.Text = s.LabName;
             DepartmentBox.Text = s.Department;
             ThresholdBox.Text = s.ProbabilityThreshold.ToString("0.00", CultureInfo.InvariantCulture);
+            IdRuleBox.ItemsSource = new[] { "1 + 1", "2 + 2", "3 + 3" };
+            var idCount = s.IdentificationCellCount;
+            if (idCount < 1 || idCount > 3) idCount = 3;
+            IdRuleBox.SelectedItem = $"{idCount} + {idCount}";
             DefaultTypeBox.ItemsSource = AntigenConstants.SpecimenTypes;
             DefaultTypeBox.SelectedItem = s.DefaultSpecimenType;
             if (DefaultTypeBox.SelectedItem == null) DefaultTypeBox.SelectedIndex = 0;
             ExpiryDaysBox.Text = s.ExpirationWarningDays.ToString();
+            MaxDbSizeBox.Text = s.MaxDatabaseSizeMb.ToString();
             ShowInactiveCheck.IsChecked = s.ShowInactiveByDefault;
             HideRuledOutCheck.IsChecked = s.HideRuledOutAntigenColumns;
         }
@@ -40,12 +45,23 @@ namespace AntibodyPanels.Views.Dialogs
                 ExpiryDaysBox.Focus();
                 return;
             }
+            if (!int.TryParse(MaxDbSizeBox.Text.Trim(), out var maxMb) || maxMb < 50 || maxMb > 10240)
+            {
+                MessageBox.Show("Maximum database size must be between 50 and 10240 MB.",
+                    "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MaxDbSizeBox.Focus();
+                return;
+            }
 
             AppSettings.Current.LabName = LabNameBox.Text.Trim();
             AppSettings.Current.Department = DepartmentBox.Text.Trim();
             AppSettings.Current.ProbabilityThreshold = threshold;
+            var idRule = IdRuleBox.SelectedItem?.ToString() ?? "3 + 3";
+            AppSettings.Current.IdentificationCellCount =
+                idRule.StartsWith("1") ? 1 : idRule.StartsWith("2") ? 2 : 3;
             AppSettings.Current.DefaultSpecimenType = DefaultTypeBox.SelectedItem?.ToString() ?? "serum";
             AppSettings.Current.ExpirationWarningDays = days;
+            AppSettings.Current.MaxDatabaseSizeMb = maxMb;
             AppSettings.Current.ShowInactiveByDefault = ShowInactiveCheck.IsChecked == true;
             AppSettings.Current.HideRuledOutAntigenColumns = HideRuledOutCheck.IsChecked == true;
             SettingsService.Save();

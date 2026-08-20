@@ -118,6 +118,21 @@ public class LabUxFeatureTests
         Assert.Equal("Immunohematology Laboratory", s.LabName);
     }
 
+    [Theory]
+    [InlineData(0, 3)]
+    [InlineData(4, 3)]
+    [InlineData(-1, 3)]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(3, 3)]
+    public void LabSettings_Clamp_KeepsIdentificationCellCountInRange(int input, int expected)
+    {
+        var s = new LabSettings { IdentificationCellCount = input };
+        s.Clamp();
+        Assert.Equal(expected, s.IdentificationCellCount);
+        Assert.Equal($"{expected} + {expected}", s.IdentificationRuleLabel);
+    }
+
     [Fact]
     public void CopyReactions_CopiesGradesToNewRun()
     {

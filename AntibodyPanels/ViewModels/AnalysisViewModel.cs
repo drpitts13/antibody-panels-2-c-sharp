@@ -223,6 +223,11 @@ namespace AntibodyPanels.ViewModels
                     Score = $"{prob * 100:F1}%",
                     FisherPValue = stats != null ? $"{stats.FisherPValue:F4}" : "-",
                     PatternScore = stats != null ? $"{stats.PatternScore:F3}" : "-",
+                    AgPositiveReactive = stats != null
+                        ? $"{stats.PositiveAgPositiveCount} / {stats.IdentificationRequired}" : "-",
+                    AgNegativeNonreactive = stats != null
+                        ? $"{stats.NegativeAgNegativeCount} / {stats.IdentificationRequired}" : "-",
+                    IdentificationRule = stats?.IdentificationStatus ?? "-",
                 });
             }
 
@@ -412,7 +417,11 @@ namespace AntibodyPanels.ViewModels
             {
                 sb.AppendLine("SUSPECTED ANTIBODIES:");
                 foreach (var (ab, prob) in r.Suspected.OrderByDescending(x => x.Value))
-                    sb.AppendLine($"  {ab}  ({prob * 100:F1}%)");
+                {
+                    r.SuspectedStatistics.TryGetValue(ab, out var stats);
+                    var id = stats != null ? $"  {stats.IdentificationDetail}" : "";
+                    sb.AppendLine($"  {ab}  ({prob * 100:F1}%){id}");
+                }
                 sb.AppendLine();
             }
             else
@@ -484,6 +493,9 @@ namespace AntibodyPanels.ViewModels
         public string Score { get; set; } = string.Empty;
         public string FisherPValue { get; set; } = string.Empty;
         public string PatternScore { get; set; } = string.Empty;
+        public string AgPositiveReactive { get; set; } = string.Empty;
+        public string AgNegativeNonreactive { get; set; } = string.Empty;
+        public string IdentificationRule { get; set; } = string.Empty;
     }
 
     public class RuleoutRow

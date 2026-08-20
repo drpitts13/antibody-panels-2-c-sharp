@@ -87,6 +87,20 @@ namespace AntibodyPanels.Models
         public double PatternScore { get; set; }
         public double FisherComponent { get; set; }
         public double CombinedScore { get; set; }
+        public int PositiveAgPositiveCount { get; set; }
+        public int NegativeAgNegativeCount { get; set; }
+        public int IdentificationRequired { get; set; }
+        public bool MeetsIdentificationRule { get; set; }
+
+        public string IdentificationRuleLabel =>
+            $"{IdentificationRequired} + {IdentificationRequired}";
+
+        public string IdentificationStatus =>
+            MeetsIdentificationRule ? $"Meets {IdentificationRuleLabel}" : "Incomplete";
+
+        public string IdentificationDetail =>
+            $"{IdentificationStatus} ({PositiveAgPositiveCount}/{IdentificationRequired} Ag+ reactive, " +
+            $"{NegativeAgNegativeCount}/{IdentificationRequired} Ag- nonreactive)";
     }
 
     public class PatternMatch

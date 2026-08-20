@@ -30,6 +30,8 @@ namespace AntibodyPanels.ViewModels
         public ICommand? ShowAboutCommand { get; set; }
         public ICommand? LoadDemoDataCommand { get; set; }
         public ICommand? ShowSettingsCommand { get; set; }
+        public ICommand? ShowPurgeDatabaseCommand { get; set; }
+        public ICommand? ShowOpenArchiveCommand { get; set; }
 
         private string _statusText = "Ready";
         public string StatusText
@@ -63,6 +65,7 @@ namespace AntibodyPanels.ViewModels
 
             SpecimensVM.ShowInactive = AppSettings.Current.ShowInactiveByDefault;
             PanelsVM.ShowInactive = AppSettings.Current.ShowInactiveByDefault;
+            ApplyDatabaseSizeLimit();
             AppSettings.Changed += OnSettingsChanged;
         }
 
@@ -72,6 +75,30 @@ namespace AntibodyPanels.ViewModels
             PanelsVM.ShowInactive = AppSettings.Current.ShowInactiveByDefault;
             ReactionsVM.ApplyColumnVisibilitySettings();
             WorklistVM.Refresh();
+            ApplyDatabaseSizeLimit();
+            NotifyCapacityIfNeeded();
+        }
+
+        public DatabaseCapacityStatus GetCapacityStatus()
+        {
+            var maxBytes = DatabaseCapacityStatus.BytesFromMb(AppSettings.Current.MaxDatabaseSizeMb);
+            return Database.GetCapacityStatus(maxBytes);
+        }
+
+        public bool IsDatabaseNearCapacity => GetCapacityStatus().IsNearCapacity;
+
+        public void ApplyDatabaseSizeLimit()
+        {
+            var maxBytes = DatabaseCapacityStatus.BytesFromMb(AppSettings.Current.MaxDatabaseSizeMb);
+            Database.ApplyMaxPageCount(maxBytes);
+        }
+
+        public void NotifyCapacityIfNeeded()
+        {
+            var cap = GetCapacityStatus();
+            if (!cap.IsNearCapacity) return;
+            SetStatus(
+                $"Database {cap.PercentUsed:0}% full ({DatabaseCapacityStatus.FormatBytes(cap.FileBytes)} / {DatabaseCapacityStatus.FormatBytes(cap.MaxBytes)})");
         }
 
         public void SetStatus(string message) => StatusText = message;

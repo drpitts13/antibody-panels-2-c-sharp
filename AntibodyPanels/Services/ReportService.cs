@@ -230,7 +230,7 @@ namespace AntibodyPanels.Services
                 if (analysis.Suspected.Count > 0)
                 {
                     foreach (var (ab, prob) in analysis.Suspected.OrderByDescending(x => x.Value))
-                        sb.AppendLine($"  {ab}  {prob * 100:F1}%");
+                        sb.AppendLine(FormatSuspectedAntibodyLine(ab, prob, analysis));
                 }
                 else
                 {
@@ -241,7 +241,7 @@ namespace AntibodyPanels.Services
             {
                 sb.AppendLine("Suspected antibodies (unconfirmed):");
                 foreach (var (ab, prob) in analysis.Suspected.OrderByDescending(x => x.Value))
-                    sb.AppendLine($"  {ab}  {prob * 100:F1}%");
+                    sb.AppendLine(FormatSuspectedAntibodyLine(ab, prob, analysis));
             }
             else
             {
@@ -267,6 +267,14 @@ namespace AntibodyPanels.Services
             sb.AppendLine();
             sb.AppendLine("Supervisor:   ___________________________  Date: ______________");
             return sb.ToString();
+        }
+
+        private static string FormatSuspectedAntibodyLine(string antibody, double probability,
+            AnalysisResult analysis)
+        {
+            analysis.SuspectedStatistics.TryGetValue(antibody, out var stats);
+            var id = stats != null ? $"  {stats.IdentificationDetail}" : "";
+            return $"  {antibody}  {probability * 100:F1}%{id}";
         }
 
         private string AllSpecimensText()

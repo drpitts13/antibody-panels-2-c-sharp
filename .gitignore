@@ -41,6 +41,9 @@ bld/
 # Build results from dotnet publish
 publish/
 
+# Inno Setup output
+installer/output/
+
 # dotnet CLI temp files
 project.lock.json
 project.fragment.lock.json

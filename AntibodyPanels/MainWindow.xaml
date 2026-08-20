@@ -24,6 +24,10 @@
             </MenuItem>
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Preferences..." Command="{Binding ShowSettingsCommand}"/>
+                <MenuItem Header="_Purge Database..." Command="{Binding ShowPurgeDatabaseCommand}"
+                          ToolTip="Remove old specimens to reclaim database space"/>
+                <MenuItem Header="_Open Archive..." Command="{Binding ShowOpenArchiveCommand}"
+                          ToolTip="Read or restore a previously saved specimen archive"/>
                 <Separator/>
                 <MenuItem Header="Load _Demo Data" Command="{Binding LoadDemoDataCommand}"
                           ToolTip="Seeds seven real-world scenarios for testing"/>

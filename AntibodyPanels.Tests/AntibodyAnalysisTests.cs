@@ -1,4 +1,5 @@
 using AntibodyPanels.Models;
+using AntibodyPanels.Services;
 using AntibodyPanels.Tests.Infrastructure;
 
 namespace AntibodyPanels.Tests;
@@ -138,5 +139,110 @@ public class AntibodyAnalysisTests
         var rules = _fixture.Db.GetAllRules();
         Assert.Contains(rules, r => r.Name == "Anti-D C Exception" && r.HeterozygousOk);
         Assert.Contains(rules, r => r.MinRuleoutCount == 5);
+    }
+
+    [Fact]
+    public void IdentificationRule_TwoPlusTwoPanel_MeetsTwoPlusTwoNotThreePlusThree()
+    {
+        using var iso = new IsolatedDatabase();
+        SeedTwoPlusTwoAntiE(iso, "ID-RULE-22");
+        var previous = AppSettings.Current.IdentificationCellCount;
+        try
+        {
+            AppSettings.Current.IdentificationCellCount = 2;
+            var meets = iso.Analyzer.AnalyzeSpecimen("ID-RULE-22", updateDb: false);
+            Assert.True(meets.Suspected.ContainsKey("anti-E"),
+                $"Expected anti-E. Found: {string.Join(", ", meets.Suspected.Keys)}");
+            var stats2 = meets.SuspectedStatistics["anti-E"];
+            Assert.Equal(2, stats2.PositiveAgPositiveCount);
+            Assert.Equal(2, stats2.NegativeAgNegativeCount);
+            Assert.Equal(2, stats2.IdentificationRequired);
+            Assert.True(stats2.MeetsIdentificationRule);
+            Assert.Contains(meets.Suggestions,
+                s => s.Contains("meets the 2 + 2 identification rule", StringComparison.OrdinalIgnoreCase));
+
+            AppSettings.Current.IdentificationCellCount = 3;
+            var incomplete = iso.Analyzer.AnalyzeSpecimen("ID-RULE-22", updateDb: false);
+            Assert.True(incomplete.Suspected.ContainsKey("anti-E"));
+            var stats3 = incomplete.SuspectedStatistics["anti-E"];
+            Assert.Equal(2, stats3.PositiveAgPositiveCount);
+            Assert.Equal(2, stats3.NegativeAgNegativeCount);
+            Assert.Equal(3, stats3.IdentificationRequired);
+            Assert.False(stats3.MeetsIdentificationRule);
+            Assert.Contains(incomplete.Suggestions,
+                s => s.Contains("2 of 3 required E+ reactive"));
+            Assert.Contains(incomplete.Suggestions,
+                s => s.Contains("2 of 3 required E- nonreactive"));
+        }
+        finally
+        {
+            AppSettings.Current.IdentificationCellCount = previous;
+        }
+    }
+
+    [Fact]
+    public void IdentificationRule_SameCellOnTwoRuns_CountsOnce()
+    {
+        using var iso = new IsolatedDatabase();
+        var panelId = SeedTwoPlusTwoAntiE(iso, "ID-RULE-UNIQUE");
+        var ficinId = iso.Db.AddPanelRun("ID-RULE-UNIQUE", panelId,
+            CellTreatment.Ficin, SerumTreatment.None, "Ficin");
+        iso.Db.SaveReaction(ficinId, "1", "0", "0", "3+", "NT");
+        iso.Db.SaveReaction(ficinId, "2", "0", "0", "3+", "NT");
+        iso.Db.SaveReaction(ficinId, "3", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(ficinId, "4", "0", "0", "0", "2+");
+
+        var previous = AppSettings.Current.IdentificationCellCount;
+        try
+        {
+            AppSettings.Current.IdentificationCellCount = 3;
+            var result = iso.Analyzer.AnalyzeSpecimen("ID-RULE-UNIQUE", updateDb: false);
+            Assert.True(result.Suspected.ContainsKey("anti-E"),
+                $"Expected anti-E. Found: {string.Join(", ", result.Suspected.Keys)}");
+            var stats = result.SuspectedStatistics["anti-E"];
+            Assert.Equal(2, stats.PositiveAgPositiveCount);
+            Assert.Equal(2, stats.NegativeAgNegativeCount);
+        }
+        finally
+        {
+            AppSettings.Current.IdentificationCellCount = previous;
+        }
+    }
+
+    [Fact]
+    public void ClinicalIdentificationReport_IncludesIdentificationRuleStatus()
+    {
+        using var iso = new IsolatedDatabase();
+        SeedTwoPlusTwoAntiE(iso, "ID-RULE-RPT");
+        var previous = AppSettings.Current.IdentificationCellCount;
+        try
+        {
+            AppSettings.Current.IdentificationCellCount = 3;
+            var text = iso.Reports.GeneratePreviewText(ReportType.ClinicalIdentification, "ID-RULE-RPT");
+            Assert.Contains("anti-E", text);
+            Assert.Contains("Incomplete", text);
+            Assert.Contains("Ag+ reactive", text);
+        }
+        finally
+        {
+            AppSettings.Current.IdentificationCellCount = previous;
+        }
+    }
+
+    private static int SeedTwoPlusTwoAntiE(IsolatedDatabase iso, string specimenId)
+    {
+        iso.Db.AddSpecimen(specimenId, "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel(specimenId, panelId);
+        var cells = iso.Db.GetPanelCells(panelId);
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "E", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "E", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "E", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "E", "-");
+        iso.Db.SaveReaction(specimenId, panelId, "1", "0", "0", "3+", "NT");
+        iso.Db.SaveReaction(specimenId, panelId, "2", "0", "0", "3+", "NT");
+        iso.Db.SaveReaction(specimenId, panelId, "3", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(specimenId, panelId, "4", "0", "0", "0", "2+");
+        return panelId;
     }
 }
