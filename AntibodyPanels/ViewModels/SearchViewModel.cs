@@ -14,9 +14,17 @@ namespace AntibodyPanels.ViewModels
 
         public ObservableCollection<AntigenCriterionRow> Criteria { get; } = new();
         public ObservableCollection<SearchResultRow> Results { get; } = new();
+        public IReadOnlyList<string> ZygosityOptions { get; } = AntigenConstants.PositiveZygosityOptions;
 
         public ICommand SearchCommand { get; }
         public ICommand ClearCommand { get; }
+
+        private string _selectedZygosity = AntigenConstants.ZygosityBoth;
+        public string SelectedZygosity
+        {
+            get => _selectedZygosity;
+            set => SetField(ref _selectedZygosity, value);
+        }
 
         public SearchViewModel(DatabaseService db, MainViewModel main)
         {
@@ -42,7 +50,7 @@ namespace AntibodyPanels.ViewModels
                 return;
             }
 
-            var matches = _db.SearchCellsByProfile(criteria);
+            var matches = _db.SearchCellsByProfile(criteria, SelectedZygosity);
             Results.Clear();
             foreach (var (panel, cell) in matches)
                 Results.Add(new SearchResultRow(panel, cell));
@@ -53,6 +61,7 @@ namespace AntibodyPanels.ViewModels
         private void ClearCriteria()
         {
             foreach (var c in Criteria) c.Selected = "Any";
+            SelectedZygosity = AntigenConstants.ZygosityBoth;
             Results.Clear();
             _main.SetStatus("Search criteria cleared.");
         }

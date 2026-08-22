@@ -11,8 +11,8 @@
 
         <StackPanel Grid.Row="0" Margin="8,8,8,4">
             <TextBlock Text="Search by Antigen Profile" FontWeight="Bold" FontSize="14"/>
-            <TextBlock Margin="0,4,0,0" Foreground="#546E7A" FontSize="11"
-                       Text="Click an antigen to cycle Any → + → −. Green = must be present, gray = must be absent."/>
+            <TextBlock Margin="0,4,0,0" Foreground="#546E7A" FontSize="11" TextWrapping="Wrap"
+                       Text="Click an antigen to cycle Any → + → −. Green = must be present, gray = must be absent. For + antigens, choose whether cells must be homozygous, heterozygous, or both."/>
         </StackPanel>
 
         <ItemsControl Grid.Row="1" Margin="8,4,8,0" ItemsSource="{Binding Criteria}">
@@ -56,6 +56,11 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="8,6,0,6">
             <Button Content="Search" Command="{Binding SearchCommand}" Width="80" Margin="0,0,8,0" FontWeight="Bold"/>
             <Button Content="Clear" Command="{Binding ClearCommand}" Width="80"/>
+            <TextBlock Text="Positive cells:" VerticalAlignment="Center" Margin="16,0,6,0"/>
+            <ComboBox Width="130" VerticalAlignment="Center"
+                      ItemsSource="{Binding ZygosityOptions}"
+                      SelectedItem="{Binding SelectedZygosity}"
+                      ToolTip="Applies to antigens marked +. Homozygous = antigen+ and antithetical−. Heterozygous = both alleles +. Both = any antigen-positive cell. Antigens without an antithetical pair (such as D) stay antigen+."/>
             <TextBlock Margin="16,0,0,0" VerticalAlignment="Center"
                        Text="{Binding Results.Count, StringFormat='Results: {0}'}" FontStyle="Italic"/>
         </StackPanel>

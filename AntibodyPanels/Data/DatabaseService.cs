@@ -1434,34 +1434,29 @@ namespace AntibodyPanels.Data
         // ── Search ────────────────────────────────────────────────────────────
 
         public List<(Panel panel, PanelCell cell)> SearchCellsByProfile(
-            Dictionary<string, string> antigenCriteria)
+            Dictionary<string, string> antigenCriteria,
+            string? positiveZygosity = null)
         {
             var whereClauses = new List<string>();
             int param = 0;
             var parameters = new List<(string name, string value)>();
+            var requireHomo = string.Equals(positiveZygosity, AntigenConstants.ZygosityHomozygous,
+                StringComparison.OrdinalIgnoreCase);
+            var requireHet = string.Equals(positiveZygosity, AntigenConstants.ZygosityHeterozygous,
+                StringComparison.OrdinalIgnoreCase);
 
             foreach (var kvp in antigenCriteria)
             {
                 if (kvp.Value != "+" && kvp.Value != "-") continue;
-                var pName = $"$v{param++}";
-                parameters.Add((pName, kvp.Value));
+                if (!TryAddAntigenEqualsClause(kvp.Key, kvp.Value, whereClauses, parameters, ref param))
+                    continue;
 
-                if (AntigenConstants.IsStandard(kvp.Key))
+                if (kvp.Value == "+" &&
+                    (requireHomo || requireHet) &&
+                    AntigenConstants.AntitheticalPairs.TryGetValue(kvp.Key, out var antithetical))
                 {
-                    var col = AntigenMapper.GetColumn(kvp.Key);
-                    whereClauses.Add($"pc.{col} = {pName}");
-                }
-                else if (AntigenConstants.IsWarehouse(kvp.Key))
-                {
-                    var agName = $"$ag{param++}";
-                    parameters.Add((agName, kvp.Key));
-                    whereClauses.Add($@"
-                        EXISTS (
-                            SELECT 1 FROM panel_cell_extra_antigens x
-                            WHERE x.cell_id = pc.id
-                              AND x.antigen_name = {agName}
-                              AND x.value = {pName}
-                        )");
+                    var antitheticalValue = requireHomo ? "-" : "+";
+                    TryAddAntigenEqualsClause(antithetical, antitheticalValue, whereClauses, parameters, ref param);
                 }
             }
             if (whereClauses.Count == 0) return new();
@@ -1497,6 +1492,41 @@ namespace AntibodyPanels.Data
             }
             AttachExtraAntigens(cells);
             return results;
+        }
+
+        private static bool TryAddAntigenEqualsClause(
+            string antigen,
+            string value,
+            List<string> whereClauses,
+            List<(string name, string value)> parameters,
+            ref int param)
+        {
+            if (AntigenConstants.IsStandard(antigen))
+            {
+                var pName = $"$v{param++}";
+                parameters.Add((pName, value));
+                var col = AntigenMapper.GetColumn(antigen);
+                whereClauses.Add($"pc.{col} = {pName}");
+                return true;
+            }
+
+            if (AntigenConstants.IsWarehouse(antigen))
+            {
+                var pName = $"$v{param++}";
+                var agName = $"$ag{param++}";
+                parameters.Add((pName, value));
+                parameters.Add((agName, antigen));
+                whereClauses.Add($@"
+                        EXISTS (
+                            SELECT 1 FROM panel_cell_extra_antigens x
+                            WHERE x.cell_id = pc.id
+                              AND x.antigen_name = {agName}
+                              AND x.value = {pName}
+                        )");
+                return true;
+            }
+
+            return false;
         }
 
         // ── Readers ───────────────────────────────────────────────────────────

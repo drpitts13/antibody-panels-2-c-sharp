@@ -112,6 +112,17 @@ namespace AntibodyPanels.Models
         public static readonly IReadOnlyList<string> AntigenValues =
             new[] { "+", "-" };
 
+        public const string ZygosityBoth = "Both";
+        public const string ZygosityHomozygous = "Homozygous";
+        public const string ZygosityHeterozygous = "Heterozygous";
+
+        /// <summary>
+        /// Search-tab options for cells that are positive for a selected antigen.
+        /// Homozygous = antigen+ and antithetical−; heterozygous = both +; both = any +.
+        /// </summary>
+        public static readonly IReadOnlyList<string> PositiveZygosityOptions =
+            new[] { ZygosityBoth, ZygosityHomozygous, ZygosityHeterozygous };
+
         public const double ProbabilityThreshold = 0.5;
     }
 }
