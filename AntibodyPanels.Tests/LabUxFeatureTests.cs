@@ -80,6 +80,51 @@ public class LabUxFeatureTests
     }
 
     [Fact]
+    public void Worklist_ConfirmedId_DropsIncompleteAndStaleItems()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("DONE-001", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+        iso.Db.LinkSpecimenPanel("DONE-001", panelId);
+
+        var before = iso.Db.GetWorklistItems(14)
+            .Where(i => i.AccessionNumber == "DONE-001")
+            .ToList();
+        Assert.Contains(before, i => i.Kind == WorklistKind.IncompleteReactions);
+        Assert.Contains(before, i => i.Kind == WorklistKind.StaleAnalysis);
+
+        iso.Db.SetSpecimenFinalCall("DONE-001", "anti-E", null, "DP");
+        var after = iso.Db.GetWorklistItems(14)
+            .Where(i => i.AccessionNumber == "DONE-001")
+            .ToList();
+        Assert.DoesNotContain(after, i => i.Kind == WorklistKind.IncompleteReactions);
+        Assert.DoesNotContain(after, i => i.Kind == WorklistKind.StaleAnalysis);
+
+        iso.Db.ClearSpecimenFinalCall("DONE-001");
+        var restored = iso.Db.GetWorklistItems(14)
+            .Where(i => i.AccessionNumber == "DONE-001")
+            .ToList();
+        Assert.Contains(restored, i => i.Kind == WorklistKind.IncompleteReactions);
+        Assert.Contains(restored, i => i.Kind == WorklistKind.StaleAnalysis);
+    }
+
+    [Fact]
+    public void Worklist_ConfirmedId_StillShowsExpiringSpecimen()
+    {
+        using var iso = new IsolatedDatabase();
+        var soon = DateTime.Now.AddDays(3).ToString("yyyy-MM-dd");
+        iso.Db.AddSpecimen("DONE-EXP", "serum", soon);
+        iso.Db.SetSpecimenFinalCall("DONE-EXP", "anti-K", null, "DP");
+
+        var items = iso.Db.GetWorklistItems(14)
+            .Where(i => i.AccessionNumber == "DONE-EXP")
+            .ToList();
+        Assert.DoesNotContain(items, i => i.Kind == WorklistKind.IncompleteReactions);
+        Assert.DoesNotContain(items, i => i.Kind == WorklistKind.StaleAnalysis);
+        Assert.Contains(items, i => i.Kind == WorklistKind.ExpiringSpecimen);
+    }
+
+    [Fact]
     public void ClinicalIdentificationReport_ContainsWorksheetAndSignOff()
     {
         using var iso = new IsolatedDatabase();

@@ -354,6 +354,7 @@ namespace AntibodyPanels.ViewModels
             LoadFinalCall(SelectedSpecimen);
             _main.SpecimensVM.Refresh();
             _main.ReportsVM.Refresh();
+            _main.WorklistVM.Refresh();
             _main.SetStatus($"Identification confirmed for {SelectedSpecimen.AccessionNumber}.");
         }
 
@@ -369,6 +370,7 @@ namespace AntibodyPanels.ViewModels
             LoadFinalCall(SelectedSpecimen);
             _main.SpecimensVM.Refresh();
             _main.ReportsVM.Refresh();
+            _main.WorklistVM.Refresh();
             _main.SetStatus("Confirmed identification cleared.");
         }
 

@@ -10,7 +10,7 @@
             </StackPanel>
         </DockPanel>
         <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" Foreground="#546E7A" TextWrapping="Wrap"
-                   Text="Incomplete reactions, stale analyses, and specimens or panels nearing expiration. Double-click a row to open it."/>
+                   Text="Incomplete reactions and stale analyses for specimens that do not yet have a confirmed antibody ID, plus specimens or panels nearing expiration. Double-click a row to open it."/>
         <DataGrid ItemsSource="{Binding Items}"
                   SelectedItem="{Binding SelectedItem}"
                   AutoGenerateColumns="False" IsReadOnly="True"

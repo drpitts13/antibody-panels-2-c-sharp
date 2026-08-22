@@ -1260,73 +1260,76 @@ namespace AntibodyPanels.Data
             foreach (var s in GetAllSpecimens().Where(s => s.IsActive))
             {
                 var panels = GetSpecimenPanels(s.AccessionNumber);
-                if (panels.Count == 0)
+                if (!s.HasFinalCall)
                 {
-                    items.Add(new WorklistItem
-                    {
-                        Kind = WorklistKind.IncompleteReactions,
-                        KindLabel = "Incomplete",
-                        Title = s.AccessionNumber,
-                        Detail = "No panel attached.",
-                        AccessionNumber = s.AccessionNumber,
-                        TargetTab = "Specimens"
-                    });
-                }
-                else
-                {
-                    bool incomplete = false;
-                    var missing = new List<string>();
-                    foreach (var p in panels)
-                    {
-                        var runs = GetPanelRuns(s.AccessionNumber, p.PanelId);
-                        var run = runs.FirstOrDefault(r => r.IsUntreated) ?? runs.FirstOrDefault();
-                        if (run == null)
-                        {
-                            incomplete = true;
-                            missing.Add(p.Name);
-                            continue;
-                        }
-                        var cells = GetPanelCells(p.PanelId);
-                        var rxns = GetReactions(run.RunId).ToDictionary(r => r.CellNumber);
-                        int entered = 0;
-                        foreach (var cell in cells)
-                        {
-                            if (!rxns.TryGetValue(cell.CellNumber, out var rxn)) continue;
-                            if (HasEnteredGrade(rxn)) entered++;
-                        }
-                        if (entered == 0 || entered < cells.Count)
-                        {
-                            incomplete = true;
-                            missing.Add($"{p.Name} ({entered}/{cells.Count})");
-                        }
-                    }
-                    if (incomplete)
+                    if (panels.Count == 0)
                     {
                         items.Add(new WorklistItem
                         {
                             Kind = WorklistKind.IncompleteReactions,
                             KindLabel = "Incomplete",
                             Title = s.AccessionNumber,
-                            Detail = "Reactions not finished: " + string.Join("; ", missing),
+                            Detail = "No panel attached.",
                             AccessionNumber = s.AccessionNumber,
-                            TargetTab = "Reactions"
+                            TargetTab = "Specimens"
                         });
                     }
-                }
-
-                if (s.IsAnalysisStale || (s.LastAnalyzedAt == null && panels.Count > 0))
-                {
-                    items.Add(new WorklistItem
+                    else
                     {
-                        Kind = WorklistKind.StaleAnalysis,
-                        KindLabel = "Stale analysis",
-                        Title = s.AccessionNumber,
-                        Detail = s.LastAnalyzedAt == null
-                            ? "Never analyzed."
-                            : "Reactions changed since last analysis.",
-                        AccessionNumber = s.AccessionNumber,
-                        TargetTab = "Analysis"
-                    });
+                        bool incomplete = false;
+                        var missing = new List<string>();
+                        foreach (var p in panels)
+                        {
+                            var runs = GetPanelRuns(s.AccessionNumber, p.PanelId);
+                            var run = runs.FirstOrDefault(r => r.IsUntreated) ?? runs.FirstOrDefault();
+                            if (run == null)
+                            {
+                                incomplete = true;
+                                missing.Add(p.Name);
+                                continue;
+                            }
+                            var cells = GetPanelCells(p.PanelId);
+                            var rxns = GetReactions(run.RunId).ToDictionary(r => r.CellNumber);
+                            int entered = 0;
+                            foreach (var cell in cells)
+                            {
+                                if (!rxns.TryGetValue(cell.CellNumber, out var rxn)) continue;
+                                if (HasEnteredGrade(rxn)) entered++;
+                            }
+                            if (entered == 0 || entered < cells.Count)
+                            {
+                                incomplete = true;
+                                missing.Add($"{p.Name} ({entered}/{cells.Count})");
+                            }
+                        }
+                        if (incomplete)
+                        {
+                            items.Add(new WorklistItem
+                            {
+                                Kind = WorklistKind.IncompleteReactions,
+                                KindLabel = "Incomplete",
+                                Title = s.AccessionNumber,
+                                Detail = "Reactions not finished: " + string.Join("; ", missing),
+                                AccessionNumber = s.AccessionNumber,
+                                TargetTab = "Reactions"
+                            });
+                        }
+                    }
+
+                    if (s.IsAnalysisStale || (s.LastAnalyzedAt == null && panels.Count > 0))
+                    {
+                        items.Add(new WorklistItem
+                        {
+                            Kind = WorklistKind.StaleAnalysis,
+                            KindLabel = "Stale analysis",
+                            Title = s.AccessionNumber,
+                            Detail = s.LastAnalyzedAt == null
+                                ? "Never analyzed."
+                                : "Reactions changed since last analysis.",
+                            AccessionNumber = s.AccessionNumber,
+                            TargetTab = "Analysis"
+                        });
+                    }
                 }
 
                 if (s.ExpirationDate != null &&
