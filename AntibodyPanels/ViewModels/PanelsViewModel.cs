@@ -43,7 +43,18 @@ namespace AntibodyPanels.ViewModels
             set
             {
                 if (IsEditingAntigens) { OnPropertyChanged(nameof(ShowInactive)); return; }
-                if (SetField(ref _showInactive, value)) Refresh();
+                if (SetField(ref _showInactive, value)) ApplyFilter();
+            }
+        }
+
+        private string _listFilter = string.Empty;
+        public string ListFilter
+        {
+            get => _listFilter;
+            set
+            {
+                if (IsEditingAntigens) { OnPropertyChanged(nameof(ListFilter)); return; }
+                if (SetField(ref _listFilter, value)) ApplyFilter();
             }
         }
 
@@ -92,22 +103,48 @@ namespace AntibodyPanels.ViewModels
             Refresh();
         }
 
+        private List<Panel> _allPanels = new();
+
         public void Refresh()
         {
             var sid = SelectedPanel?.PanelId;
-            Panels.Clear();
-            foreach (var p in _db.GetAllPanels())
-            {
-                if (_showInactive || p.IsActive)
-                    Panels.Add(p);
-            }
-            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == sid)
-                ?? Panels.FirstOrDefault();
+            _allPanels = _db.GetAllPanels();
+            ApplyFilter(sid);
         }
 
         public void SelectPanel(int panelId)
         {
+            var match = _allPanels.FirstOrDefault(p => p.PanelId == panelId);
+            if (match != null && !IsEditingAntigens)
+            {
+                if (!_showInactive && !match.IsActive)
+                {
+                    _showInactive = true;
+                    OnPropertyChanged(nameof(ShowInactive));
+                }
+                if (!match.MatchesFilter(_listFilter))
+                {
+                    _listFilter = string.Empty;
+                    OnPropertyChanged(nameof(ListFilter));
+                }
+                ApplyFilter(panelId);
+            }
             SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == panelId) ?? SelectedPanel;
+        }
+
+        private void ApplyFilter(int? preferredId = null)
+        {
+            if (IsEditingAntigens) return;
+            preferredId ??= SelectedPanel?.PanelId;
+            Panels.Clear();
+            foreach (var p in _allPanels)
+            {
+                if (!_showInactive && !p.IsActive) continue;
+                if (!p.MatchesFilter(_listFilter)) continue;
+                Panels.Add(p);
+            }
+            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == preferredId)
+                ?? Panels.FirstOrDefault();
         }
 
         private void LoadCells()

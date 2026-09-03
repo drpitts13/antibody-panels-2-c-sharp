@@ -13,7 +13,10 @@
                 <ColumnDefinition Width="180"/>
                 <ColumnDefinition Width="16"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="180"/>
                 <ColumnDefinition Width="16"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="220"/>
@@ -25,25 +28,34 @@
             <ComboBox Grid.Column="1" ItemsSource="{Binding ReportTypes}"
                       SelectedItem="{Binding SelectedReportType}"/>
 
-            <Label Grid.Column="3" Content="Specimen:"
+            <Label Grid.Column="3" Content="Find:"
                    Visibility="{Binding NeedsSpecimen, Converter={StaticResource BoolToVis}}"
                    VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="4" ItemsSource="{Binding Specimens}"
+            <TextBox Grid.Column="4"
+                     Text="{Binding SpecimenFilter, UpdateSourceTrigger=PropertyChanged}"
+                     Visibility="{Binding NeedsSpecimen, Converter={StaticResource BoolToVis}}"
+                     VerticalAlignment="Center" Margin="0,2"
+                     ToolTip="Filter specimens by accession, type, phenotype, notes, or final ID"/>
+
+            <Label Grid.Column="6" Content="Specimen:"
+                   Visibility="{Binding NeedsSpecimen, Converter={StaticResource BoolToVis}}"
+                   VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="7" ItemsSource="{Binding Specimens}"
                       SelectedItem="{Binding SelectedSpecimen}"
                       DisplayMemberPath="AccessionNumber"
                       Visibility="{Binding NeedsSpecimen, Converter={StaticResource BoolToVis}}"/>
 
-            <Label Grid.Column="6" Content="Panel:"
+            <Label Grid.Column="9" Content="Panel:"
                    Visibility="{Binding NeedsPanel, Converter={StaticResource BoolToVis}}"
                    VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="7" ItemsSource="{Binding Panels}"
+            <ComboBox Grid.Column="10" ItemsSource="{Binding Panels}"
                       SelectedItem="{Binding SelectedPanel}"
                       DisplayMemberPath="Name"
                       Visibility="{Binding NeedsPanel, Converter={StaticResource BoolToVis}}"/>
 
-            <Button Grid.Column="9" Content="Export CSV" Command="{Binding ExportCsvCommand}"
+            <Button Grid.Column="12" Content="Export CSV" Command="{Binding ExportCsvCommand}"
                     Margin="0,0,6,0" Padding="8,2"/>
-            <Button Grid.Column="10" Content="Export PDF" Command="{Binding ExportPdfCommand}"
+            <Button Grid.Column="13" Content="Export PDF" Command="{Binding ExportPdfCommand}"
                     Padding="8,2"/>
         </Grid>
 

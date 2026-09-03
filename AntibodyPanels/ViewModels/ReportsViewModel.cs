@@ -57,6 +57,13 @@ namespace AntibodyPanels.ViewModels
             set => SetField(ref _previewText, value);
         }
 
+        private string _specimenFilter = string.Empty;
+        public string SpecimenFilter
+        {
+            get => _specimenFilter;
+            set { if (SetField(ref _specimenFilter, value)) ApplySpecimenFilter(); }
+        }
+
         public bool NeedsSpecimen => SelectedReportType is
             "Specimen Summary" or "Analysis Results" or "Clinical Identification";
 
@@ -64,6 +71,9 @@ namespace AntibodyPanels.ViewModels
 
         public ICommand ExportCsvCommand { get; }
         public ICommand ExportPdfCommand { get; }
+
+        private List<Specimen> _allSpecimens = new();
+        private List<Panel> _allPanels = new();
 
         public ReportsViewModel(DatabaseService db, MainViewModel main)
         {
@@ -74,9 +84,10 @@ namespace AntibodyPanels.ViewModels
             ExportCsvCommand = new RelayCommand(ExportCsv);
             ExportPdfCommand = new RelayCommand(ExportPdf);
 
-            foreach (var s in _db.GetAllSpecimens()) Specimens.Add(s);
-            foreach (var p in _db.GetAllPanels()) Panels.Add(p);
-            SelectedSpecimen = Specimens.FirstOrDefault();
+            _allSpecimens = _db.GetAllSpecimens();
+            _allPanels = _db.GetAllPanels();
+            ApplySpecimenFilter();
+            foreach (var p in _allPanels) Panels.Add(p);
             SelectedPanel = Panels.FirstOrDefault();
             UpdatePreview();
         }
@@ -86,19 +97,29 @@ namespace AntibodyPanels.ViewModels
             var selSpecimen = SelectedSpecimen?.AccessionNumber;
             var selPanel = SelectedPanel?.PanelId;
 
-            Specimens.Clear();
-            foreach (var s in _db.GetAllSpecimens()) Specimens.Add(s);
-            SelectedSpecimen = selSpecimen != null
-                ? Specimens.FirstOrDefault(s => s.AccessionNumber == selSpecimen) ?? Specimens.FirstOrDefault()
-                : Specimens.FirstOrDefault();
+            _allSpecimens = _db.GetAllSpecimens();
+            ApplySpecimenFilter(selSpecimen);
 
             Panels.Clear();
-            foreach (var p in _db.GetAllPanels()) Panels.Add(p);
+            _allPanels = _db.GetAllPanels();
+            foreach (var p in _allPanels) Panels.Add(p);
             SelectedPanel = selPanel != null
                 ? Panels.FirstOrDefault(p => p.PanelId == selPanel) ?? Panels.FirstOrDefault()
                 : Panels.FirstOrDefault();
 
             UpdatePreview();
+        }
+
+        private void ApplySpecimenFilter(string? preferredAccession = null)
+        {
+            preferredAccession ??= SelectedSpecimen?.AccessionNumber;
+            Specimens.Clear();
+            foreach (var s in _allSpecimens.Where(x => x.MatchesFilter(_specimenFilter)))
+                Specimens.Add(s);
+            SelectedSpecimen = preferredAccession != null
+                ? Specimens.FirstOrDefault(s => s.AccessionNumber == preferredAccession)
+                    ?? Specimens.FirstOrDefault()
+                : Specimens.FirstOrDefault();
         }
 
         private ReportType GetReportType() => SelectedReportType switch

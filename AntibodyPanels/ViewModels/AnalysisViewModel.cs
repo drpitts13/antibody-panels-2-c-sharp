@@ -30,6 +30,14 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<string> SuggestionItems { get; } = new();
 
         private AnalysisResult? _lastResult;
+        private List<Specimen> _allSpecimens = new();
+
+        private string _specimenFilter = string.Empty;
+        public string SpecimenFilter
+        {
+            get => _specimenFilter;
+            set { if (SetField(ref _specimenFilter, value)) ApplySpecimenFilter(); }
+        }
 
         private Specimen? _selectedSpecimen;
         public Specimen? SelectedSpecimen
@@ -131,17 +139,33 @@ namespace AntibodyPanels.ViewModels
 
         public void SelectSpecimen(string accessionNumber)
         {
-            SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == accessionNumber)
-                ?? SelectedSpecimen;
+            if (_allSpecimens.Count == 0)
+                _allSpecimens = _db.GetAllSpecimens();
+            var match = _allSpecimens.FirstOrDefault(s => s.AccessionNumber == accessionNumber);
+            if (match != null && !match.MatchesFilter(_specimenFilter))
+            {
+                _specimenFilter = string.Empty;
+                OnPropertyChanged(nameof(SpecimenFilter));
+            }
+            ApplySpecimenFilter(accessionNumber);
         }
 
         public void Refresh()
         {
             var sid = SelectedSpecimen?.AccessionNumber;
+            _allSpecimens = _db.GetAllSpecimens();
+            ApplySpecimenFilter(sid);
+        }
+
+        private void ApplySpecimenFilter(string? preferredAccession = null)
+        {
+            preferredAccession ??= SelectedSpecimen?.AccessionNumber;
             Specimens.Clear();
-            foreach (var s in _db.GetAllSpecimens()) Specimens.Add(s);
-            SelectedSpecimen = sid != null
-                ? Specimens.FirstOrDefault(s => s.AccessionNumber == sid)
+            foreach (var s in _allSpecimens.Where(x => x.MatchesFilter(_specimenFilter)))
+                Specimens.Add(s);
+            SelectedSpecimen = preferredAccession != null
+                ? Specimens.FirstOrDefault(s => s.AccessionNumber == preferredAccession)
+                    ?? Specimens.FirstOrDefault()
                 : Specimens.FirstOrDefault();
         }
 

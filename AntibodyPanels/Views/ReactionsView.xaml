@@ -32,19 +32,26 @@
         <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="200"/>
                 <ColumnDefinition Width="16"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="200"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Label Content="Specimen:" Grid.Column="0" VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="1" ItemsSource="{Binding Specimens}"
+            <Label Content="Find:" Grid.Column="0" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1" Text="{Binding SpecimenFilter, UpdateSourceTrigger=PropertyChanged}"
+                     VerticalAlignment="Center" Margin="0,2"
+                     ToolTip="Filter the specimen list by accession, type, phenotype, previous antibodies, notes, or final ID"/>
+            <Label Content="Specimen:" Grid.Column="3" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="4" ItemsSource="{Binding Specimens}"
                       SelectedItem="{Binding SelectedSpecimen}"
                       DisplayMemberPath="AccessionNumber"
                       IsEditable="True" IsTextSearchEnabled="True"/>
-            <Label Content="Panel:" Grid.Column="3" VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="4" ItemsSource="{Binding Panels}"
+            <Label Content="Panel:" Grid.Column="6" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="7" ItemsSource="{Binding Panels}"
                       SelectedItem="{Binding SelectedPanel}"
                       DisplayMemberPath="Name"
                       IsEditable="True" IsTextSearchEnabled="True"/>

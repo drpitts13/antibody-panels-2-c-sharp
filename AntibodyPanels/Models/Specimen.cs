@@ -31,5 +31,9 @@ namespace AntibodyPanels.Models
         public bool IsAnalysisStale =>
             ReactionsUpdatedAt != null &&
             (LastAnalyzedAt == null || string.Compare(ReactionsUpdatedAt, LastAnalyzedAt) > 0);
+
+        public bool MatchesFilter(string? query) =>
+            TextFilter.Matches(query, AccessionNumber, Type, Phenotype, PreviousAntibodies,
+                Notes, FinalAntibodies, DatResult, ExpirationDate);
     }
 }

@@ -107,11 +107,12 @@ namespace AntibodyPanels.ViewModels
             }
         }
 
+        private List<Specimen> _allSpecimens = new();
         private string _specimenFilter = string.Empty;
         public string SpecimenFilter
         {
             get => _specimenFilter;
-            set { SetField(ref _specimenFilter, value); ApplySpecimenFilter(); }
+            set { if (SetField(ref _specimenFilter, value)) ApplySpecimenFilter(); }
         }
 
         /// <summary>Antigen names ruled out for the current specimen (column header colouring).</summary>
@@ -222,16 +223,22 @@ namespace AntibodyPanels.ViewModels
 
         public void SelectSpecimen(string accessionNumber)
         {
-            SelectedSpecimen = Specimens.FirstOrDefault(x => x.AccessionNumber == accessionNumber)
-                ?? SelectedSpecimen;
+            if (_allSpecimens.Count == 0)
+                LoadAllSpecimens();
+            var match = _allSpecimens.FirstOrDefault(x => x.AccessionNumber == accessionNumber);
+            if (match != null && !match.MatchesFilter(_specimenFilter))
+            {
+                _specimenFilter = string.Empty;
+                OnPropertyChanged(nameof(SpecimenFilter));
+            }
+            ApplySpecimenFilter(accessionNumber);
         }
 
         public void RefreshSpecimens()
         {
             var s = SelectedSpecimen?.AccessionNumber;
-            Specimens.Clear();
-            foreach (var sp in _db.GetActiveSpecimens()) Specimens.Add(sp);
-            SelectedSpecimen = Specimens.FirstOrDefault(x => x.AccessionNumber == s);
+            LoadAllSpecimens();
+            ApplySpecimenFilter(s);
         }
 
         private void RefreshPanels()
@@ -418,7 +425,20 @@ namespace AntibodyPanels.ViewModels
         private RunContext CreateRunContext(PanelRun run) =>
             new(run, _db.GetPanelExtraAntigens(run.PanelId));
 
-        private void ApplySpecimenFilter() { }
+        private void LoadAllSpecimens()
+        {
+            _allSpecimens = _db.GetActiveSpecimens();
+        }
+
+        private void ApplySpecimenFilter(string? preferredAccession = null)
+        {
+            preferredAccession ??= SelectedSpecimen?.AccessionNumber;
+            Specimens.Clear();
+            foreach (var sp in _allSpecimens.Where(s => s.MatchesFilter(_specimenFilter)))
+                Specimens.Add(sp);
+            SelectedSpecimen = Specimens.FirstOrDefault(x => x.AccessionNumber == preferredAccession)
+                ?? Specimens.FirstOrDefault();
+        }
 
         private void LoadReactions()
         {

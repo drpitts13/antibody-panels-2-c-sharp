@@ -17,5 +17,8 @@ namespace AntibodyPanels.Models
         public List<PanelCell> Cells { get; set; } = new();
 
         public override string ToString() => Name;
+
+        public bool MatchesFilter(string? query) =>
+            TextFilter.Matches(query, Name, LotNumber, Vendor, ExpirationDate);
     }
 }

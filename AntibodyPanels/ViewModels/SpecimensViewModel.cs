@@ -40,7 +40,14 @@ namespace AntibodyPanels.ViewModels
         public bool ShowInactive
         {
             get => _showInactive;
-            set { if (SetField(ref _showInactive, value)) Refresh(); }
+            set { if (SetField(ref _showInactive, value)) ApplyFilter(); }
+        }
+
+        private string _listFilter = string.Empty;
+        public string ListFilter
+        {
+            get => _listFilter;
+            set { if (SetField(ref _listFilter, value)) ApplyFilter(); }
         }
 
         public ICommand AddCommand { get; }
@@ -66,24 +73,51 @@ namespace AntibodyPanels.ViewModels
             Refresh();
         }
 
+        private List<Specimen> _allSpecimens = new();
+
         public void Refresh()
         {
             var selected = SelectedSpecimen?.AccessionNumber;
-            Specimens.Clear();
-            var all = _db.GetAllSpecimens();
-            foreach (var s in all)
-            {
-                if (_showInactive || s.IsActive)
-                    Specimens.Add(s);
-            }
-            SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == selected)
-                ?? Specimens.FirstOrDefault();
+            _allSpecimens = _db.GetAllSpecimens();
+            ApplyFilter(selected);
         }
 
         public void SelectSpecimen(string accessionNumber)
         {
+            EnsureVisible(accessionNumber);
             SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == accessionNumber)
                 ?? SelectedSpecimen;
+        }
+
+        private void ApplyFilter(string? preferredAccession = null)
+        {
+            preferredAccession ??= SelectedSpecimen?.AccessionNumber;
+            Specimens.Clear();
+            foreach (var s in _allSpecimens)
+            {
+                if (!_showInactive && !s.IsActive) continue;
+                if (!s.MatchesFilter(_listFilter)) continue;
+                Specimens.Add(s);
+            }
+            SelectedSpecimen = Specimens.FirstOrDefault(s => s.AccessionNumber == preferredAccession)
+                ?? Specimens.FirstOrDefault();
+        }
+
+        private void EnsureVisible(string accessionNumber)
+        {
+            var match = _allSpecimens.FirstOrDefault(s => s.AccessionNumber == accessionNumber);
+            if (match == null) return;
+            if (!_showInactive && !match.IsActive)
+            {
+                _showInactive = true;
+                OnPropertyChanged(nameof(ShowInactive));
+            }
+            if (!match.MatchesFilter(_listFilter))
+            {
+                _listFilter = string.Empty;
+                OnPropertyChanged(nameof(ListFilter));
+            }
+            ApplyFilter(accessionNumber);
         }
 
         private void LoadSpecimenDetails()

@@ -353,4 +353,38 @@ public class LabUxFeatureTests
         };
         Assert.Equal("", AnalysisViewModel.SuggestedFinalId(rows));
     }
+
+    [Fact]
+    public void Specimen_MatchesFilter_SearchesClinicalFields()
+    {
+        var s = new Specimen
+        {
+            AccessionNumber = "2024-ABC",
+            Type = "plasma",
+            Phenotype = "R1r, K-",
+            PreviousAntibodies = "anti-E",
+            Notes = "Warm auto workup",
+            DatResult = "1+",
+            FinalAntibodies = "anti-c"
+        };
+        Assert.True(s.MatchesFilter("abc"));
+        Assert.True(s.MatchesFilter("plasma"));
+        Assert.True(s.MatchesFilter("R1r"));
+        Assert.True(s.MatchesFilter("anti-E"));
+        Assert.True(s.MatchesFilter("warm"));
+        Assert.True(s.MatchesFilter("anti-c"));
+        Assert.False(s.MatchesFilter("xyz"));
+        Assert.True(s.MatchesFilter(""));
+        Assert.True(s.MatchesFilter(null));
+    }
+
+    [Fact]
+    public void Panel_MatchesFilter_SearchesNameLotAndVendor()
+    {
+        var p = new Panel { Name = "Ortho ID Panel", LotNumber = "LOT-99", Vendor = "Ortho", ExpirationDate = "2030-01-01" };
+        Assert.True(p.MatchesFilter("ortho"));
+        Assert.True(p.MatchesFilter("99"));
+        Assert.True(p.MatchesFilter("2030"));
+        Assert.False(p.MatchesFilter("Immucor"));
+    }
 }
