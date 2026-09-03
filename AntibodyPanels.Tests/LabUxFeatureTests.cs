@@ -632,6 +632,16 @@ public class LabUxFeatureTests
     }
 
     [Theory]
+    [InlineData(false, 1, 2, false)]
+    [InlineData(true, 1, 1, false)]
+    [InlineData(true, 1, 2, true)]
+    [InlineData(true, null, 2, true)]
+    public void Reactions_NeedsDiscardPrompt(bool dirty, int? current, int? next, bool expected)
+    {
+        Assert.Equal(expected, ReactionsViewModel.NeedsDiscardPrompt(dirty, current, next));
+    }
+
+    [Theory]
     [InlineData("NT", "NT", "NT", "NT", "0", "0", "0", "2+")]
     [InlineData("2+", "NT", "3+", "NT", "2+", "0", "3+", "NT")]
     [InlineData("0", "0", "0", "2+", "0", "0", "0", "2+")]

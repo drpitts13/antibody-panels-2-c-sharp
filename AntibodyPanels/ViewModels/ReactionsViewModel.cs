@@ -22,12 +22,25 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<ReactionRow> Rows { get; } = new();
         public ObservableCollection<CompareReactionRow> CompareRows { get; } = new();
 
+        private bool _gradesDirty;
+        public bool HasUnsavedGrades => _gradesDirty;
+
         private Specimen? _selectedSpecimen;
         public Specimen? SelectedSpecimen
         {
             get => _selectedSpecimen;
             set
             {
+                if (_selectedSpecimen?.AccessionNumber == value?.AccessionNumber)
+                {
+                    _selectedSpecimen = value;
+                    return;
+                }
+                if (!ConfirmDiscardUnsaved())
+                {
+                    OnPropertyChanged();
+                    return;
+                }
                 if (SetField(ref _selectedSpecimen, value))
                 {
                     RefreshPanels();
@@ -42,6 +55,16 @@ namespace AntibodyPanels.ViewModels
             get => _selectedPanel;
             set
             {
+                if (_selectedPanel?.PanelId == value?.PanelId)
+                {
+                    _selectedPanel = value;
+                    return;
+                }
+                if (!ConfirmDiscardUnsaved())
+                {
+                    OnPropertyChanged();
+                    return;
+                }
                 if (SetField(ref _selectedPanel, value))
                 {
                     RefreshExtraAntigens();
@@ -56,10 +79,21 @@ namespace AntibodyPanels.ViewModels
             get => _selectedRun;
             set
             {
+                if (_selectedRun?.RunId == value?.RunId)
+                {
+                    _selectedRun = value;
+                    return;
+                }
+                if (!ConfirmDiscardUnsaved())
+                {
+                    OnPropertyChanged();
+                    return;
+                }
                 if (SetField(ref _selectedRun, value))
                 {
                     UpdateTreatmentBanner();
                     RefreshCompareRunChoices();
+                    LoadReactions();
                 }
             }
         }
@@ -198,6 +232,35 @@ namespace AntibodyPanels.ViewModels
         }
 
         private void RefreshEntryProgress() => OnPropertyChanged(nameof(EntryProgressText));
+
+        private void OnGradeEdited()
+        {
+            RefreshEntryProgress();
+            if (_gradesDirty) return;
+            _gradesDirty = true;
+            OnPropertyChanged(nameof(HasUnsavedGrades));
+        }
+
+        private void MarkGradesClean()
+        {
+            if (!_gradesDirty) return;
+            _gradesDirty = false;
+            OnPropertyChanged(nameof(HasUnsavedGrades));
+        }
+
+        public static bool NeedsDiscardPrompt(bool dirty, int? currentRunId, int? nextRunId) =>
+            dirty && currentRunId != nextRunId;
+
+        private bool ConfirmDiscardUnsaved()
+        {
+            if (!_gradesDirty) return true;
+            var discard = MessageBox.Show(
+                "Discard unsaved reaction grades?",
+                "Unsaved grades", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (discard != MessageBoxResult.Yes) return false;
+            MarkGradesClean();
+            return true;
+        }
 
         private void SetSaveStatus(bool success, string message)
         {
@@ -466,7 +529,14 @@ namespace AntibodyPanels.ViewModels
 
         private void LoadReactions()
         {
-            if (SelectedSpecimen == null || SelectedRun == null) return;
+            if (SelectedSpecimen == null || SelectedRun == null)
+            {
+                Rows.Clear();
+                CompareRows.Clear();
+                RefreshEntryProgress();
+                MarkGradesClean();
+                return;
+            }
 
             if (SelectedSpecimen.IsActive == false || SelectedPanel?.IsActive == false)
             {
@@ -490,13 +560,14 @@ namespace AntibodyPanels.ViewModels
             foreach (var cell in cells)
             {
                 reactions.TryGetValue(cell.CellNumber, out var rxn);
-                Rows.Add(new ReactionRow(cell, rxn, rules, ctx, RefreshEntryProgress));
+                Rows.Add(new ReactionRow(cell, rxn, rules, ctx, OnGradeEdited));
             }
 
             UpdateTreatmentBanner();
             RefreshRuledOutAntigens();
             RebuildCompareRows();
             RefreshEntryProgress();
+            MarkGradesClean();
             _main.SetStatus(
                 $"Loaded {Rows.Count} cells for {SelectedSpecimen.AccessionNumber} / " +
                 $"{SelectedRun.PanelName} ({SelectedRun.DisplayLabel})");
@@ -532,6 +603,7 @@ namespace AntibodyPanels.ViewModels
                     _db.SaveReaction(SelectedRun.RunId, row.CellNumber,
                         row.IS, row.C37, row.AHG, row.CC);
                 entered = Rows.Count(r => r.HasEnteredGrade);
+                MarkGradesClean();
                 return true;
             }
             catch (Exception ex)
@@ -600,6 +672,7 @@ namespace AntibodyPanels.ViewModels
             CompareRows.Clear();
             RefreshRuledOutAntigens();
             RefreshEntryProgress();
+            MarkGradesClean();
             _main.SetStatus("Reactions cleared.");
         }
 

@@ -201,7 +201,7 @@
             <TextBlock Grid.Row="1" Margin="0,4,0,2" Foreground="#546E7A" FontSize="11"
                        TextWrapping="Wrap">
                 <Run Text="{Binding EntryProgressText, Mode=OneWay}"/>
-                <Run Text="  Keys: 0–4 = grade, N = NT, Enter = next phase. Colors: incomplete blue, 1+ yellow, 2+ orange, 3+/4+ red. Pink CC = invalid when AHG is 0."/>
+                <Run Text="  Grades load when you pick a specimen, panel, or run. Keys: 0–4 = grade, N = NT, Enter = next phase. Colors: incomplete blue, 1+ yellow, 2+ orange, 3+/4+ red. Pink CC = invalid when AHG is 0."/>
             </TextBlock>
             <DataGrid x:Name="CompareGrid" Grid.Row="2" Margin="0,4,0,0"
                       ItemsSource="{Binding CompareRows}"
