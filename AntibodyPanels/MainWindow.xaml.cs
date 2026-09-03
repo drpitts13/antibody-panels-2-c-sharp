@@ -118,7 +118,7 @@ namespace AntibodyPanels
             switch ((MainTabControl.SelectedItem as TabItem)?.Header as string)
             {
                 case "Panels": ViewModel.PanelsVM.SaveAllCells(); break;
-                case "Reactions": ViewModel.ReactionsVM.SaveAnalyzeCommand.Execute(null); break;
+                case "Reactions": ViewModel.ReactionsVM.SaveCommand.Execute(null); break;
                 default: ViewModel.SetStatus("No save action for this tab."); break;
             }
         }
@@ -160,7 +160,8 @@ namespace AntibodyPanels
                 "Reaction Entry:\n" +
                 "  0–4     write grade (0, 1+, 2+, 3+, 4+)\n" +
                 "  N       write NT\n" +
-                "  Enter   next phase, then next cell\n\n" +
+                "  Enter   next phase, then next cell\n" +
+                "  Ctrl+S  save grades without analyzing\n\n" +
                 "Panel Antigen Grid:\n" +
                 "  Press Edit to enter antigen edit mode\n" +
                 "  Click a cell, or press Enter / Space, to toggle + and −\n" +

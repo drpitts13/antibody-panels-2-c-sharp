@@ -407,4 +407,26 @@ public class LabUxFeatureTests
         Assert.Equal("Line B", lines[2]);
         Assert.Equal("", lines[3]);
     }
+
+    [Theory]
+    [InlineData("0", true)]
+    [InlineData("1+", true)]
+    [InlineData("4+", true)]
+    [InlineData("NT", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void ReactionRow_IsGradeEntered(string? value, bool expected)
+    {
+        Assert.Equal(expected, ReactionRow.IsGradeEntered(value));
+    }
+
+    [Theory]
+    [InlineData(0, 16, "Grades entered: 0 of 16 cells.")]
+    [InlineData(8, 16, "Grades entered: 8 of 16 cells.")]
+    [InlineData(16, 16, "All 16 cells have grades.")]
+    [InlineData(0, 0, "")]
+    public void ReactionEntryProgress_FormatsCounts(int entered, int total, string expected)
+    {
+        Assert.Equal(expected, ReactionsViewModel.FormatEntryProgress(entered, total));
+    }
 }

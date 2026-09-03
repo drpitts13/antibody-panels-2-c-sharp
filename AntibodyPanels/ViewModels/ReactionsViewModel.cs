@@ -171,6 +171,9 @@ namespace AntibodyPanels.ViewModels
             }
         }
 
+        public Visibility SaveStatusVisibility =>
+            string.IsNullOrEmpty(_saveStatusMessage) ? Visibility.Collapsed : Visibility.Visible;
+
         private bool _saveStatusIsSuccess;
         public bool SaveStatusIsSuccess
         {
@@ -178,8 +181,23 @@ namespace AntibodyPanels.ViewModels
             private set => SetField(ref _saveStatusIsSuccess, value);
         }
 
-        public Visibility SaveStatusVisibility =>
-            string.IsNullOrEmpty(_saveStatusMessage) ? Visibility.Collapsed : Visibility.Visible;
+        public string EntryProgressText
+        {
+            get
+            {
+                if (Rows.Count == 0) return string.Empty;
+                return FormatEntryProgress(Rows.Count(r => r.HasEnteredGrade), Rows.Count);
+            }
+        }
+
+        public static string FormatEntryProgress(int entered, int total)
+        {
+            if (total <= 0) return string.Empty;
+            if (entered >= total) return $"All {total} cells have grades.";
+            return $"Grades entered: {entered} of {total} cells.";
+        }
+
+        private void RefreshEntryProgress() => OnPropertyChanged(nameof(EntryProgressText));
 
         private void SetSaveStatus(bool success, string message)
         {
@@ -188,6 +206,7 @@ namespace AntibodyPanels.ViewModels
         }
 
         public ICommand LoadCommand { get; }
+        public ICommand SaveCommand { get; }
         public ICommand SaveAnalyzeCommand { get; }
         public ICommand ClearCommand { get; }
         public ICommand AddRunCommand { get; }
@@ -203,6 +222,8 @@ namespace AntibodyPanels.ViewModels
 
             LoadCommand = new RelayCommand(LoadReactions,
                 () => SelectedSpecimen != null && SelectedRun != null);
+            SaveCommand = new RelayCommand(SaveGradesOnly,
+                () => SelectedSpecimen != null && SelectedRun != null && Rows.Count > 0);
             SaveAnalyzeCommand = new RelayCommand(SaveAndAnalyze,
                 () => SelectedSpecimen != null && SelectedRun != null && Rows.Count > 0);
             ClearCommand = new RelayCommand(ClearReactions,
@@ -466,20 +487,31 @@ namespace AntibodyPanels.ViewModels
             foreach (var cell in cells)
             {
                 reactions.TryGetValue(cell.CellNumber, out var rxn);
-                Rows.Add(new ReactionRow(cell, rxn, rules, ctx));
+                Rows.Add(new ReactionRow(cell, rxn, rules, ctx, RefreshEntryProgress));
             }
 
             UpdateTreatmentBanner();
             RefreshRuledOutAntigens();
             RebuildCompareRows();
+            RefreshEntryProgress();
             _main.SetStatus(
                 $"Loaded {Rows.Count} cells for {SelectedSpecimen.AccessionNumber} / " +
                 $"{SelectedRun.PanelName} ({SelectedRun.DisplayLabel})");
         }
 
-        private void SaveAndAnalyze()
+        private void SaveGradesOnly()
         {
-            if (SelectedSpecimen == null || SelectedRun == null) return;
+            if (!TrySaveGrades(out var entered)) return;
+            var msg = $"Saved grades for {entered} of {Rows.Count} cells.";
+            _main.SetStatus(msg);
+            SetSaveStatus(true, msg);
+            _main.WorklistVM.Refresh();
+        }
+
+        private bool TrySaveGrades(out int entered)
+        {
+            entered = 0;
+            if (SelectedSpecimen == null || SelectedRun == null) return false;
 
             if (SelectedSpecimen.IsActive == false || SelectedPanel?.IsActive == false)
             {
@@ -488,7 +520,7 @@ namespace AntibodyPanels.ViewModels
                     $"Cannot save reactions: the selected {inactiveItem} is inactive. " +
                     "Reactivate it first if you need to work with its reactions.",
                     "Inactive Item", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                return false;
             }
 
             try
@@ -496,9 +528,26 @@ namespace AntibodyPanels.ViewModels
                 foreach (var row in Rows)
                     _db.SaveReaction(SelectedRun.RunId, row.CellNumber,
                         row.IS, row.C37, row.AHG, row.CC);
+                entered = Rows.Count(r => r.HasEnteredGrade);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                var msg = $"Save failed: {ex.Message}";
+                _main.SetStatus(msg);
+                SetSaveStatus(false, msg);
+                return false;
+            }
+        }
 
+        private void SaveAndAnalyze()
+        {
+            if (!TrySaveGrades(out _)) return;
+
+            try
+            {
                 _main.SetStatus("Reactions saved. Running analysis...");
-                var result = _analyzer.AnalyzeSpecimen(SelectedSpecimen.AccessionNumber);
+                var result = _analyzer.AnalyzeSpecimen(SelectedSpecimen!.AccessionNumber);
                 RefreshRuledOutAntigens();
                 var msg = $"Analysis complete — {result.Suspected.Count} suspected, " +
                           $"{result.RuledOut.Count} ruled out.";
@@ -526,6 +575,7 @@ namespace AntibodyPanels.ViewModels
             Rows.Clear();
             CompareRows.Clear();
             RefreshRuledOutAntigens();
+            RefreshEntryProgress();
             _main.SetStatus("Reactions cleared.");
         }
 
@@ -597,6 +647,7 @@ namespace AntibodyPanels.ViewModels
         private readonly IReadOnlyDictionary<string, string> _antigens;
         private readonly IReadOnlyList<Rule> _rules;
         private readonly RunContext _ctx;
+        private readonly Action? _onGradeChanged;
 
         public string CellNumber { get; }
         public IReadOnlyDictionary<string, string> AntigenValues => _antigens;
@@ -655,15 +706,25 @@ namespace AntibodyPanels.ViewModels
 
         public bool HasRuleout => !string.IsNullOrEmpty(RuledOutNote);
 
+        public bool HasEnteredGrade =>
+            IsGradeEntered(IS) || IsGradeEntered(C37) || IsGradeEntered(AHG);
+
+        public bool IsIncomplete => !HasEnteredGrade;
+
+        public static bool IsGradeEntered(string? v) =>
+            !string.IsNullOrEmpty(v) && v != "NT";
+
         public bool IsCcInvalid =>
             AHG == "0" && (CC == "0" || CC == "NT" || string.IsNullOrEmpty(CC));
 
-        public ReactionRow(PanelCell cell, Reaction? existing, IReadOnlyList<Rule> rules, RunContext ctx)
+        public ReactionRow(PanelCell cell, Reaction? existing, IReadOnlyList<Rule> rules, RunContext ctx,
+            Action? onGradeChanged = null)
         {
             CellNumber = cell.CellNumber;
             _antigens = cell.Antigens;
             _rules = rules;
             _ctx = ctx;
+            _onGradeChanged = onGradeChanged;
             _IS  = existing?.IS  ?? "NT";
             _C37 = existing?.C37 ?? "NT";
             _AHG = existing?.AHG ?? "NT";
@@ -676,6 +737,9 @@ namespace AntibodyPanels.ViewModels
             OnPropertyChanged(nameof(RuledOutNote));
             OnPropertyChanged(nameof(HasRuleout));
             OnPropertyChanged(nameof(IsCcInvalid));
+            OnPropertyChanged(nameof(HasEnteredGrade));
+            OnPropertyChanged(nameof(IsIncomplete));
+            _onGradeChanged?.Invoke();
         }
 
         private bool CanRuleOut(string antigen)
