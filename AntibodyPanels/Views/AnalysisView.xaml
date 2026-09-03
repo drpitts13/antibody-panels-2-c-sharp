@@ -53,7 +53,23 @@
                               SelectedItem="{Binding SelectedSuspected}"
                               IsReadOnly="True"
                               AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
-                              HeadersVisibility="Column">
+                              HeadersVisibility="Column"
+                              MouseDoubleClick="SuspectedGrid_MouseDoubleClick">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MeetsIdentificationRule}" Value="True">
+                                        <Setter Property="Background" Value="#C8E6C9"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="ToolTip" Value="Meets the identification cell rule. Double-click to add to Final ID."/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding MeetsIdentificationRule}" Value="False">
+                                        <Setter Property="Background" Value="#FFF8E1"/>
+                                        <Setter Property="ToolTip" Value="Does not yet meet the identification cell rule. Double-click to add to Final ID anyway."/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
                             <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="80"/>
@@ -117,26 +133,30 @@
                                 <ColumnDefinition Width="100"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.ColumnSpan="8" Text="{Binding FinalCallStatus}"
+                            <TextBlock Grid.ColumnSpan="9" Text="{Binding FinalCallStatus}"
                                        FontWeight="SemiBold" Margin="0,0,0,6"/>
                             <Label Grid.Row="1" Content="Final ID:" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FinalAntibodiesText, UpdateSourceTrigger=PropertyChanged}"
                                      VerticalAlignment="Center" Margin="0,2,8,2"
-                                     ToolTip="Confirmed antibody identification, e.g. anti-E; anti-K"/>
+                                     ToolTip="Confirmed antibody identification, e.g. anti-E; anti-K. Green suspected rows are pre-filled when they meet the ID rule."/>
                             <Label Grid.Row="1" Grid.Column="2" Content="Comment:" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding FinalComment, UpdateSourceTrigger=PropertyChanged}"
                                      VerticalAlignment="Center" Margin="0,2,8,2"/>
                             <Label Grid.Row="1" Grid.Column="4" Content="Initials:" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="1" Grid.Column="5" Text="{Binding IdentifiedBy, UpdateSourceTrigger=PropertyChanged}"
                                      VerticalAlignment="Center" Margin="0,2,8,2"/>
-                            <Button Grid.Row="1" Grid.Column="6" Content="Confirm ID" Command="{Binding ConfirmIdCommand}"
+                            <Button Grid.Row="1" Grid.Column="6" Content="Add selected" Command="{Binding AddSelectedToFinalIdCommand}"
+                                    Margin="0,0,6,0"
+                                    ToolTip="Add the highlighted suspected antibody to Final ID"/>
+                            <Button Grid.Row="1" Grid.Column="7" Content="Confirm ID" Command="{Binding ConfirmIdCommand}"
                                     Margin="0,0,6,0" FontWeight="Bold"/>
-                            <Button Grid.Row="1" Grid.Column="7" Content="Clear" Command="{Binding ClearConfirmationCommand}"/>
+                            <Button Grid.Row="1" Grid.Column="8" Content="Clear" Command="{Binding ClearConfirmationCommand}"/>
                         </Grid>
                     </Border>
                 </Grid>

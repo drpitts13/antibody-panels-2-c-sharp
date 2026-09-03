@@ -1,6 +1,7 @@
 using AntibodyPanels.Models;
 using AntibodyPanels.Services;
 using AntibodyPanels.Tests.Infrastructure;
+using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels.Tests;
 
@@ -315,5 +316,41 @@ public class LabUxFeatureTests
         var matches = iso.Db.SearchCellsByProfile(new Dictionary<string, string> { ["K"] = "+" });
         Assert.Single(matches);
         Assert.Equal(cells[0].CellNumber, matches[0].cell.CellNumber);
+    }
+
+    [Theory]
+    [InlineData("", "anti-E", "anti-E")]
+    [InlineData("anti-E", "anti-K", "anti-E; anti-K")]
+    [InlineData("anti-E", "anti-E", "anti-E")]
+    [InlineData("anti-E; anti-K", "anti-E", "anti-E; anti-K")]
+    [InlineData("  anti-E  ", "anti-K", "anti-E; anti-K")]
+    [InlineData("anti-E, anti-c", "anti-K", "anti-E; anti-c; anti-K")]
+    [InlineData(null, "anti-E", "anti-E")]
+    [InlineData("anti-E", "", "anti-E")]
+    public void AppendAntibodyToFinalId_MergesWithoutDuplicates(string? current, string add, string expected)
+    {
+        Assert.Equal(expected, AnalysisViewModel.AppendAntibodyToFinalId(current, add));
+    }
+
+    [Fact]
+    public void SuggestedFinalId_IncludesOnlyAntibodiesThatMeetRule()
+    {
+        var rows = new[]
+        {
+            new SuspectedRow { Antibody = "anti-E", MeetsIdentificationRule = true },
+            new SuspectedRow { Antibody = "anti-K", MeetsIdentificationRule = false },
+            new SuspectedRow { Antibody = "anti-c", MeetsIdentificationRule = true }
+        };
+        Assert.Equal("anti-E; anti-c", AnalysisViewModel.SuggestedFinalId(rows));
+    }
+
+    [Fact]
+    public void SuggestedFinalId_EmptyWhenNoneMeetRule()
+    {
+        var rows = new[]
+        {
+            new SuspectedRow { Antibody = "anti-E", MeetsIdentificationRule = false }
+        };
+        Assert.Equal("", AnalysisViewModel.SuggestedFinalId(rows));
     }
 }

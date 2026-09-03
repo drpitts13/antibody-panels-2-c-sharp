@@ -56,6 +56,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand RefreshSpecimensCommand { get; }
         public ICommand ConfirmIdCommand { get; }
         public ICommand ClearConfirmationCommand { get; }
+        public ICommand AddSelectedToFinalIdCommand { get; }
 
         private string _finalAntibodiesText = string.Empty;
         public string FinalAntibodiesText
@@ -92,7 +93,11 @@ namespace AntibodyPanels.ViewModels
             set
             {
                 if (SetField(ref _selectedSuspected, value))
+                {
                     LoadSuspectedEvidence();
+                    if (AddSelectedToFinalIdCommand is RelayCommand addCmd)
+                        addCmd.RaiseCanExecuteChanged();
+                }
             }
         }
 
@@ -119,6 +124,8 @@ namespace AntibodyPanels.ViewModels
             RefreshSpecimensCommand = new RelayCommand(Refresh);
             ConfirmIdCommand = new RelayCommand(ConfirmId, () => SelectedSpecimen != null);
             ClearConfirmationCommand = new RelayCommand(ClearConfirmation, () => SelectedSpecimen != null);
+            AddSelectedToFinalIdCommand = new RelayCommand(AddSelectedToFinalId,
+                () => SelectedSpecimen != null && SelectedSuspected != null);
             Refresh();
         }
 
@@ -228,6 +235,7 @@ namespace AntibodyPanels.ViewModels
                     AgNegativeNonreactive = stats != null
                         ? $"{stats.NegativeAgNegativeCount} / {stats.IdentificationRequired}" : "-",
                     IdentificationRule = stats?.IdentificationStatus ?? "-",
+                    MeetsIdentificationRule = stats?.MeetsIdentificationRule ?? false,
                 });
             }
 
@@ -325,10 +333,38 @@ namespace AntibodyPanels.ViewModels
             }
             else
             {
-                FinalAntibodiesText = string.Join("; ", SuspectedRows.Select(r => r.Antibody));
+                FinalAntibodiesText = SuggestedFinalId(SuspectedRows);
                 FinalComment = "";
-                FinalCallStatus = "Final identification: not confirmed.";
+                FinalCallStatus = SuspectedRows.Any(r => r.MeetsIdentificationRule)
+                    ? "Final identification: not confirmed. Green rows meet the ID rule — add or edit, then confirm."
+                    : "Final identification: not confirmed. No antibody yet meets the ID rule. Double-click a row to add it.";
             }
+        }
+
+        public static string SuggestedFinalId(IEnumerable<SuspectedRow> rows) =>
+            string.Join("; ", rows.Where(r => r.MeetsIdentificationRule).Select(r => r.Antibody));
+
+        public static string AppendAntibodyToFinalId(string? current, string antibody)
+        {
+            if (string.IsNullOrWhiteSpace(antibody))
+                return current?.Trim() ?? string.Empty;
+
+            var parts = (current ?? string.Empty)
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .ToList();
+            if (parts.Any(p => string.Equals(p, antibody, StringComparison.OrdinalIgnoreCase)))
+                return string.Join("; ", parts);
+            parts.Add(antibody.Trim());
+            return string.Join("; ", parts);
+        }
+
+        private void AddSelectedToFinalId()
+        {
+            if (SelectedSuspected == null) return;
+            FinalAntibodiesText = AppendAntibodyToFinalId(FinalAntibodiesText, SelectedSuspected.Antibody);
+            _main.SetStatus($"Added {SelectedSuspected.Antibody} to Final ID.");
         }
 
         private void ConfirmId()
@@ -498,6 +534,7 @@ namespace AntibodyPanels.ViewModels
         public string AgPositiveReactive { get; set; } = string.Empty;
         public string AgNegativeNonreactive { get; set; } = string.Empty;
         public string IdentificationRule { get; set; } = string.Empty;
+        public bool MeetsIdentificationRule { get; set; }
     }
 
     public class RuleoutRow
