@@ -114,6 +114,44 @@ namespace AntibodyPanels.Models
             return Antigens.Concat(extras).ToList();
         }
 
+        /// <summary>
+        /// Display order for a panel: honor a saved sequence, keep only antigens
+        /// still on the panel, and append any new extras in catalog order.
+        /// An empty or null saved list uses the default (standard then extras).
+        /// </summary>
+        public static IReadOnlyList<string> ResolveDisplayOrder(
+            IEnumerable<string>? savedOrder,
+            IEnumerable<string>? extraOnPanel)
+        {
+            var extras = extraOnPanel == null
+                ? new HashSet<string>(System.StringComparer.Ordinal)
+                : extraOnPanel as HashSet<string>
+                    ?? new HashSet<string>(extraOnPanel, System.StringComparer.Ordinal);
+            var expected = GetAnalyzedAntigens(extras);
+            if (savedOrder == null)
+                return expected;
+
+            var saved = savedOrder as IList<string> ?? savedOrder.ToList();
+            if (saved.Count == 0)
+                return expected;
+
+            var expectedSet = expected as HashSet<string>
+                ?? new HashSet<string>(expected, System.StringComparer.Ordinal);
+            var result = new List<string>(expected.Count);
+            var seen = new HashSet<string>(System.StringComparer.Ordinal);
+            foreach (var ag in saved)
+            {
+                if (!expectedSet.Contains(ag) || !seen.Add(ag)) continue;
+                result.Add(ag);
+            }
+            foreach (var ag in expected)
+            {
+                if (seen.Add(ag))
+                    result.Add(ag);
+            }
+            return result;
+        }
+
         public static readonly IReadOnlyList<string> ReactionValues =
             new[] { "0", "1+", "2+", "3+", "4+", "NT" };
 

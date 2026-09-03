@@ -30,6 +30,7 @@ namespace AntibodyPanels.Data
             MigrateSpecimenClinical();
             MigrateSpecimenFinalCall();
             MigrateWarehouseAntigens();
+            MigratePanelAntigenOrder();
             DeactivateExpiredSpecimens();
             DeactivateExpiredPanels();
         }
@@ -241,6 +242,18 @@ namespace AntibodyPanels.Data
                     value TEXT NOT NULL DEFAULT '-',
                     PRIMARY KEY (cell_id, antigen_name),
                     FOREIGN KEY (cell_id) REFERENCES panel_cells(id) ON DELETE CASCADE
+                )");
+        }
+
+        private void MigratePanelAntigenOrder()
+        {
+            ExecNonQuery(@"
+                CREATE TABLE IF NOT EXISTS panel_antigen_order (
+                    panel_id INTEGER NOT NULL,
+                    antigen_name TEXT NOT NULL,
+                    sort_index INTEGER NOT NULL,
+                    PRIMARY KEY (panel_id, antigen_name),
+                    FOREIGN KEY (panel_id) REFERENCES panels(panel_id) ON DELETE CASCADE
                 )");
         }
 
@@ -857,6 +870,70 @@ namespace AntibodyPanels.Data
                 cmd.Parameters.AddWithValue("$tgt", targetPanelId);
                 cmd.ExecuteNonQuery();
             }
+
+            CopyPanelAntigenOrder(sourcePanelId, targetPanelId);
+        }
+
+        // ── Panel antigen display order ───────────────────────────────────────
+
+        public List<string> GetPanelAntigenOrder(int panelId)
+        {
+            var list = new List<string>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT antigen_name FROM panel_antigen_order
+                WHERE panel_id = $id
+                ORDER BY sort_index";
+            cmd.Parameters.AddWithValue("$id", panelId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) list.Add(r.GetString(0));
+            return list;
+        }
+
+        public List<string> GetPanelDisplayAntigens(int panelId) =>
+            AntigenConstants.ResolveDisplayOrder(
+                GetPanelAntigenOrder(panelId),
+                GetPanelExtraAntigens(panelId)).ToList();
+
+        public void SetPanelAntigenOrder(int panelId, IReadOnlyList<string> antigens)
+        {
+            using (var del = _conn.CreateCommand())
+            {
+                del.CommandText = "DELETE FROM panel_antigen_order WHERE panel_id = $id";
+                del.Parameters.AddWithValue("$id", panelId);
+                del.ExecuteNonQuery();
+            }
+
+            var extras = GetPanelExtraAntigens(panelId);
+            var resolved = AntigenConstants.ResolveDisplayOrder(antigens, extras);
+            using var insert = _conn.CreateCommand();
+            insert.CommandText = @"
+                INSERT INTO panel_antigen_order (panel_id, antigen_name, sort_index)
+                VALUES ($pid, $ag, $idx)";
+            insert.Parameters.AddWithValue("$pid", panelId);
+            var agParam = insert.Parameters.Add("$ag", SqliteType.Text);
+            var idxParam = insert.Parameters.Add("$idx", SqliteType.Integer);
+            int i = 0;
+            foreach (var ag in resolved)
+            {
+                if (!AntigenConstants.IsKnown(ag)) continue;
+                agParam.Value = ag;
+                idxParam.Value = i++;
+                insert.ExecuteNonQuery();
+            }
+        }
+
+        public void CopyPanelAntigenOrder(int sourcePanelId, int targetPanelId)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                DELETE FROM panel_antigen_order WHERE panel_id = $tgt;
+                INSERT INTO panel_antigen_order (panel_id, antigen_name, sort_index)
+                SELECT $tgt, antigen_name, sort_index
+                FROM panel_antigen_order WHERE panel_id = $src";
+            cmd.Parameters.AddWithValue("$tgt", targetPanelId);
+            cmd.Parameters.AddWithValue("$src", sourcePanelId);
+            cmd.ExecuteNonQuery();
         }
 
         // ── Warehouse / extra antigens ────────────────────────────────────────
@@ -916,10 +993,15 @@ namespace AntibodyPanels.Data
                 if (cell.HasTypedAntigen(antigen)) continue;
                 UpsertExtraCellAntigen(cell.Id, antigen, "-");
             }
+
+            var saved = GetPanelAntigenOrder(panelId);
+            if (saved.Count > 0)
+                SetPanelAntigenOrder(panelId, saved);
         }
 
         public void RemovePanelExtraAntigen(int panelId, string antigen)
         {
+            var saved = GetPanelAntigenOrder(panelId);
             using (var cmd = _conn.CreateCommand())
             {
                 cmd.CommandText = @"
@@ -939,6 +1021,8 @@ namespace AntibodyPanels.Data
                 cmd.Parameters.AddWithValue("$ag", antigen);
                 cmd.ExecuteNonQuery();
             }
+            if (saved.Count > 0)
+                SetPanelAntigenOrder(panelId, saved);
         }
 
         private void SeedExtraAntigensForCell(int panelId, int cellId)

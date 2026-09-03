@@ -74,7 +74,7 @@
                 </TextBlock>
             </DockPanel>
             <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Foreground="#546E7A" FontSize="12"
-                       Text="Press Edit to change antigens. Green = +, light gray = −. Save or Cancel to leave edit mode."/>
+                       Text="Press Edit to change antigens or drag column headers to reorder. Green = +, light gray = −. Save or Cancel to leave edit mode."/>
 
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <DataGrid x:Name="AntigenGrid"
@@ -85,9 +85,12 @@
                           HeadersVisibility="Column"
                           CanUserAddRows="False"
                           CanUserDeleteRows="False"
+                          CanUserReorderColumns="{Binding IsEditingAntigens}"
+                          FrozenColumnCount="1"
                           SelectionUnit="Cell"
                           FontSize="13"
                           Loaded="AntigenGrid_Loaded"
+                          ColumnDisplayIndexChanged="AntigenGrid_ColumnDisplayIndexChanged"
                           PreviewMouseLeftButtonDown="AntigenGrid_PreviewMouseLeftButtonDown"
                           PreviewKeyDown="AntigenGrid_PreviewKeyDown">
                     <DataGrid.Columns>

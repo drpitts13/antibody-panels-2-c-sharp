@@ -194,6 +194,13 @@ namespace AntibodyPanels.ViewModels
             private set => SetField(ref _extraAntigens, value);
         }
 
+        private IReadOnlyList<string> _antigenDisplayOrder = Array.Empty<string>();
+        public IReadOnlyList<string> AntigenDisplayOrder
+        {
+            get => _antigenDisplayOrder;
+            private set => SetField(ref _antigenDisplayOrder, value);
+        }
+
         private string _saveStatusMessage = string.Empty;
         public string SaveStatusMessage
         {
@@ -501,9 +508,14 @@ namespace AntibodyPanels.ViewModels
 
         private void RefreshExtraAntigens()
         {
-            ExtraAntigens = SelectedPanel == null
-                ? Array.Empty<string>()
-                : _db.GetPanelExtraAntigens(SelectedPanel.PanelId);
+            if (SelectedPanel == null)
+            {
+                ExtraAntigens = Array.Empty<string>();
+                AntigenDisplayOrder = Array.Empty<string>();
+                return;
+            }
+            ExtraAntigens = _db.GetPanelExtraAntigens(SelectedPanel.PanelId);
+            AntigenDisplayOrder = _db.GetPanelDisplayAntigens(SelectedPanel.PanelId);
         }
 
         private IReadOnlyList<string> VisibleAntigens =>

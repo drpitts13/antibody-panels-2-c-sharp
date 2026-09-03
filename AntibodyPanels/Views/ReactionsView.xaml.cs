@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
-using AntibodyPanels.Models;
 using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels.Views
@@ -39,9 +38,10 @@ namespace AntibodyPanels.Views
     public partial class ReactionsView : UserControl
     {
         private bool _columnsInjected;
+        private bool _ruledOutColumnAdded;
         private readonly Dictionary<string, AntigenColumnHeader> _antigenHeaders = new();
         private readonly Dictionary<string, DataGridColumn> _antigenColumns = new();
-        private readonly List<string> _extraAntigenNames = new();
+        private readonly List<string> _dynamicAntigenNames = new();
         private ReactionsViewModel? _vm;
 
         public ReactionsView()
@@ -57,7 +57,7 @@ namespace AntibodyPanels.Views
             if (_vm != null)
             {
                 _vm.PropertyChanged += OnViewModelPropertyChanged;
-                RebuildExtraColumns();
+                RebuildAntigenColumns();
             }
         }
 
@@ -71,8 +71,9 @@ namespace AntibodyPanels.Views
             }
             else if (e.PropertyName == nameof(ReactionsViewModel.DestroyedAntigens))
                 ApplyDestroyedToHeaders();
-            else if (e.PropertyName == nameof(ReactionsViewModel.ExtraAntigens))
-                RebuildExtraColumns();
+            else if (e.PropertyName == nameof(ReactionsViewModel.AntigenDisplayOrder) ||
+                     e.PropertyName == nameof(ReactionsViewModel.ExtraAntigens))
+                RebuildAntigenColumns();
         }
 
         private void ApplyRuledOutToHeaders()
@@ -105,6 +106,31 @@ namespace AntibodyPanels.Views
             if (_columnsInjected) return;
             _columnsInjected = true;
 
+            RebuildAntigenColumns();
+            EnsureRuledOutColumn();
+
+            ApplyGradeStylesToPhaseColumns();
+            ApplyCompareGradeStyles();
+            ApplyRuledOutToHeaders();
+            ApplyDestroyedToHeaders();
+            ApplyAntigenColumnVisibility();
+        }
+
+        private void RebuildAntigenColumns()
+        {
+            if (!_columnsInjected) return;
+
+            foreach (var name in _dynamicAntigenNames)
+            {
+                if (_antigenColumns.TryGetValue(name, out var col))
+                    ReactionsGrid.Columns.Remove(col);
+                _antigenColumns.Remove(name);
+                _antigenHeaders.Remove(name);
+            }
+            _dynamicAntigenNames.Clear();
+
+            if (_vm == null) return;
+
             var headerTemplate = (DataTemplate)FindResource("AntigenHeaderTemplate");
             var positiveBg = new SolidColorBrush(Color.FromRgb(200, 230, 201));
             var centeredText = new Style(typeof(TextBlock));
@@ -112,7 +138,7 @@ namespace AntibodyPanels.Views
             centeredText.Setters.Add(new Setter(TextBlock.FontSizeProperty, 11.0));
 
             int insertIdx = 1;
-            foreach (var ag in AntigenConstants.Antigens)
+            foreach (var ag in _vm.AntigenDisplayOrder)
             {
                 var header = new AntigenColumnHeader(ag);
                 _antigenHeaders[ag] = header;
@@ -130,7 +156,7 @@ namespace AntibodyPanels.Views
                 {
                     Header = header,
                     HeaderTemplate = headerTemplate,
-                    Width = 38,
+                    Width = ag.Length >= 3 ? 42 : 38,
                     IsReadOnly = true,
                     Binding = new Binding($"AntigenValues[{ag}]"),
                     ElementStyle = centeredText,
@@ -138,9 +164,18 @@ namespace AntibodyPanels.Views
                 };
                 ReactionsGrid.Columns.Insert(insertIdx++, col);
                 _antigenColumns[ag] = col;
+                _dynamicAntigenNames.Add(ag);
             }
 
-            RebuildExtraColumns();
+            ApplyRuledOutToHeaders();
+            ApplyDestroyedToHeaders();
+            ApplyAntigenColumnVisibility();
+        }
+
+        private void EnsureRuledOutColumn()
+        {
+            if (_ruledOutColumnAdded) return;
+            _ruledOutColumnAdded = true;
 
             var ruledOutStyle = new Style(typeof(TextBlock));
             ruledOutStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty,
@@ -158,68 +193,6 @@ namespace AntibodyPanels.Views
                 ElementStyle = ruledOutStyle,
             };
             ReactionsGrid.Columns.Add(ruledOutCol);
-
-            ApplyGradeStylesToPhaseColumns();
-            ApplyCompareGradeStyles();
-            ApplyRuledOutToHeaders();
-            ApplyDestroyedToHeaders();
-            ApplyAntigenColumnVisibility();
-        }
-
-        private void RebuildExtraColumns()
-        {
-            if (!_columnsInjected) return;
-
-            foreach (var name in _extraAntigenNames)
-            {
-                if (_antigenColumns.TryGetValue(name, out var col))
-                    ReactionsGrid.Columns.Remove(col);
-                _antigenColumns.Remove(name);
-                _antigenHeaders.Remove(name);
-            }
-            _extraAntigenNames.Clear();
-
-            if (_vm == null) return;
-
-            var headerTemplate = (DataTemplate)FindResource("AntigenHeaderTemplate");
-            var positiveBg = new SolidColorBrush(Color.FromRgb(200, 230, 201));
-            var centeredText = new Style(typeof(TextBlock));
-            centeredText.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
-            centeredText.Setters.Add(new Setter(TextBlock.FontSizeProperty, 11.0));
-
-            int insertIdx = 1 + AntigenConstants.Antigens.Count;
-            foreach (var ag in _vm.ExtraAntigens)
-            {
-                var header = new AntigenColumnHeader(ag);
-                _antigenHeaders[ag] = header;
-
-                var cellStyle = new Style(typeof(DataGridCell));
-                var posTrigger = new DataTrigger
-                {
-                    Binding = new Binding($"AntigenValues[{ag}]"),
-                    Value = "+"
-                };
-                posTrigger.Setters.Add(new Setter(BackgroundProperty, positiveBg));
-                cellStyle.Triggers.Add(posTrigger);
-
-                var col = new DataGridTextColumn
-                {
-                    Header = header,
-                    HeaderTemplate = headerTemplate,
-                    Width = 42,
-                    IsReadOnly = true,
-                    Binding = new Binding($"AntigenValues[{ag}]"),
-                    ElementStyle = centeredText,
-                    CellStyle = cellStyle,
-                };
-                ReactionsGrid.Columns.Insert(insertIdx++, col);
-                _antigenColumns[ag] = col;
-                _extraAntigenNames.Add(ag);
-            }
-
-            ApplyRuledOutToHeaders();
-            ApplyDestroyedToHeaders();
-            ApplyAntigenColumnVisibility();
         }
 
         private void ApplyGradeStylesToPhaseColumns()

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -16,8 +16,9 @@ namespace AntibodyPanels.Views
         public static readonly string[] AntigenValues = { "+", "-" };
 
         private bool _columnsInjected;
+        private bool _applyingColumnOrder;
         private PanelsViewModel? _vm;
-        private readonly List<DataGridColumn> _extraColumns = new();
+        private readonly List<DataGridColumn> _antigenColumns = new();
 
         public PanelsView()
         {
@@ -28,81 +29,79 @@ namespace AntibodyPanels.Views
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (_vm != null)
-            {
-                _vm.ExtraAntigens.CollectionChanged -= OnExtraAntigensChanged;
                 _vm.PropertyChanged -= OnViewModelPropertyChanged;
-            }
             _vm = e.NewValue as PanelsViewModel;
             if (_vm != null)
             {
-                _vm.ExtraAntigens.CollectionChanged += OnExtraAntigensChanged;
                 _vm.PropertyChanged += OnViewModelPropertyChanged;
-                RebuildExtraColumns();
+                RebuildAntigenColumns();
             }
         }
 
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(PanelsViewModel.SelectedPanel))
-                RebuildExtraColumns();
+            if (e.PropertyName == nameof(PanelsViewModel.SelectedPanel) ||
+                e.PropertyName == nameof(PanelsViewModel.AntigenColumnsRevision))
+                RebuildAntigenColumns();
         }
-
-        private void OnExtraAntigensChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
-            RebuildExtraColumns();
 
         private void AntigenGrid_Loaded(object sender, RoutedEventArgs e)
         {
             if (_columnsInjected) return;
             _columnsInjected = true;
-
-            var centeredText = new Style(typeof(TextBlock));
-            centeredText.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
-            centeredText.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
-
-            foreach (var ag in AntigenConstants.Antigens)
-            {
-                AntigenGrid.Columns.Add(new DataGridTextColumn
-                {
-                    Header = ag,
-                    Width = ag.Length >= 3 ? 45 : 40,
-                    IsReadOnly = true,
-                    Binding = new Binding(ag),
-                    ElementStyle = centeredText,
-                    CellStyle = CreateAntigenCellStyle(ag, namedProperty: true),
-                });
-            }
-
-            RebuildExtraColumns();
+            RebuildAntigenColumns();
         }
 
-        private void RebuildExtraColumns()
+        private void RebuildAntigenColumns()
         {
             if (!_columnsInjected) return;
 
-            foreach (var col in _extraColumns)
-                AntigenGrid.Columns.Remove(col);
-            _extraColumns.Clear();
-
-            if (_vm == null) return;
-
-            var centeredText = new Style(typeof(TextBlock));
-            centeredText.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
-            centeredText.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
-
-            foreach (var ag in _vm.ExtraAntigens)
+            _applyingColumnOrder = true;
+            try
             {
-                var col = new DataGridTextColumn
+                foreach (var col in _antigenColumns)
+                    AntigenGrid.Columns.Remove(col);
+                _antigenColumns.Clear();
+
+                if (_vm == null) return;
+
+                var centeredText = new Style(typeof(TextBlock));
+                centeredText.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
+                centeredText.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
+
+                foreach (var ag in _vm.AntigenDisplayOrder)
                 {
-                    Header = ag,
-                    Width = ag.Length >= 3 ? 48 : 42,
-                    IsReadOnly = true,
-                    Binding = new Binding($"AntigenValues[{ag}]"),
-                    ElementStyle = centeredText,
-                    CellStyle = CreateAntigenCellStyle(ag, namedProperty: false),
-                };
-                AntigenGrid.Columns.Add(col);
-                _extraColumns.Add(col);
+                    var named = AntigenConstants.IsStandard(ag);
+                    var col = new DataGridTextColumn
+                    {
+                        Header = ag,
+                        Width = ag.Length >= 3 ? 48 : 40,
+                        IsReadOnly = true,
+                        Binding = new Binding(named ? ag : $"AntigenValues[{ag}]"),
+                        ElementStyle = centeredText,
+                        CellStyle = CreateAntigenCellStyle(ag, namedProperty: named),
+                    };
+                    AntigenGrid.Columns.Add(col);
+                    _antigenColumns.Add(col);
+                }
             }
+            finally
+            {
+                _applyingColumnOrder = false;
+            }
+        }
+
+        private void AntigenGrid_ColumnDisplayIndexChanged(object sender, DataGridColumnEventArgs e)
+        {
+            if (_applyingColumnOrder || _vm == null || !_vm.IsEditingAntigens) return;
+
+            var ordered = AntigenGrid.Columns
+                .Where(c => c.Header is string h && IsAntigenColumn(h))
+                .OrderBy(c => c.DisplayIndex)
+                .Select(c => (string)c.Header)
+                .ToList();
+            if (ordered.Count == 0) return;
+            _vm.ReplaceAntigenDisplayOrder(ordered);
         }
 
         private Style CreateAntigenCellStyle(string antigen, bool namedProperty)

@@ -18,6 +18,14 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<Panel> Panels { get; } = new();
         public ObservableCollection<PanelCellRow> CellRows { get; } = new();
         public ObservableCollection<string> ExtraAntigens { get; } = new();
+        public ObservableCollection<string> AntigenDisplayOrder { get; } = new();
+
+        private int _antigenColumnsRevision;
+        public int AntigenColumnsRevision
+        {
+            get => _antigenColumnsRevision;
+            private set => SetField(ref _antigenColumnsRevision, value);
+        }
 
         private Panel? _selectedPanel;
         public Panel? SelectedPanel
@@ -151,12 +159,35 @@ namespace AntibodyPanels.ViewModels
         {
             CellRows.Clear();
             ExtraAntigens.Clear();
-            if (_selectedPanel == null) return;
+            AntigenDisplayOrder.Clear();
+            if (_selectedPanel == null)
+            {
+                AntigenColumnsRevision++;
+                return;
+            }
             foreach (var ag in _db.GetPanelExtraAntigens(_selectedPanel.PanelId))
                 ExtraAntigens.Add(ag);
+            foreach (var ag in _db.GetPanelDisplayAntigens(_selectedPanel.PanelId))
+                AntigenDisplayOrder.Add(ag);
             foreach (var c in _db.GetPanelCells(_selectedPanel.PanelId))
                 CellRows.Add(new PanelCellRow(c));
+            AntigenColumnsRevision++;
             CommandManager.InvalidateRequerySuggested();
+        }
+
+        /// <summary>
+        /// Updates the in-memory column order from a header drag. Does not persist
+        /// until Save, and does not rebuild the grid.
+        /// </summary>
+        public void ReplaceAntigenDisplayOrder(IReadOnlyList<string> order)
+        {
+            if (!IsEditingAntigens) return;
+            AntigenDisplayOrder.Clear();
+            foreach (var ag in order)
+            {
+                if (AntigenConstants.IsKnown(ag))
+                    AntigenDisplayOrder.Add(ag);
+            }
         }
 
         /// <summary>
@@ -279,6 +310,8 @@ namespace AntibodyPanels.ViewModels
                 return cell;
             }).ToList();
             _db.ReplacePanelCells(id, cells);
+            if (imported.AntigenHeaderOrder.Count > 0)
+                _db.SetPanelAntigenOrder(id, imported.AntigenHeaderOrder);
             _main.SetStatus($"Imported panel '{dlg.PanelName}' ({cells.Count} cells).");
             NotifyPanelsChanged();
             SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == id);
@@ -294,7 +327,10 @@ namespace AntibodyPanels.ViewModels
                 FileName = $"{SelectedPanel.Name}.csv"
             };
             if (save.ShowDialog() != true) return;
-            PanelCsvService.Export(_db.GetPanelCells(SelectedPanel.PanelId), save.FileName);
+            PanelCsvService.Export(
+                _db.GetPanelCells(SelectedPanel.PanelId),
+                save.FileName,
+                _db.GetPanelAntigenOrder(SelectedPanel.PanelId));
             _main.SetStatus($"Panel CSV exported: {save.FileName}");
             MessageBox.Show("Panel CSV exported.", "Export", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -384,6 +420,7 @@ namespace AntibodyPanels.ViewModels
             if (SelectedPanel == null || !IsEditingAntigens) return;
             foreach (var row in CellRows)
                 _db.UpdatePanelCell(row.Cell);
+            _db.SetPanelAntigenOrder(SelectedPanel.PanelId, AntigenDisplayOrder.ToList());
             IsEditingAntigens = false;
             _main.SetStatus($"Panel '{SelectedPanel.Name}' cells saved.");
         }

@@ -20,31 +20,30 @@ namespace AntibodyPanels.Services
     {
         public List<ImportedPanelCell> Cells { get; } = new();
         public List<string> Errors { get; } = new();
+        public List<string> AntigenHeaderOrder { get; } = new();
         public bool Success => Errors.Count == 0 && Cells.Count > 0;
     }
 
     public static class PanelCsvService
     {
-        public static void Export(IReadOnlyList<PanelCell> cells, string filePath)
+        public static void Export(IReadOnlyList<PanelCell> cells, string filePath,
+            IReadOnlyList<string>? columnOrder = null)
         {
             var config = new CsvConfiguration(CultureInfo.InvariantCulture);
             using var writer = new StreamWriter(filePath, false, Encoding.UTF8);
             using var csv = new CsvWriter(writer, config);
 
             var extras = ExtraAntigensOnCells(cells);
+            var antigens = AntigenConstants.ResolveDisplayOrder(columnOrder, extras);
             csv.WriteField("Cell");
-            foreach (var ag in AntigenConstants.Antigens)
-                csv.WriteField(ag);
-            foreach (var ag in extras)
+            foreach (var ag in antigens)
                 csv.WriteField(ag);
             csv.NextRecord();
 
             foreach (var cell in cells)
             {
                 csv.WriteField(cell.CellNumber);
-                foreach (var ag in AntigenConstants.Antigens)
-                    csv.WriteField(cell.GetAntigen(ag));
-                foreach (var ag in extras)
+                foreach (var ag in antigens)
                     csv.WriteField(cell.GetAntigen(ag));
                 csv.NextRecord();
             }
@@ -86,6 +85,13 @@ namespace AntibodyPanels.Services
             {
                 result.Errors.Add("CSV must include a Cell column.");
                 return result;
+            }
+
+            foreach (var raw in csv.HeaderRecord)
+            {
+                var name = raw.Trim();
+                if (AntigenConstants.IsKnown(name) && !result.AntigenHeaderOrder.Contains(name))
+                    result.AntigenHeaderOrder.Add(name);
             }
 
             int rowNum = 1;

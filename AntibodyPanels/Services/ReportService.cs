@@ -100,7 +100,7 @@ namespace AntibodyPanels.Services
             sb.AppendLine($"Cells:      {p.NumCells}{(p.IncludeAc ? " + AC" : "")}");
             sb.AppendLine($"Expiration: {p.ExpirationDate ?? "N/A"}");
             sb.AppendLine();
-            AppendAntigenGrid(sb, _db.GetPanelCells(panelId.Value));
+            AppendAntigenGrid(sb, panelId.Value, _db.GetPanelCells(panelId.Value));
             return sb.ToString();
         }
 
@@ -115,14 +115,13 @@ namespace AntibodyPanels.Services
             sb.AppendLine("PANEL ANTIGRAM");
             sb.AppendLine($"{p.Name}   Lot: {p.LotNumber ?? "N/A"}   Vendor: {p.Vendor ?? "N/A"}   Exp: {p.ExpirationDate ?? "N/A"}");
             sb.AppendLine(new string('=', 78));
-            AppendAntigenGrid(sb, _db.GetPanelCells(panelId.Value));
+            AppendAntigenGrid(sb, panelId.Value, _db.GetPanelCells(panelId.Value));
             return sb.ToString();
         }
 
-        private static void AppendAntigenGrid(StringBuilder sb, IReadOnlyList<PanelCell> cells)
+        private void AppendAntigenGrid(StringBuilder sb, int panelId, IReadOnlyList<PanelCell> cells)
         {
-            var headerAntigens = AntigenConstants.GetAnalyzedAntigens(
-                PanelCsvService.ExtraAntigensOnCells(cells));
+            var headerAntigens = _db.GetPanelDisplayAntigens(panelId);
             sb.Append($"{"Cell",-6}");
             foreach (var ag in headerAntigens) sb.Append($" {ag,4}");
             sb.AppendLine();
@@ -193,8 +192,7 @@ namespace AntibodyPanels.Services
                 sb.AppendLine($"Panel: {panel?.Name ?? run.PanelName}   Lot: {panel?.LotNumber ?? "N/A"}   Vendor: {panel?.Vendor ?? "N/A"}");
                 sb.AppendLine($"Run: {run.DisplayLabel}");
 
-                var antigens = AntigenConstants.GetAnalyzedAntigens(
-                    PanelCsvService.ExtraAntigensOnCells(cells));
+                var antigens = _db.GetPanelDisplayAntigens(run.PanelId);
                 sb.Append($"{"Cell",-5}");
                 foreach (var ag in antigens)
                     sb.Append(ag.PadLeft(Math.Max(3, ag.Length) + 1));
@@ -428,8 +426,7 @@ namespace AntibodyPanels.Services
                     break;
                 case ReportType.PanelSummary when panelId.HasValue:
                     var cells = _db.GetPanelCells(panelId.Value);
-                    var antigens = AntigenConstants.GetAnalyzedAntigens(
-                        PanelCsvService.ExtraAntigensOnCells(cells));
+                    var antigens = _db.GetPanelDisplayAntigens(panelId.Value);
                     csv.WriteField("Cell");
                     foreach (var ag in antigens) csv.WriteField(ag);
                     csv.NextRecord();
