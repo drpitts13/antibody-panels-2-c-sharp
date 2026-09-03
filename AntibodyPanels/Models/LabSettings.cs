@@ -12,6 +12,7 @@ namespace AntibodyPanels.Models
         public string DefaultSpecimenType { get; set; } = "serum";
         public bool ShowInactiveByDefault { get; set; }
         public bool HideRuledOutAntigenColumns { get; set; }
+        public string DefaultIdentifiedBy { get; set; } = "";
         public int ExpirationWarningDays { get; set; } = 14;
         public int DefaultSpecimenDatingDays { get; set; } = 3;
         public int MaxDatabaseSizeMb { get; set; } = 500;
@@ -44,6 +45,13 @@ namespace AntibodyPanels.Models
             if (string.IsNullOrWhiteSpace(DefaultSpecimenType) ||
                 Array.IndexOf(new[] { "serum", "plasma", "eluate" }, DefaultSpecimenType) < 0)
                 DefaultSpecimenType = "serum";
+            DefaultIdentifiedBy = NormalizeInitials(DefaultIdentifiedBy);
+        }
+
+        public static string NormalizeInitials(string? initials)
+        {
+            var t = (initials ?? string.Empty).Trim();
+            return t.Length <= 12 ? t : t[..12];
         }
 
         public static DateTime? DefaultExpirationDate(DateTime today, int datingDays)

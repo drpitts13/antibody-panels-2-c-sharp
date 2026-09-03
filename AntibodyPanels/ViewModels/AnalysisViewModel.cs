@@ -65,6 +65,8 @@ namespace AntibodyPanels.ViewModels
         public ICommand ConfirmIdCommand { get; }
         public ICommand ClearConfirmationCommand { get; }
         public ICommand AddSelectedToFinalIdCommand { get; }
+        public ICommand OpenReactionsCommand { get; }
+        public ICommand OpenReportCommand { get; }
 
         private string _finalAntibodiesText = string.Empty;
         public string FinalAntibodiesText
@@ -134,6 +136,8 @@ namespace AntibodyPanels.ViewModels
             ClearConfirmationCommand = new RelayCommand(ClearConfirmation, () => SelectedSpecimen != null);
             AddSelectedToFinalIdCommand = new RelayCommand(AddSelectedToFinalId,
                 () => SelectedSpecimen != null && SelectedSuspected != null);
+            OpenReactionsCommand = new RelayCommand(OpenReactions, () => SelectedSpecimen != null);
+            OpenReportCommand = new RelayCommand(OpenReport, () => SelectedSpecimen != null);
             Refresh();
         }
 
@@ -361,9 +365,13 @@ namespace AntibodyPanels.ViewModels
                 var acs = _lastResult?.Acs;
                 FinalAntibodiesText = SuggestedFinalId(SuspectedRows, acs);
                 FinalComment = "";
+                IdentifiedBy = InitialsForUnconfirmed(AppSettings.Current.DefaultIdentifiedBy);
                 FinalCallStatus = AcsFinalCallStatus(acs, SuspectedRows);
             }
         }
+
+        public static string InitialsForUnconfirmed(string? defaultInitials) =>
+            LabSettings.NormalizeInitials(defaultInitials);
 
         public static string SuggestedFinalId(IEnumerable<SuspectedRow> rows) =>
             SuggestedFinalId(rows, acs: null);
@@ -450,6 +458,7 @@ namespace AntibodyPanels.ViewModels
 
             _db.SetSpecimenFinalCall(SelectedSpecimen.AccessionNumber, antibodies,
                 string.IsNullOrWhiteSpace(FinalComment) ? null : FinalComment.Trim(), initials);
+            RememberInitials(initials);
             LoadFinalCall(SelectedSpecimen);
             _main.SpecimensVM.Refresh();
             _main.ReportsVM.Refresh();
@@ -464,13 +473,33 @@ namespace AntibodyPanels.ViewModels
                 "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
             _db.ClearSpecimenFinalCall(SelectedSpecimen.AccessionNumber);
-            IdentifiedBy = string.Empty;
             FinalComment = string.Empty;
             LoadFinalCall(SelectedSpecimen);
             _main.SpecimensVM.Refresh();
             _main.ReportsVM.Refresh();
             _main.WorklistVM.Refresh();
             _main.SetStatus("Confirmed identification cleared.");
+        }
+
+        private void RememberInitials(string initials)
+        {
+            var normalized = LabSettings.NormalizeInitials(initials);
+            if (string.IsNullOrEmpty(normalized)) return;
+            if (AppSettings.Current.DefaultIdentifiedBy == normalized) return;
+            AppSettings.Current.DefaultIdentifiedBy = normalized;
+            SettingsService.Save();
+        }
+
+        private void OpenReactions()
+        {
+            if (SelectedSpecimen == null) return;
+            _main.OpenSpecimenReactions(SelectedSpecimen.AccessionNumber);
+        }
+
+        private void OpenReport()
+        {
+            if (SelectedSpecimen == null) return;
+            _main.OpenSpecimenReport(SelectedSpecimen.AccessionNumber);
         }
 
         private void LoadSuspectedEvidence()

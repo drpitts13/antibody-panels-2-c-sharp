@@ -21,6 +21,7 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
             </Grid.RowDefinitions>
 
             <Label Content="Lab name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -55,11 +56,16 @@
                    ToolTip="Warn when the database file reaches 80% of this size. Allowed range: 50–10240 MB."/>
             <TextBox x:Name="MaxDbSizeBox" Grid.Row="8" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <CheckBox x:Name="ShowInactiveCheck" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
+            <Label Content="Default initials:" Grid.Row="9" VerticalAlignment="Center"
+                   ToolTip="Pre-filled on Confirm ID. Updated automatically when you confirm an identification."/>
+            <TextBox x:Name="InitialsBox" Grid.Row="9" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"
+                     MaxLength="12"/>
+
+            <CheckBox x:Name="ShowInactiveCheck" Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2"
                       Content="Show inactive specimens and panels by default"
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
 
-            <CheckBox x:Name="HideRuledOutCheck" Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2"
+            <CheckBox x:Name="HideRuledOutCheck" Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
                       Content="Hide ruled-out antigen columns on the Reactions tab"
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
         </Grid>

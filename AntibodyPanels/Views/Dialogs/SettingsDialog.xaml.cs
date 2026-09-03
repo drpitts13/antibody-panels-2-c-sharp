@@ -25,6 +25,7 @@ namespace AntibodyPanels.Views.Dialogs
             DatingDaysBox.Text = s.DefaultSpecimenDatingDays.ToString();
             ExpiryDaysBox.Text = s.ExpirationWarningDays.ToString();
             MaxDbSizeBox.Text = s.MaxDatabaseSizeMb.ToString();
+            InitialsBox.Text = s.DefaultIdentifiedBy;
             ShowInactiveCheck.IsChecked = s.ShowInactiveByDefault;
             HideRuledOutCheck.IsChecked = s.HideRuledOutAntigenColumns;
         }
@@ -80,6 +81,7 @@ namespace AntibodyPanels.Views.Dialogs
             AppSettings.Current.DefaultSpecimenDatingDays = datingDays;
             AppSettings.Current.ExpirationWarningDays = days;
             AppSettings.Current.MaxDatabaseSizeMb = maxMb;
+            AppSettings.Current.DefaultIdentifiedBy = LabSettings.NormalizeInitials(InitialsBox.Text);
             AppSettings.Current.ShowInactiveByDefault = ShowInactiveCheck.IsChecked == true;
             AppSettings.Current.HideRuledOutAntigenColumns = HideRuledOutCheck.IsChecked == true;
             SettingsService.Save();

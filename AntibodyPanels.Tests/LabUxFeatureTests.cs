@@ -301,6 +301,23 @@ public class LabUxFeatureTests
         Assert.Equal(expected, s.AcsRuleoutCount);
     }
 
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("  dp  ", "dp")]
+    [InlineData("ABCDEFGHIJKLMN", "ABCDEFGHIJKL")]
+    public void LabSettings_NormalizeInitials(string? input, string expected)
+    {
+        Assert.Equal(expected, LabSettings.NormalizeInitials(input));
+    }
+
+    [Fact]
+    public void Analysis_InitialsForUnconfirmed_UsesDefault()
+    {
+        Assert.Equal("DP", AnalysisViewModel.InitialsForUnconfirmed("  DP  "));
+        Assert.Equal("", AnalysisViewModel.InitialsForUnconfirmed(null));
+    }
+
     [Fact]
     public void LabSettings_Default_AcsRuleoutCountIsThree()
     {

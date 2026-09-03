@@ -13,6 +13,8 @@
                 <ColumnDefinition Width="220"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Label Content="Find:" VerticalAlignment="Center"/>
             <TextBox Grid.Column="1" Text="{Binding SpecimenFilter, UpdateSourceTrigger=PropertyChanged}"
@@ -27,7 +29,13 @@
                        Text="⚠ Analysis is stale — reactions have been updated since last analysis."
                        Foreground="OrangeRed" FontWeight="Bold"
                        Visibility="{Binding IsStale, Converter={x:Static local:BoolToVisibilityConverter.Instance}}"/>
-            <Button Grid.Column="6" Content="Run Analysis" Command="{Binding AnalyzeCommand}"
+            <Button Grid.Column="6" Content="Enter Reactions" Command="{Binding OpenReactionsCommand}"
+                    Padding="10,2" Margin="0,0,6,0"
+                    ToolTip="Open this specimen on the Reactions tab"/>
+            <Button Grid.Column="7" Content="Clinical Report" Command="{Binding OpenReportCommand}"
+                    Padding="10,2" Margin="0,0,6,0"
+                    ToolTip="Open the clinical identification report for this specimen"/>
+            <Button Grid.Column="8" Content="Run Analysis" Command="{Binding AnalyzeCommand}"
                     Padding="10,2" FontWeight="Bold"/>
         </Grid>
 
