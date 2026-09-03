@@ -69,6 +69,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Label Content="Run:" Grid.Column="0" VerticalAlignment="Center"/>
             <ComboBox Grid.Column="1" ItemsSource="{Binding Runs}"
@@ -100,7 +101,10 @@
                     ToolTip="Save grades without running analysis (Ctrl+S)"/>
             <Button Grid.Column="7" Content="Save &amp; Analyze" Command="{Binding SaveAnalyzeCommand}"
                     Margin="0,0,4,0" Padding="8,2" FontWeight="Bold"/>
-            <Button Grid.Column="8" Content="Clear" Command="{Binding ClearCommand}" Padding="8,2"/>
+            <Button Grid.Column="8" Content="Fill 0s" Command="{Binding FillNegativesCommand}"
+                    Margin="0,0,4,0" Padding="8,2"
+                    ToolTip="Set remaining NT phases to 0. Check cells become 2+ when AHG is 0. Does not overwrite grades already entered."/>
+            <Button Grid.Column="9" Content="Clear" Command="{Binding ClearCommand}" Padding="8,2"/>
         </Grid>
 
         <!-- Treatment banner (visible only for special runs) -->

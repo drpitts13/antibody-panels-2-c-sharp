@@ -209,6 +209,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand SaveCommand { get; }
         public ICommand SaveAnalyzeCommand { get; }
         public ICommand ClearCommand { get; }
+        public ICommand FillNegativesCommand { get; }
         public ICommand AddRunCommand { get; }
         public ICommand DeleteRunCommand { get; }
 
@@ -228,6 +229,8 @@ namespace AntibodyPanels.ViewModels
                 () => SelectedSpecimen != null && SelectedRun != null && Rows.Count > 0);
             ClearCommand = new RelayCommand(ClearReactions,
                 () => SelectedSpecimen != null && SelectedRun != null);
+            FillNegativesCommand = new RelayCommand(FillRemainingNegatives,
+                () => Rows.Count > 0);
             AddRunCommand = new RelayCommand(AddRun,
                 () => SelectedSpecimen != null && SelectedPanel != null);
             DeleteRunCommand = new RelayCommand(DeleteRun,
@@ -565,6 +568,27 @@ namespace AntibodyPanels.ViewModels
             }
         }
 
+        private void FillRemainingNegatives()
+        {
+            if (Rows.Count == 0) return;
+            int changed = 0;
+            foreach (var row in Rows)
+            {
+                if (row.FillRemainingNegatives())
+                    changed++;
+            }
+            RebuildCompareRows();
+            RefreshEntryProgress();
+            if (changed == 0)
+            {
+                _main.SetStatus("No NT phases left to fill.");
+                return;
+            }
+            var msg = $"Filled remaining NT phases as negative on {changed} cell(s). Save to keep.";
+            _main.SetStatus(msg);
+            SetSaveStatus(true, msg);
+        }
+
         private void ClearReactions()
         {
             if (SelectedSpecimen == null || SelectedRun == null) return;
@@ -713,6 +737,28 @@ namespace AntibodyPanels.ViewModels
 
         public static bool IsGradeEntered(string? v) =>
             !string.IsNullOrEmpty(v) && v != "NT";
+
+        public static (string IS, string C37, string AHG, string CC) FillNegativeDefaults(
+            string? isPhase, string? c37, string? ahg, string? cc)
+        {
+            var nis = IsGradeEntered(isPhase) ? isPhase! : "0";
+            var nc37 = IsGradeEntered(c37) ? c37! : "0";
+            var nahg = IsGradeEntered(ahg) ? ahg! : "0";
+            var ncc = IsGradeEntered(cc) ? cc! : (nahg == "0" ? "2+" : "NT");
+            return (nis, nc37, nahg, ncc);
+        }
+
+        public bool FillRemainingNegatives()
+        {
+            var filled = FillNegativeDefaults(IS, C37, AHG, CC);
+            if (filled.IS == IS && filled.C37 == C37 && filled.AHG == AHG && filled.CC == CC)
+                return false;
+            IS = filled.IS;
+            C37 = filled.C37;
+            AHG = filled.AHG;
+            CC = filled.CC;
+            return true;
+        }
 
         public bool IsCcInvalid =>
             AHG == "0" && (CC == "0" || CC == "NT" || string.IsNullOrEmpty(CC));

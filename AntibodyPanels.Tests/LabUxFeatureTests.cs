@@ -595,6 +595,23 @@ public class LabUxFeatureTests
     }
 
     [Theory]
+    [InlineData("NT", "NT", "NT", "NT", "0", "0", "0", "2+")]
+    [InlineData("2+", "NT", "3+", "NT", "2+", "0", "3+", "NT")]
+    [InlineData("0", "0", "0", "2+", "0", "0", "0", "2+")]
+    [InlineData("NT", "1+", "0", "NT", "0", "1+", "0", "2+")]
+    [InlineData("0", "0", "2+", "NT", "0", "0", "2+", "NT")]
+    public void ReactionRow_FillNegativeDefaults_FillsNtOnly(
+        string isIn, string c37In, string ahgIn, string ccIn,
+        string isOut, string c37Out, string ahgOut, string ccOut)
+    {
+        var filled = ReactionRow.FillNegativeDefaults(isIn, c37In, ahgIn, ccIn);
+        Assert.Equal(isOut, filled.IS);
+        Assert.Equal(c37Out, filled.C37);
+        Assert.Equal(ahgOut, filled.AHG);
+        Assert.Equal(ccOut, filled.CC);
+    }
+
+    [Theory]
     [InlineData("0", true)]
     [InlineData("1+", true)]
     [InlineData("4+", true)]
