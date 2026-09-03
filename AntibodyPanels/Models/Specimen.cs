@@ -23,6 +23,7 @@ namespace AntibodyPanels.Models
         public string? IdentifiedBy { get; set; }
         public string? IdentifiedAt { get; set; }
         public bool HasFinalCall => !string.IsNullOrWhiteSpace(FinalAntibodies);
+        public string FinalIdDisplay => HasFinalCall ? FinalAntibodies! : "";
 
         public List<SpecimenAntibody> Antibodies { get; set; } = new();
         public List<SpecimenRuleout> Ruleouts { get; set; } = new();

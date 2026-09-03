@@ -56,6 +56,9 @@ namespace AntibodyPanels.ViewModels
         public ICommand AttachPanelCommand { get; }
         public ICommand DetachPanelCommand { get; }
         public ICommand RefreshCommand { get; }
+        public ICommand OpenReactionsCommand { get; }
+        public ICommand OpenAnalysisCommand { get; }
+        public ICommand OpenReportCommand { get; }
 
         public SpecimensViewModel(DatabaseService db, MainViewModel main)
         {
@@ -69,6 +72,9 @@ namespace AntibodyPanels.ViewModels
             DetachPanelCommand = new RelayCommand(DetachPanel,
                 () => SelectedSpecimen != null && SelectedLinkedPanel != null);
             RefreshCommand = new RelayCommand(Refresh);
+            OpenReactionsCommand = new RelayCommand(OpenReactions, () => SelectedSpecimen != null);
+            OpenAnalysisCommand = new RelayCommand(OpenAnalysis, () => SelectedSpecimen != null);
+            OpenReportCommand = new RelayCommand(OpenReport, () => SelectedSpecimen != null);
 
             Refresh();
         }
@@ -203,6 +209,24 @@ namespace AntibodyPanels.ViewModels
             _db.DeleteSpecimen(acc);
             _main.SetStatus($"Specimen {acc} deleted.");
             NotifySpecimensChanged();
+        }
+
+        private void OpenReactions()
+        {
+            if (SelectedSpecimen == null) return;
+            _main.OpenSpecimenReactions(SelectedSpecimen.AccessionNumber);
+        }
+
+        private void OpenAnalysis()
+        {
+            if (SelectedSpecimen == null) return;
+            _main.OpenSpecimenAnalysis(SelectedSpecimen.AccessionNumber);
+        }
+
+        private void OpenReport()
+        {
+            if (SelectedSpecimen == null) return;
+            _main.OpenSpecimenReport(SelectedSpecimen.AccessionNumber);
         }
 
         private void AttachPanel()

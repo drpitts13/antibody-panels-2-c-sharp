@@ -29,11 +29,22 @@
                       SelectionMode="Single" GridLinesVisibility="Horizontal"
                       HeadersVisibility="Column"
                       MouseDoubleClick="SpecimensGrid_MouseDoubleClick">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasFinalCall}" Value="True">
+                                <Setter Property="Background" Value="#E8F5E9"/>
+                                <Setter Property="ToolTip" Value="{Binding FinalAntibodies, StringFormat='Confirmed: {0}'}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="130"/>
-                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="70"/>
-                    <DataGridTextColumn Header="Expiration" Binding="{Binding ExpirationDate}" Width="90"/>
-                    <DataGridTextColumn Header="Created" Binding="{Binding CreatedDate}" Width="90"/>
+                    <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="120"/>
+                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="60"/>
+                    <DataGridTextColumn Header="Final ID" Binding="{Binding FinalIdDisplay}" Width="90"/>
+                    <DataGridTextColumn Header="Expiration" Binding="{Binding ExpirationDate}" Width="80"/>
+                    <DataGridTextColumn Header="Created" Binding="{Binding CreatedDate}" Width="80"/>
                     <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" IsReadOnly="True" Width="50"/>
                 </DataGrid.Columns>
             </DataGrid>
@@ -47,6 +58,17 @@
                 <Run Text="Details: "/>
                 <Run Text="{Binding SelectedSpecimen.AccessionNumber}"/>
             </TextBlock>
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                <Button Content="Enter Reactions" Command="{Binding OpenReactionsCommand}"
+                        Margin="0,0,6,0" Padding="8,2"
+                        ToolTip="Open this specimen on the Reactions tab to enter or review grades"/>
+                <Button Content="Analyze" Command="{Binding OpenAnalysisCommand}"
+                        Margin="0,0,6,0" Padding="8,2"
+                        ToolTip="Open this specimen on the Analysis tab"/>
+                <Button Content="Clinical Report" Command="{Binding OpenReportCommand}"
+                        Padding="8,2"
+                        ToolTip="Open the clinical identification report for this specimen"/>
+            </StackPanel>
 
             <!-- Linked Panels -->
             <GroupBox DockPanel.Dock="Top" Header="Clinical Context" Margin="0,0,0,8" Padding="6">

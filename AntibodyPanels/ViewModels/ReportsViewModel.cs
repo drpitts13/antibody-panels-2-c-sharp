@@ -17,7 +17,7 @@ namespace AntibodyPanels.ViewModels
     {
         private readonly DatabaseService _db;
         private readonly ReportService _reportService;
-        private readonly MainViewModel _main;
+        private readonly MainViewModel? _main;
 
         public ObservableCollection<Specimen> Specimens { get; } = new();
         public ObservableCollection<Panel> Panels { get; } = new();
@@ -88,7 +88,7 @@ namespace AntibodyPanels.ViewModels
         private List<Specimen> _allSpecimens = new();
         private List<Panel> _allPanels = new();
 
-        public ReportsViewModel(DatabaseService db, MainViewModel main)
+        public ReportsViewModel(DatabaseService db, MainViewModel? main = null)
         {
             _db = db;
             _main = main;
@@ -105,6 +105,22 @@ namespace AntibodyPanels.ViewModels
             foreach (var p in _allPanels) Panels.Add(p);
             SelectedPanel = Panels.FirstOrDefault();
             UpdatePreview();
+        }
+
+        public void SelectSpecimen(string accessionNumber, string? reportType = null)
+        {
+            if (!string.IsNullOrWhiteSpace(reportType) && ReportTypes.Contains(reportType))
+                SelectedReportType = reportType;
+
+            if (_allSpecimens.Count == 0)
+                _allSpecimens = _db.GetAllSpecimens();
+            var match = _allSpecimens.FirstOrDefault(s => s.AccessionNumber == accessionNumber);
+            if (match != null && !match.MatchesFilter(_specimenFilter))
+            {
+                _specimenFilter = string.Empty;
+                OnPropertyChanged(nameof(SpecimenFilter));
+            }
+            ApplySpecimenFilter(accessionNumber);
         }
 
         public void Refresh()
@@ -183,7 +199,7 @@ namespace AntibodyPanels.ViewModels
             try
             {
                 Clipboard.SetText(PreviewText);
-                _main.SetStatus("Report copied to the clipboard.");
+                _main?.SetStatus("Report copied to the clipboard.");
             }
             catch (Exception ex)
             {
@@ -204,7 +220,7 @@ namespace AntibodyPanels.ViewModels
                 var doc = BuildPrintDocument(SelectedReportType, PreviewText, width, height);
                 dialog.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator,
                     $"{SelectedReportType} report");
-                _main.SetStatus($"Sent {SelectedReportType} to the printer.");
+                _main?.SetStatus($"Sent {SelectedReportType} to the printer.");
             }
             catch (Exception ex)
             {
@@ -243,7 +259,7 @@ namespace AntibodyPanels.ViewModels
             {
                 _reportService.ExportToCsv(GetReportType(), dlg.FileName,
                     SelectedSpecimen?.AccessionNumber, SelectedPanel?.PanelId);
-                _main.SetStatus($"CSV exported: {dlg.FileName}");
+                _main?.SetStatus($"CSV exported: {dlg.FileName}");
                 MessageBox.Show("CSV exported successfully.", "Export", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (System.Exception ex)
@@ -260,7 +276,7 @@ namespace AntibodyPanels.ViewModels
             {
                 _reportService.ExportToPdf(GetReportType(), dlg.FileName,
                     SelectedSpecimen?.AccessionNumber, SelectedPanel?.PanelId);
-                _main.SetStatus($"PDF exported: {dlg.FileName}");
+                _main?.SetStatus($"PDF exported: {dlg.FileName}");
                 MessageBox.Show("PDF exported successfully.", "Export", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (System.Exception ex)

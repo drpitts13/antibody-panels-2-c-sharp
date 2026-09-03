@@ -423,6 +423,46 @@ public class LabUxFeatureTests
         Assert.Equal("anti-E", AnalysisViewModel.SuggestedFinalId(rows, acs));
     }
 
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    [InlineData("anti-E", "anti-E")]
+    public void Specimen_FinalIdDisplay_ShowsConfirmedIdOnly(string? finalId, string expected)
+    {
+        var s = new Specimen { FinalAntibodies = finalId };
+        Assert.Equal(expected, s.FinalIdDisplay);
+        Assert.Equal(!string.IsNullOrWhiteSpace(finalId), s.HasFinalCall);
+    }
+
+    [Fact]
+    public void Reports_SelectSpecimen_OpensClinicalIdentification()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("NAV-001", "serum", null);
+        iso.Db.AddSpecimen("NAV-002", "plasma", null);
+        var vm = new ReportsViewModel(iso.Db);
+        vm.SelectSpecimen("NAV-002", "Clinical Identification");
+        Assert.Equal("NAV-002", vm.SelectedSpecimen?.AccessionNumber);
+        Assert.Equal("Clinical Identification", vm.SelectedReportType);
+        Assert.Contains("NAV-002", vm.PreviewText);
+        Assert.Contains("ANTIBODY IDENTIFICATION WORKSHEET", vm.PreviewText);
+    }
+
+    [Fact]
+    public void Reports_SelectSpecimen_ClearsFilterThatHidesTarget()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("HIDE-001", "serum", null);
+        var vm = new ReportsViewModel(iso.Db);
+        vm.SpecimenFilter = "plasma";
+        Assert.DoesNotContain(vm.Specimens, s => s.AccessionNumber == "HIDE-001");
+        vm.SelectSpecimen("HIDE-001", "Specimen Summary");
+        Assert.Equal("", vm.SpecimenFilter);
+        Assert.Equal("HIDE-001", vm.SelectedSpecimen?.AccessionNumber);
+        Assert.Equal("Specimen Summary", vm.SelectedReportType);
+    }
+
     [Fact]
     public void Specimen_MatchesFilter_SearchesClinicalFields()
     {

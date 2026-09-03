@@ -120,14 +120,10 @@ namespace AntibodyPanels.ViewModels
             switch (item.TargetTab)
             {
                 case "Reactions":
-                    SelectedTabIndex = 3;
-                    if (item.AccessionNumber != null)
-                        ReactionsVM.SelectSpecimen(item.AccessionNumber);
+                    OpenSpecimenReactions(item.AccessionNumber);
                     break;
                 case "Analysis":
-                    SelectedTabIndex = 4;
-                    if (item.AccessionNumber != null)
-                        AnalysisVM.SelectSpecimen(item.AccessionNumber);
+                    OpenSpecimenAnalysis(item.AccessionNumber);
                     break;
                 case "Panels":
                     SelectedTabIndex = 2;
@@ -140,6 +136,27 @@ namespace AntibodyPanels.ViewModels
                         SpecimensVM.SelectSpecimen(item.AccessionNumber);
                     break;
             }
+        }
+
+        public void OpenSpecimenReactions(string? accessionNumber)
+        {
+            SelectedTabIndex = 3;
+            if (accessionNumber != null)
+                ReactionsVM.SelectSpecimen(accessionNumber);
+        }
+
+        public void OpenSpecimenAnalysis(string? accessionNumber)
+        {
+            SelectedTabIndex = 4;
+            if (accessionNumber != null)
+                AnalysisVM.SelectSpecimen(accessionNumber);
+        }
+
+        public void OpenSpecimenReport(string? accessionNumber, string reportType = "Clinical Identification")
+        {
+            SelectedTabIndex = 5;
+            if (accessionNumber != null)
+                ReportsVM.SelectSpecimen(accessionNumber, reportType);
         }
 
         public void Dispose()
