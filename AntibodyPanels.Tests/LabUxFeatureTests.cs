@@ -194,6 +194,25 @@ public class LabUxFeatureTests
     }
 
     [Fact]
+    public void LabSettings_WorklistCategoryIsolated_WhenOnlyOneChecked()
+    {
+        var isolated = new LabSettings
+        {
+            WorklistShowIncomplete = false,
+            WorklistShowStale = true,
+            WorklistShowExpiring = false,
+            WorklistShowExpired = false
+        };
+        Assert.True(isolated.IsWorklistCategoryIsolated("Stale"));
+        Assert.False(isolated.IsWorklistCategoryIsolated("Incomplete"));
+        Assert.Equal("Showing only stale analyses.", isolated.IsolatedWorklistLabel);
+
+        var all = LabSettings.CreateDefault();
+        Assert.False(all.IsWorklistCategoryIsolated("Incomplete"));
+        Assert.Equal("", all.IsolatedWorklistLabel);
+    }
+
+    [Fact]
     public void LabSettings_WorklistFilters_HideUncheckedKinds()
     {
         var s = new LabSettings

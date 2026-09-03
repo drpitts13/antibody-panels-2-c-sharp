@@ -108,6 +108,13 @@ namespace AntibodyPanels.ViewModels
             set { if (SetField(ref _listFilter, value)) ApplyFilter(); }
         }
 
+        public bool IncompleteIsolated => AppSettings.Current.IsWorklistCategoryIsolated("Incomplete");
+        public bool StaleIsolated => AppSettings.Current.IsWorklistCategoryIsolated("Stale");
+        public bool ExpiringIsolated => AppSettings.Current.IsWorklistCategoryIsolated("Expiring");
+        public bool ExpiredIsolated => AppSettings.Current.IsWorklistCategoryIsolated("Expired");
+        public string IsolatedKindLabel => AppSettings.Current.IsolatedWorklistLabel;
+        public bool HasIsolatedKind => !string.IsNullOrEmpty(IsolatedKindLabel);
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenCommand { get; }
         public ICommand ShowAllCommand { get; }
@@ -229,6 +236,12 @@ namespace AntibodyPanels.ViewModels
             OnPropertyChanged(nameof(ShowStale));
             OnPropertyChanged(nameof(ShowExpiring));
             OnPropertyChanged(nameof(ShowExpired));
+            OnPropertyChanged(nameof(IncompleteIsolated));
+            OnPropertyChanged(nameof(StaleIsolated));
+            OnPropertyChanged(nameof(ExpiringIsolated));
+            OnPropertyChanged(nameof(ExpiredIsolated));
+            OnPropertyChanged(nameof(IsolatedKindLabel));
+            OnPropertyChanged(nameof(HasIsolatedKind));
         }
 
         private void OpenSelected()

@@ -68,5 +68,25 @@ namespace AntibodyPanels.Models
             WorklistKind.ExpiredSpecimen or WorklistKind.ExpiredPanel => WorklistShowExpired,
             _ => true
         };
+
+        public bool IsWorklistCategoryIsolated(string category) => category switch
+        {
+            "Incomplete" => WorklistShowIncomplete && !WorklistShowStale &&
+                            !WorklistShowExpiring && !WorklistShowExpired,
+            "Stale" => WorklistShowStale && !WorklistShowIncomplete &&
+                       !WorklistShowExpiring && !WorklistShowExpired,
+            "Expiring" => WorklistShowExpiring && !WorklistShowIncomplete &&
+                          !WorklistShowStale && !WorklistShowExpired,
+            "Expired" => WorklistShowExpired && !WorklistShowIncomplete &&
+                         !WorklistShowStale && !WorklistShowExpiring,
+            _ => false
+        };
+
+        public string IsolatedWorklistLabel =>
+            IsWorklistCategoryIsolated("Incomplete") ? "Showing only incomplete work." :
+            IsWorklistCategoryIsolated("Stale") ? "Showing only stale analyses." :
+            IsWorklistCategoryIsolated("Expiring") ? "Showing only items nearing expiration." :
+            IsWorklistCategoryIsolated("Expired") ? "Showing only expired specimens and panels." :
+            "";
     }
 }
