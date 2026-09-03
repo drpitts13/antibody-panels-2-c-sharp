@@ -5,7 +5,9 @@ namespace AntibodyPanels.Models
         IncompleteReactions,
         StaleAnalysis,
         ExpiringSpecimen,
-        ExpiringPanel
+        ExpiringPanel,
+        ExpiredSpecimen,
+        ExpiredPanel
     }
 
     public class WorklistItem
@@ -14,6 +16,8 @@ namespace AntibodyPanels.Models
         public string KindLabel { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Detail { get; set; } = string.Empty;
+        public string UrgencyLabel { get; set; } = string.Empty;
+        public int SortOrder { get; set; }
         public string? AccessionNumber { get; set; }
         public int? PanelId { get; set; }
         public string TargetTab { get; set; } = "Specimens";

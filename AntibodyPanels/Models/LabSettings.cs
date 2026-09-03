@@ -13,6 +13,10 @@ namespace AntibodyPanels.Models
         public bool HideRuledOutAntigenColumns { get; set; }
         public int ExpirationWarningDays { get; set; } = 14;
         public int MaxDatabaseSizeMb { get; set; } = 500;
+        public bool WorklistShowIncomplete { get; set; } = true;
+        public bool WorklistShowStale { get; set; } = true;
+        public bool WorklistShowExpiring { get; set; } = true;
+        public bool WorklistShowExpired { get; set; } = true;
 
         public string IdentificationRuleLabel =>
             $"{IdentificationCellCount} + {IdentificationCellCount}";
@@ -35,5 +39,14 @@ namespace AntibodyPanels.Models
                 Array.IndexOf(new[] { "serum", "plasma", "eluate" }, DefaultSpecimenType) < 0)
                 DefaultSpecimenType = "serum";
         }
+
+        public bool ShowsWorklistKind(WorklistKind kind) => kind switch
+        {
+            WorklistKind.IncompleteReactions => WorklistShowIncomplete,
+            WorklistKind.StaleAnalysis => WorklistShowStale,
+            WorklistKind.ExpiringSpecimen or WorklistKind.ExpiringPanel => WorklistShowExpiring,
+            WorklistKind.ExpiredSpecimen or WorklistKind.ExpiredPanel => WorklistShowExpired,
+            _ => true
+        };
     }
 }

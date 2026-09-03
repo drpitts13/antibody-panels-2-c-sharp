@@ -125,6 +125,73 @@ public class LabUxFeatureTests
     }
 
     [Fact]
+    public void Worklist_IncludesExpiredSpecimen()
+    {
+        using var iso = new IsolatedDatabase();
+        var expired = DateTime.Now.AddDays(-2).ToString("yyyy-MM-dd");
+        iso.Db.AddSpecimen("EXP-PAST", "serum", expired, true);
+        var items = iso.Db.GetWorklistItems(14);
+        var row = Assert.Single(items, i => i.AccessionNumber == "EXP-PAST" && i.Kind == WorklistKind.ExpiredSpecimen);
+        Assert.Equal("Expired", row.UrgencyLabel);
+        Assert.Equal(0, row.SortOrder);
+        Assert.Contains("Expired", row.Detail);
+    }
+
+    [Fact]
+    public void Worklist_IncludesExpiredPanel()
+    {
+        using var iso = new IsolatedDatabase();
+        var expired = DateTime.Now.AddDays(-5).ToString("yyyy-MM-dd");
+        iso.Db.AddPanel("Old Lot", "LOT-Z", "Vendor", 1, expired, true, 1, true);
+        var items = iso.Db.GetWorklistItems(14);
+        Assert.Contains(items, i => i.Kind == WorklistKind.ExpiredPanel && i.Title == "Old Lot");
+    }
+
+    [Fact]
+    public void Worklist_FarFutureExpiration_NotListed()
+    {
+        using var iso = new IsolatedDatabase();
+        var far = DateTime.Now.AddDays(60).ToString("yyyy-MM-dd");
+        iso.Db.AddSpecimen("EXP-FAR", "serum", far);
+        var items = iso.Db.GetWorklistItems(14);
+        Assert.DoesNotContain(items, i => i.AccessionNumber == "EXP-FAR" &&
+            (i.Kind == WorklistKind.ExpiringSpecimen || i.Kind == WorklistKind.ExpiredSpecimen));
+    }
+
+    [Fact]
+    public void Worklist_ConfirmedId_StillShowsExpiredSpecimen()
+    {
+        using var iso = new IsolatedDatabase();
+        var expired = DateTime.Now.AddDays(-1).ToString("yyyy-MM-dd");
+        iso.Db.AddSpecimen("DONE-PAST", "serum", expired, true);
+        iso.Db.SetSpecimenFinalCall("DONE-PAST", "anti-K", null, "DP");
+
+        var items = iso.Db.GetWorklistItems(14)
+            .Where(i => i.AccessionNumber == "DONE-PAST")
+            .ToList();
+        Assert.DoesNotContain(items, i => i.Kind == WorklistKind.IncompleteReactions);
+        Assert.Contains(items, i => i.Kind == WorklistKind.ExpiredSpecimen);
+    }
+
+    [Fact]
+    public void LabSettings_WorklistFilters_HideUncheckedKinds()
+    {
+        var s = new LabSettings
+        {
+            WorklistShowIncomplete = false,
+            WorklistShowStale = true,
+            WorklistShowExpiring = false,
+            WorklistShowExpired = true
+        };
+        Assert.False(s.ShowsWorklistKind(WorklistKind.IncompleteReactions));
+        Assert.True(s.ShowsWorklistKind(WorklistKind.StaleAnalysis));
+        Assert.False(s.ShowsWorklistKind(WorklistKind.ExpiringSpecimen));
+        Assert.False(s.ShowsWorklistKind(WorklistKind.ExpiringPanel));
+        Assert.True(s.ShowsWorklistKind(WorklistKind.ExpiredSpecimen));
+        Assert.True(s.ShowsWorklistKind(WorklistKind.ExpiredPanel));
+    }
+
+    [Fact]
     public void ClinicalIdentificationReport_ContainsWorksheetAndSignOff()
     {
         using var iso = new IsolatedDatabase();

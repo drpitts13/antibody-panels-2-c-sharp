@@ -152,6 +152,9 @@ namespace AntibodyPanels
                 "Ctrl+R     Refresh all tabs\n" +
                 "Ctrl+N     New item (context-aware)\n" +
                 "F1         Show this help\n\n" +
+                "Worklist:\n" +
+                "  Enter     open the selected item\n" +
+                "  Click a count card to filter that category\n\n" +
                 "Reaction Entry:\n" +
                 "  0–4     write grade (0, 1+, 2+, 3+, 4+)\n" +
                 "  N       write NT\n" +

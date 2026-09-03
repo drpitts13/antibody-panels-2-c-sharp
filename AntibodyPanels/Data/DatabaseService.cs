@@ -1270,6 +1270,8 @@ namespace AntibodyPanels.Data
                             KindLabel = "Incomplete",
                             Title = s.AccessionNumber,
                             Detail = "No panel attached.",
+                            UrgencyLabel = "Needs panel",
+                            SortOrder = 1,
                             AccessionNumber = s.AccessionNumber,
                             TargetTab = "Specimens"
                         });
@@ -1310,6 +1312,8 @@ namespace AntibodyPanels.Data
                                 KindLabel = "Incomplete",
                                 Title = s.AccessionNumber,
                                 Detail = "Reactions not finished: " + string.Join("; ", missing),
+                                UrgencyLabel = "Needs grades",
+                                SortOrder = 1,
                                 AccessionNumber = s.AccessionNumber,
                                 TargetTab = "Reactions"
                             });
@@ -1326,50 +1330,83 @@ namespace AntibodyPanels.Data
                             Detail = s.LastAnalyzedAt == null
                                 ? "Never analyzed."
                                 : "Reactions changed since last analysis.",
+                            UrgencyLabel = "Re-analyze",
+                            SortOrder = 2,
                             AccessionNumber = s.AccessionNumber,
                             TargetTab = "Analysis"
                         });
                     }
                 }
 
-                if (s.ExpirationDate != null &&
-                    string.Compare(s.ExpirationDate, todayStr, StringComparison.Ordinal) >= 0 &&
-                    string.Compare(s.ExpirationDate, horizon, StringComparison.Ordinal) <= 0)
-                {
-                    items.Add(new WorklistItem
-                    {
-                        Kind = WorklistKind.ExpiringSpecimen,
-                        KindLabel = "Expiring specimen",
-                        Title = s.AccessionNumber,
-                        Detail = $"Expires {s.ExpirationDate}.",
-                        AccessionNumber = s.AccessionNumber,
-                        TargetTab = "Specimens"
-                    });
-                }
+                AddExpirationWorklistItem(items, s.ExpirationDate, today, todayStr, horizon,
+                    isPanel: false, title: s.AccessionNumber, accession: s.AccessionNumber,
+                    panelId: null, lotNumber: null);
             }
 
             foreach (var p in GetAllPanels().Where(p => p.IsActive))
             {
-                if (p.ExpirationDate == null) continue;
-                if (string.Compare(p.ExpirationDate, todayStr, StringComparison.Ordinal) >= 0 &&
-                    string.Compare(p.ExpirationDate, horizon, StringComparison.Ordinal) <= 0)
-                {
-                    items.Add(new WorklistItem
-                    {
-                        Kind = WorklistKind.ExpiringPanel,
-                        KindLabel = "Expiring panel",
-                        Title = p.Name,
-                        Detail = $"Lot {p.LotNumber ?? "N/A"} expires {p.ExpirationDate}.",
-                        PanelId = p.PanelId,
-                        TargetTab = "Panels"
-                    });
-                }
+                AddExpirationWorklistItem(items, p.ExpirationDate, today, todayStr, horizon,
+                    isPanel: true, title: p.Name, accession: null,
+                    panelId: p.PanelId, lotNumber: p.LotNumber);
             }
 
             return items
-                .OrderBy(i => i.Kind)
+                .OrderBy(i => i.SortOrder)
                 .ThenBy(i => i.Title)
                 .ToList();
+        }
+
+        private static void AddExpirationWorklistItem(
+            List<WorklistItem> items, string? expirationDate, DateTime today,
+            string todayStr, string horizon, bool isPanel, string title,
+            string? accession, int? panelId, string? lotNumber)
+        {
+            if (string.IsNullOrEmpty(expirationDate)) return;
+
+            bool expired = string.Compare(expirationDate, todayStr, StringComparison.Ordinal) < 0;
+            bool dueSoon = !expired &&
+                string.Compare(expirationDate, horizon, StringComparison.Ordinal) <= 0;
+            if (!expired && !dueSoon) return;
+
+            int days = 0;
+            if (DateTime.TryParse(expirationDate, out var expDate))
+                days = (expDate.Date - today).Days;
+
+            if (expired)
+            {
+                var ago = days < 0 ? $" ({-days} day(s) ago)" : "";
+                items.Add(new WorklistItem
+                {
+                    Kind = isPanel ? WorklistKind.ExpiredPanel : WorklistKind.ExpiredSpecimen,
+                    KindLabel = isPanel ? "Expired panel" : "Expired specimen",
+                    Title = title,
+                    Detail = isPanel
+                        ? $"Lot {lotNumber ?? "N/A"} expired {expirationDate}{ago}."
+                        : $"Expired {expirationDate}{ago}.",
+                    UrgencyLabel = "Expired",
+                    SortOrder = 0,
+                    AccessionNumber = accession,
+                    PanelId = panelId,
+                    TargetTab = isPanel ? "Panels" : "Specimens"
+                });
+                return;
+            }
+
+            string when = days == 0
+                ? $"Expires today ({expirationDate})."
+                : $"Expires {expirationDate} ({days} day(s)).";
+            items.Add(new WorklistItem
+            {
+                Kind = isPanel ? WorklistKind.ExpiringPanel : WorklistKind.ExpiringSpecimen,
+                KindLabel = isPanel ? "Expiring panel" : "Expiring specimen",
+                Title = title,
+                Detail = isPanel ? $"Lot {lotNumber ?? "N/A"} — {when}" : when,
+                UrgencyLabel = days == 0 ? "Today" : $"{days}d",
+                SortOrder = isPanel ? 4 : 3,
+                AccessionNumber = accession,
+                PanelId = panelId,
+                TargetTab = isPanel ? "Panels" : "Specimens"
+            });
         }
 
         private static bool HasEnteredGrade(Reaction rxn) =>

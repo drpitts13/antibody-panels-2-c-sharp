@@ -13,6 +13,18 @@ namespace AntibodyPanels.Views
 
         private void WorklistGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
+            OpenSelected();
+        }
+
+        private void WorklistGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter) return;
+            OpenSelected();
+            e.Handled = true;
+        }
+
+        private void OpenSelected()
+        {
             if (DataContext is WorklistViewModel vm && vm.OpenCommand.CanExecute(null))
                 vm.OpenCommand.Execute(null);
         }
