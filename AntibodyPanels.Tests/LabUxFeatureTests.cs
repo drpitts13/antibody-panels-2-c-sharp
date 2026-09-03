@@ -429,6 +429,29 @@ public class LabUxFeatureTests
         Assert.Equal(expected, AnalysisViewModel.AppendAntibodyToFinalId(current, add));
     }
 
+    [Theory]
+    [InlineData("anti-E", true)]
+    [InlineData("anti-K", true)]
+    [InlineData("anti-Cw", false)]
+    [InlineData("", false)]
+    public void RuleoutRow_IsClinicallySignificantAntibody(string antibody, bool expected)
+    {
+        Assert.Equal(expected, RuleoutRow.IsClinicallySignificantAntibody(antibody));
+    }
+
+    [Theory]
+    [InlineData(3, 3, true, "Meets ACS (3)")]
+    [InlineData(1, 3, true, "1 of 3 (ACS)")]
+    [InlineData(3, 3, false, "Meets 3")]
+    [InlineData(2, 3, false, "2 of 3")]
+    public void RuleoutRow_FormatStatus(int count, int required, bool cs, string expected)
+    {
+        Assert.Equal(expected, RuleoutRow.FormatStatus(count, required, cs));
+        var row = RuleoutRow.From(cs ? "anti-E" : "anti-Cw", count, required);
+        Assert.Equal(count >= required, row.MeetsRequired);
+        Assert.Equal(expected, row.Status);
+    }
+
     [Fact]
     public void SuggestedFinalId_IncludesOnlyAntibodiesThatMeetRule()
     {

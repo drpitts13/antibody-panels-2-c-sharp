@@ -268,8 +268,11 @@ namespace AntibodyPanels.ViewModels
                 });
             }
 
+            var required = result.Acs.RequiredRuleoutCount > 0
+                ? result.Acs.RequiredRuleoutCount
+                : AppSettings.Current.AcsRuleoutCount;
             foreach (var (ab, cnt) in result.RuledOut.OrderBy(x => x.Key))
-                RuleoutRows.Add(new RuleoutRow { Antibody = ab, Count = cnt });
+                RuleoutRows.Add(RuleoutRow.From(ab, cnt, required));
 
             foreach (var pm in result.PatternMatches.Take(20))
                 PatternRows.Add(new PatternRow
@@ -648,6 +651,45 @@ namespace AntibodyPanels.ViewModels
     {
         public string Antibody { get; set; } = string.Empty;
         public int Count { get; set; }
+        public int Required { get; set; }
+        public bool MeetsRequired { get; set; }
+        public bool IsClinicallySignificant { get; set; }
+        public string Status { get; set; } = string.Empty;
+
+        public static RuleoutRow From(string antibody, int count, int required)
+        {
+            var cs = IsClinicallySignificantAntibody(antibody);
+            return new RuleoutRow
+            {
+                Antibody = antibody,
+                Count = count,
+                Required = required,
+                MeetsRequired = count >= required,
+                IsClinicallySignificant = cs,
+                Status = FormatStatus(count, required, cs)
+            };
+        }
+
+        public static bool IsClinicallySignificantAntibody(string? antibody)
+        {
+            if (string.IsNullOrWhiteSpace(antibody)) return false;
+            foreach (var ag in AntigenConstants.ClinicallySignificantAntigens)
+            {
+                if (string.Equals(antibody, $"anti-{ag}", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        public static string FormatStatus(int count, int required, bool clinicallySignificant)
+        {
+            if (required <= 0) return count.ToString();
+            if (count >= required)
+                return clinicallySignificant ? $"Meets ACS ({required})" : $"Meets {required}";
+            return clinicallySignificant
+                ? $"{count} of {required} (ACS)"
+                : $"{count} of {required}";
+        }
     }
 
     public class PatternRow

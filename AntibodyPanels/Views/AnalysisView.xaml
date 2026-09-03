@@ -189,9 +189,29 @@
                               IsReadOnly="True"
                               AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
                               HeadersVisibility="Column">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MeetsRequired}" Value="True">
+                                        <Setter Property="Background" Value="#C8E6C9"/>
+                                        <Setter Property="ToolTip" Value="Rule-out count meets the lab ACS target."/>
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding MeetsRequired}" Value="False"/>
+                                            <Condition Binding="{Binding IsClinicallySignificant}" Value="True"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Background" Value="#FFF8E1"/>
+                                        <Setter Property="ToolTip" Value="Clinically significant antibody still short of the ACS rule-out count."/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
-                            <DataGridTextColumn Header="Rule-out Count" Binding="{Binding Count}" Width="120"/>
+                            <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="70"/>
+                            <DataGridTextColumn Header="Needed" Binding="{Binding Required}" Width="70"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="140"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch"/>
