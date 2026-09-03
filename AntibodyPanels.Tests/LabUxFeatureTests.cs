@@ -232,6 +232,28 @@ public class LabUxFeatureTests
     }
 
     [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, 0)]
+    [InlineData(3, 3)]
+    [InlineData(14, 14)]
+    [InlineData(20, 14)]
+    public void LabSettings_Clamp_KeepsSpecimenDatingDaysInRange(int input, int expected)
+    {
+        var s = new LabSettings { DefaultSpecimenDatingDays = input };
+        s.Clamp();
+        Assert.Equal(expected, s.DefaultSpecimenDatingDays);
+    }
+
+    [Fact]
+    public void DefaultExpirationDate_AddsDatingDays()
+    {
+        var today = new DateTime(2026, 9, 3);
+        Assert.Equal(new DateTime(2026, 9, 6), LabSettings.DefaultExpirationDate(today, 3));
+        Assert.Null(LabSettings.DefaultExpirationDate(today, 0));
+        Assert.Null(LabSettings.DefaultExpirationDate(today, -2));
+    }
+
+    [Theory]
     [InlineData(0, 3)]
     [InlineData(4, 3)]
     [InlineData(-1, 3)]

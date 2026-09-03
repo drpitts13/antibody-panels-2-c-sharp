@@ -21,6 +21,7 @@ namespace AntibodyPanels.Views.Dialogs
             DefaultTypeBox.ItemsSource = AntigenConstants.SpecimenTypes;
             DefaultTypeBox.SelectedItem = s.DefaultSpecimenType;
             if (DefaultTypeBox.SelectedItem == null) DefaultTypeBox.SelectedIndex = 0;
+            DatingDaysBox.Text = s.DefaultSpecimenDatingDays.ToString();
             ExpiryDaysBox.Text = s.ExpirationWarningDays.ToString();
             MaxDbSizeBox.Text = s.MaxDatabaseSizeMb.ToString();
             ShowInactiveCheck.IsChecked = s.ShowInactiveByDefault;
@@ -36,6 +37,13 @@ namespace AntibodyPanels.Views.Dialogs
                 MessageBox.Show("Score threshold must be a number between 0.30 and 0.95.",
                     "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
                 ThresholdBox.Focus();
+                return;
+            }
+            if (!int.TryParse(DatingDaysBox.Text.Trim(), out var datingDays) || datingDays < 0 || datingDays > 14)
+            {
+                MessageBox.Show("Specimen dating days must be between 0 and 14. Use 0 to leave expiration blank.",
+                    "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                DatingDaysBox.Focus();
                 return;
             }
             if (!int.TryParse(ExpiryDaysBox.Text.Trim(), out var days) || days < 1 || days > 90)
@@ -60,6 +68,7 @@ namespace AntibodyPanels.Views.Dialogs
             AppSettings.Current.IdentificationCellCount =
                 idRule.StartsWith("1") ? 1 : idRule.StartsWith("2") ? 2 : 3;
             AppSettings.Current.DefaultSpecimenType = DefaultTypeBox.SelectedItem?.ToString() ?? "serum";
+            AppSettings.Current.DefaultSpecimenDatingDays = datingDays;
             AppSettings.Current.ExpirationWarningDays = days;
             AppSettings.Current.MaxDatabaseSizeMb = maxMb;
             AppSettings.Current.ShowInactiveByDefault = ShowInactiveCheck.IsChecked == true;

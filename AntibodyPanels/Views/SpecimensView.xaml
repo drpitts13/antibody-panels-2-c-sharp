@@ -27,7 +27,8 @@
                       SelectedItem="{Binding SelectedSpecimen}"
                       AutoGenerateColumns="False" IsReadOnly="True"
                       SelectionMode="Single" GridLinesVisibility="Horizontal"
-                      HeadersVisibility="Column">
+                      HeadersVisibility="Column"
+                      MouseDoubleClick="SpecimensGrid_MouseDoubleClick">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="130"/>
                     <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="70"/>

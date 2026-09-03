@@ -34,6 +34,8 @@ namespace AntibodyPanels.Views.Dialogs
                 TypeBox.SelectedIndex = t >= 0 ? t : 0;
                 DatBox.SelectedIndex = 0;
                 ActiveCheck.IsChecked = true;
+                ExpirationPicker.SelectedDate = LabSettings.DefaultExpirationDate(
+                    DateTime.Today, AppSettings.Current.DefaultSpecimenDatingDays);
             }
             else
             {

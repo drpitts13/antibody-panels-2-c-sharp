@@ -150,6 +150,16 @@ namespace AntibodyPanels.ViewModels
         {
             var dlg = new Views.Dialogs.SpecimenDialog();
             if (dlg.ShowDialog() != true) return;
+            var existing = _db.GetSpecimen(dlg.AccessionNumber);
+            if (existing != null)
+            {
+                var open = MessageBox.Show(
+                    $"Accession {dlg.AccessionNumber} already exists. Open that specimen instead?",
+                    "Duplicate accession", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (open == MessageBoxResult.Yes)
+                    SelectSpecimen(dlg.AccessionNumber);
+                return;
+            }
             try
             {
                 _db.AddSpecimen(dlg.AccessionNumber, dlg.SpecimenType, dlg.ExpirationDate, dlg.ItemIsActive,
