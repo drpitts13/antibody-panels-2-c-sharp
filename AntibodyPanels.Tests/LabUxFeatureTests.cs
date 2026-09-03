@@ -464,6 +464,47 @@ public class LabUxFeatureTests
     }
 
     [Fact]
+    public void AllSpecimensReport_IncludesStatusAndFinalIdColumns()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("STATUS-001", "serum", null);
+        iso.Db.AddSpecimen("STATUS-002", "plasma", null);
+        iso.Db.SetSpecimenFinalCall("STATUS-002", "anti-E", null, "DP");
+        var text = iso.Reports.GeneratePreviewText(ReportType.AllSpecimens);
+        Assert.Contains("Status", text);
+        Assert.Contains("Final ID", text);
+        Assert.Contains("Not analyzed", text);  // STATUS-001
+        Assert.Contains("Confirmed", text);      // STATUS-002
+        Assert.Contains("anti-E", text);
+    }
+
+    [Fact]
+    public void PendingWorkReport_SeparatesSections()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("PW-001", "serum", null);
+        iso.Db.AddSpecimen("PW-002", "plasma", null);
+        iso.Db.SetSpecimenFinalCall("PW-002", "anti-K", null, "DP");
+        var text = iso.Reports.GeneratePreviewText(ReportType.PendingWork);
+        Assert.Contains("PENDING WORK SUMMARY", text);
+        Assert.Contains("NOT YET ANALYZED", text);
+        Assert.Contains("PW-001", text);
+        Assert.DoesNotContain("PW-002", text); // confirmed, not pending
+        Assert.Contains("Confirmed:         1", text);
+        Assert.Contains("Pending:           1", text);
+    }
+
+    [Fact]
+    public void PendingWorkReport_AllConfirmed_ShowsNoPendingMessage()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("PW-ALL", "serum", null);
+        iso.Db.SetSpecimenFinalCall("PW-ALL", "anti-D", null, "DP");
+        var text = iso.Reports.GeneratePreviewText(ReportType.PendingWork);
+        Assert.Contains("No pending work", text);
+    }
+
+    [Fact]
     public void Specimen_MatchesFilter_SearchesClinicalFields()
     {
         var s = new Specimen

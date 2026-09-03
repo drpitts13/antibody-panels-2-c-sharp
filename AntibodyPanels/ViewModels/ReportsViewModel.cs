@@ -30,7 +30,8 @@ namespace AntibodyPanels.ViewModels
             "All Specimens",
             "All Panels",
             "Clinical Identification",
-            "Panel Antigram"
+            "Panel Antigram",
+            "Pending Work"
         };
 
         private string _selectedReportType = "All Specimens";
@@ -161,6 +162,7 @@ namespace AntibodyPanels.ViewModels
             "Clinical Identification" => ReportType.ClinicalIdentification,
             "Panel Antigram" => ReportType.PanelAntigram,
             "All Panels" => ReportType.AllPanels,
+            "Pending Work" => ReportType.PendingWork,
             _ => ReportType.AllSpecimens
         };
 

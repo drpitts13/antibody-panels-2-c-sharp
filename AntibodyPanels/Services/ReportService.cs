@@ -21,7 +21,8 @@ namespace AntibodyPanels.Services
         AllSpecimens,
         AllPanels,
         ClinicalIdentification,
-        PanelAntigram
+        PanelAntigram,
+        PendingWork
     }
 
     public class ReportService
@@ -43,6 +44,7 @@ namespace AntibodyPanels.Services
                 ReportType.AllPanels => AllPanelsText(),
                 ReportType.ClinicalIdentification => ClinicalIdentificationText(specimenId),
                 ReportType.PanelAntigram => PanelAntigramText(panelId),
+                ReportType.PendingWork => PendingWorkText(),
                 _ => string.Empty
             };
         }
@@ -298,11 +300,85 @@ namespace AntibodyPanels.Services
             var specimens = _db.GetAllSpecimens();
             var sb = new StringBuilder();
             sb.AppendLine($"ALL SPECIMENS ({specimens.Count})");
-            sb.AppendLine(new string('=', 60));
-            sb.AppendLine($"{"Accession",-20} {"Type",-10} {"Created",-12} {"Expiration",-12}");
-            sb.AppendLine(new string('-', 60));
+            sb.AppendLine(new string('=', 100));
+            sb.AppendLine($"{"Accession",-20} {"Type",-8} {"Status",-14} {"Final ID",-30} {"Created",-12} {"Expiration",-12}");
+            sb.AppendLine(new string('-', 100));
             foreach (var s in specimens)
-                sb.AppendLine($"{s.AccessionNumber,-20} {s.Type,-10} {s.CreatedDate,-12} {s.ExpirationDate ?? "N/A",-12}");
+            {
+                var status = GetSpecimenStatus(s);
+                var finalId = s.FinalAntibodies ?? "";
+                if (finalId.Length > 28) finalId = finalId[..28] + "…";
+                sb.AppendLine($"{s.AccessionNumber,-20} {s.Type,-8} {status,-14} {finalId,-30} {s.CreatedDate,-12} {s.ExpirationDate ?? "N/A",-12}");
+            }
+            return sb.ToString();
+        }
+
+        private static string GetSpecimenStatus(Specimen s)
+        {
+            if (s.HasFinalCall) return "Confirmed";
+            if (s.LastAnalyzedAt == null) return "Not analyzed";
+            if (s.IsAnalysisStale) return "Stale";
+            return "Analyzed";
+        }
+
+        private string PendingWorkText()
+        {
+            var allSpecimens = _db.GetAllSpecimens().Where(s => s.IsActive).ToList();
+            var pending = allSpecimens.Where(s => !s.HasFinalCall).ToList();
+            var sb = new StringBuilder();
+            var settings = AppSettings.Current;
+            sb.AppendLine(settings.LabName.ToUpperInvariant());
+            sb.AppendLine("PENDING WORK SUMMARY");
+            sb.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm}");
+            sb.AppendLine(new string('=', 78));
+            sb.AppendLine($"Active specimens:  {allSpecimens.Count}");
+            sb.AppendLine($"Confirmed:         {allSpecimens.Count(s => s.HasFinalCall)}");
+            sb.AppendLine($"Pending:           {pending.Count}");
+            sb.AppendLine();
+
+            var notAnalyzed = pending.Where(s => s.LastAnalyzedAt == null).ToList();
+            var stale = pending.Where(s => s.LastAnalyzedAt != null && s.IsAnalysisStale).ToList();
+            var analyzed = pending.Where(s => s.LastAnalyzedAt != null && !s.IsAnalysisStale).ToList();
+
+            if (notAnalyzed.Count > 0)
+            {
+                sb.AppendLine($"NOT YET ANALYZED ({notAnalyzed.Count}):");
+                sb.AppendLine($"  {"Accession",-20} {"Type",-8} {"Expiration",-12} {"Previous Abs"}");
+                sb.AppendLine("  " + new string('-', 64));
+                foreach (var s in notAnalyzed)
+                    sb.AppendLine($"  {s.AccessionNumber,-20} {s.Type,-8} {s.ExpirationDate ?? "N/A",-12} {s.PreviousAntibodies ?? ""}");
+                sb.AppendLine();
+            }
+
+            if (stale.Count > 0)
+            {
+                sb.AppendLine($"STALE ANALYSIS — REACTIONS UPDATED ({stale.Count}):");
+                sb.AppendLine($"  {"Accession",-20} {"Type",-8} {"Expiration",-12} {"Last Analyzed"}");
+                sb.AppendLine("  " + new string('-', 64));
+                foreach (var s in stale)
+                    sb.AppendLine($"  {s.AccessionNumber,-20} {s.Type,-8} {s.ExpirationDate ?? "N/A",-12} {s.LastAnalyzedAt ?? "—"}");
+                sb.AppendLine();
+            }
+
+            if (analyzed.Count > 0)
+            {
+                sb.AppendLine($"ANALYZED — AWAITING CONFIRMATION ({analyzed.Count}):");
+                sb.AppendLine($"  {"Accession",-20} {"Type",-8} {"Expiration",-12} {"Top Suspected Ab"}");
+                sb.AppendLine("  " + new string('-', 64));
+                foreach (var s in analyzed)
+                {
+                    var top = _db.GetSpecimenAntibodies(s.AccessionNumber)
+                        .OrderByDescending(a => a.Probability)
+                        .FirstOrDefault();
+                    var topLabel = top != null ? $"{top.Antibody} ({top.Probability * 100:F0}%)" : "None suspected";
+                    sb.AppendLine($"  {s.AccessionNumber,-20} {s.Type,-8} {s.ExpirationDate ?? "N/A",-12} {topLabel}");
+                }
+                sb.AppendLine();
+            }
+
+            if (pending.Count == 0)
+                sb.AppendLine("All active specimens have a confirmed antibody identification. No pending work.");
+
             return sb.ToString();
         }
 
