@@ -237,15 +237,31 @@ namespace AntibodyPanels.Services
                     sb.AppendLine("  None.");
                 }
             }
-            else if (analysis.Suspected.Count > 0)
-            {
-                sb.AppendLine("Suspected antibodies (unconfirmed):");
-                foreach (var (ab, prob) in analysis.Suspected.OrderByDescending(x => x.Value))
-                    sb.AppendLine(FormatSuspectedAntibodyLine(ab, prob, analysis));
-            }
             else
             {
-                sb.AppendLine("No antibodies suspected based on current reactions.");
+                if (analysis.Acs.IsEligible)
+                {
+                    sb.AppendLine("All clinically significant antibodies are ruled out.");
+                    sb.AppendLine($"Suggested result: {AntigenConstants.AcsResultText}");
+                }
+                else if (analysis.Acs.IsEligibleWithException)
+                {
+                    sb.AppendLine("All clinically significant antibodies are ruled out, with ≥95% exception.");
+                    sb.AppendLine($"Suggested result: {analysis.Acs.SuggestedCombinedResult}");
+                    if (!string.IsNullOrWhiteSpace(analysis.Acs.SuggestedComment))
+                        sb.AppendLine($"Comment: {analysis.Acs.SuggestedComment}");
+                }
+
+                if (analysis.Suspected.Count > 0)
+                {
+                    sb.AppendLine("Suspected antibodies (unconfirmed):");
+                    foreach (var (ab, prob) in analysis.Suspected.OrderByDescending(x => x.Value))
+                        sb.AppendLine(FormatSuspectedAntibodyLine(ab, prob, analysis));
+                }
+                else if (!analysis.Acs.IsEligible && !analysis.Acs.IsEligibleWithException)
+                {
+                    sb.AppendLine("No antibodies suspected based on current reactions.");
+                }
             }
             sb.AppendLine();
             if (analysis.RuledOut.Count > 0)

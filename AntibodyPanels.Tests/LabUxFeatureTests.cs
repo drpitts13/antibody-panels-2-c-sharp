@@ -268,6 +268,26 @@ public class LabUxFeatureTests
         Assert.Equal($"{expected} + {expected}", s.IdentificationRuleLabel);
     }
 
+    [Theory]
+    [InlineData(0, 3)]
+    [InlineData(6, 3)]
+    [InlineData(-1, 3)]
+    [InlineData(1, 1)]
+    [InlineData(3, 3)]
+    [InlineData(5, 5)]
+    public void LabSettings_Clamp_KeepsAcsRuleoutCountInRange(int input, int expected)
+    {
+        var s = new LabSettings { AcsRuleoutCount = input };
+        s.Clamp();
+        Assert.Equal(expected, s.AcsRuleoutCount);
+    }
+
+    [Fact]
+    public void LabSettings_Default_AcsRuleoutCountIsThree()
+    {
+        Assert.Equal(3, LabSettings.CreateDefault().AcsRuleoutCount);
+    }
+
     [Fact]
     public void CopyReactions_CopiesGradesToNewRun()
     {
@@ -374,6 +394,33 @@ public class LabUxFeatureTests
             new SuspectedRow { Antibody = "anti-E", MeetsIdentificationRule = false }
         };
         Assert.Equal("", AnalysisViewModel.SuggestedFinalId(rows));
+    }
+
+    [Fact]
+    public void SuggestedFinalId_PrefersAcsWhenEligible()
+    {
+        var rows = new[]
+        {
+            new SuspectedRow { Antibody = "anti-E", MeetsIdentificationRule = true }
+        };
+        var acs = new AcsEvaluation { IsEligible = true };
+        Assert.Equal(AntigenConstants.AcsResultText, AnalysisViewModel.SuggestedFinalId(rows, acs));
+    }
+
+    [Fact]
+    public void SuggestedFinalId_DoesNotPrefillAcsOnException()
+    {
+        var rows = new[]
+        {
+            new SuspectedRow { Antibody = "anti-E", MeetsIdentificationRule = true }
+        };
+        var acs = new AcsEvaluation
+        {
+            IsEligible = false,
+            IsEligibleWithException = true,
+            Exceptions = { new AcsExceptionAntibody { Antibody = "anti-E", CombinedScore = 0.97, RuleoutCount = 3 } }
+        };
+        Assert.Equal("anti-E", AnalysisViewModel.SuggestedFinalId(rows, acs));
     }
 
     [Fact]

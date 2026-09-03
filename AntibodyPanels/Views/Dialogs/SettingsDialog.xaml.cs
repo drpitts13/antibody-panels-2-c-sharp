@@ -18,6 +18,7 @@ namespace AntibodyPanels.Views.Dialogs
             var idCount = s.IdentificationCellCount;
             if (idCount < 1 || idCount > 3) idCount = 3;
             IdRuleBox.SelectedItem = $"{idCount} + {idCount}";
+            AcsRuleoutBox.Text = s.AcsRuleoutCount.ToString();
             DefaultTypeBox.ItemsSource = AntigenConstants.SpecimenTypes;
             DefaultTypeBox.SelectedItem = s.DefaultSpecimenType;
             if (DefaultTypeBox.SelectedItem == null) DefaultTypeBox.SelectedIndex = 0;
@@ -37,6 +38,13 @@ namespace AntibodyPanels.Views.Dialogs
                 MessageBox.Show("Score threshold must be a number between 0.30 and 0.95.",
                     "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
                 ThresholdBox.Focus();
+                return;
+            }
+            if (!int.TryParse(AcsRuleoutBox.Text.Trim(), out var acsCount) || acsCount < 1 || acsCount > 5)
+            {
+                MessageBox.Show("ACS rule-outs must be a number between 1 and 5.",
+                    "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AcsRuleoutBox.Focus();
                 return;
             }
             if (!int.TryParse(DatingDaysBox.Text.Trim(), out var datingDays) || datingDays < 0 || datingDays > 14)
@@ -67,6 +75,7 @@ namespace AntibodyPanels.Views.Dialogs
             var idRule = IdRuleBox.SelectedItem?.ToString() ?? "3 + 3";
             AppSettings.Current.IdentificationCellCount =
                 idRule.StartsWith("1") ? 1 : idRule.StartsWith("2") ? 2 : 3;
+            AppSettings.Current.AcsRuleoutCount = acsCount;
             AppSettings.Current.DefaultSpecimenType = DefaultTypeBox.SelectedItem?.ToString() ?? "serum";
             AppSettings.Current.DefaultSpecimenDatingDays = datingDays;
             AppSettings.Current.ExpirationWarningDays = days;

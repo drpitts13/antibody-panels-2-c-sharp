@@ -25,6 +25,20 @@ namespace AntibodyPanels.Models
         };
 
         /// <summary>
+        /// Antigens that must be ruled out (at or above the ACS rule-out count)
+        /// before a specimen can result as All Clinically Significant Antibodies Ruled Out.
+        /// </summary>
+        public static readonly IReadOnlyList<string> ClinicallySignificantAntigens = new[]
+        {
+            "D", "C", "c", "E", "e",
+            "K", "k", "Fya", "Fyb", "Jka", "Jkb",
+            "S", "s", "Lea", "Leb", "M", "N"
+        };
+
+        public const string AcsResultText = "All Clinically Significant Antibodies Ruled Out";
+        public const double AcsProbabilityCutoff = 0.95;
+
+        /// <summary>
         /// Low-frequency / non-standard antigens that are added to panels only as needed.
         /// </summary>
         public static readonly IReadOnlyList<WarehouseAntigenDefinition> WarehouseCatalog =

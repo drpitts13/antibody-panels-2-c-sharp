@@ -32,7 +32,7 @@ namespace AntibodyPanels.Services
 
             var rules = _db.GetAllRules();
             var ruledOut = CalculateRuleouts(byRun, contexts, antigens, rules, out var gatedRuleouts);
-            var (suspected, suspectedStats) = CalculateProbabilities(byRun, contexts, antigens, ruledOut);
+            var (suspected, suspectedStats, allScores) = CalculateProbabilities(byRun, contexts, antigens, ruledOut);
             var patterns = PatternMatching(byRun, contexts, antigens, ruledOut);
             var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, antigens, rules);
             var suspectedEvidence = GetSuspectedAntibodyEvidence(byRun, contexts, suspected);
@@ -59,6 +59,7 @@ namespace AntibodyPanels.Services
                 GatedRuleouts = gatedRuleouts,
                 TreatmentInferences = inferences,
                 AbsorptionConclusions = absorptionConclusions,
+                Acs = EvaluateAcs(ruledOut, allScores),
             };
             result.Suggestions = GenerateSuggestions(result);
             return result;
@@ -241,7 +242,7 @@ namespace AntibodyPanels.Services
 
         // ── Probabilities (Fisher's Exact Test) ───────────────────────────────
 
-        private (Dictionary<string, double>, Dictionary<string, SuspectedStatistics>)
+        private (Dictionary<string, double>, Dictionary<string, SuspectedStatistics>, Dictionary<string, double>)
             CalculateProbabilities(
                 Dictionary<int, List<Reaction>> byRun,
                 Dictionary<int, RunContext> contexts,
@@ -250,6 +251,7 @@ namespace AntibodyPanels.Services
         {
             var suspected = new Dictionary<string, double>();
             var stats = new Dictionary<string, SuspectedStatistics>();
+            var allScores = new Dictionary<string, double>();
 
             foreach (var ag in antigens)
             {
@@ -303,6 +305,7 @@ namespace AntibodyPanels.Services
                         ? posWithAg / (posWithAg + posWithoutAg) : 0;
                     double combined = posWithAg > 0
                         ? (fisherComp + patternScore) / 2 : fisherComp;
+                    allScores[antibody] = Math.Round(combined, 3);
 
                     if (combined <= AppSettings.Current.ProbabilityThreshold) continue;
 
@@ -333,7 +336,7 @@ namespace AntibodyPanels.Services
                 }
                 catch { /* skip */ }
             }
-            return (suspected, stats);
+            return (suspected, stats, allScores);
         }
 
         // ── Pattern matching ──────────────────────────────────────────────────
@@ -775,11 +778,82 @@ namespace AntibodyPanels.Services
 
         // ── Suggestions ───────────────────────────────────────────────────────
 
+        public static AcsEvaluation EvaluateAcs(
+            Dictionary<string, int> ruledOut,
+            Dictionary<string, double> allCombinedScores)
+        {
+            var required = AppSettings.Current.AcsRuleoutCount;
+            if (required < 1 || required > 5) required = 3;
+
+            var acs = new AcsEvaluation { RequiredRuleoutCount = required };
+            foreach (var ag in AntigenConstants.ClinicallySignificantAntigens)
+            {
+                var antibody = $"anti-{ag}";
+                ruledOut.TryGetValue(antibody, out var count);
+                if (count < required)
+                    acs.Shortfalls.Add(new AcsShortfall
+                    {
+                        Antibody = antibody,
+                        Count = count,
+                        Required = required
+                    });
+            }
+
+            foreach (var (antibody, score) in allCombinedScores.OrderByDescending(x => x.Value))
+            {
+                if (score < AntigenConstants.AcsProbabilityCutoff) continue;
+                ruledOut.TryGetValue(antibody, out var count);
+                acs.Exceptions.Add(new AcsExceptionAntibody
+                {
+                    Antibody = antibody,
+                    CombinedScore = score,
+                    RuleoutCount = count
+                });
+            }
+
+            var allCsRuledOut = acs.Shortfalls.Count == 0;
+            acs.IsEligible = allCsRuledOut && acs.Exceptions.Count == 0;
+            acs.IsEligibleWithException = allCsRuledOut && acs.Exceptions.Count > 0;
+
+            if (allCsRuledOut)
+            {
+                var parts = new List<string> { AntigenConstants.AcsResultText };
+                foreach (var ex in acs.Exceptions)
+                    parts.Add(ex.Antibody);
+                acs.SuggestedCombinedResult = string.Join("; ", parts);
+                acs.SuggestedComment = string.Join("; ",
+                    acs.Exceptions.Select(ex =>
+                        $"{ex.Antibody} ruled out {ex.RuleoutCount} time{(ex.RuleoutCount == 1 ? "" : "s")}"));
+            }
+
+            return acs;
+        }
+
         private List<string> GenerateSuggestions(AnalysisResult result)
         {
             var critical = new List<string>();
             var important = new List<string>();
             var informational = new List<string>();
+
+            if (result.Acs.IsEligible)
+            {
+                informational.Add(
+                    $"All clinically significant antibodies are ruled out the required " +
+                    $"{result.Acs.RequiredRuleoutCount} times. Suggested result: {AntigenConstants.AcsResultText}.");
+            }
+            else if (result.Acs.IsEligibleWithException)
+            {
+                var names = string.Join(", ", result.Acs.Exceptions.Select(e => e.Antibody));
+                important.Add(
+                    $"{names} ≥95% probability. You may result ACS and {names} " +
+                    $"({result.Acs.SuggestedComment}).");
+            }
+            else if (result.Acs.Shortfalls.Count > 0)
+            {
+                var list = string.Join(", ",
+                    result.Acs.Shortfalls.Select(s => $"{s.Antibody} ({s.Count}/{s.Required})"));
+                informational.Add($"ACS not met: {list}.");
+            }
 
             foreach (var ab in result.RuledOut.Keys)
                 if (result.Suspected.ContainsKey(ab))

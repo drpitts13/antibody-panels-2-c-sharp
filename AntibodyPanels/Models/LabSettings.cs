@@ -8,6 +8,7 @@ namespace AntibodyPanels.Models
         public string Department { get; set; } = "";
         public double ProbabilityThreshold { get; set; } = 0.5;
         public int IdentificationCellCount { get; set; } = 3;
+        public int AcsRuleoutCount { get; set; } = 3;
         public string DefaultSpecimenType { get; set; } = "serum";
         public bool ShowInactiveByDefault { get; set; }
         public bool HideRuledOutAntigenColumns { get; set; }
@@ -30,6 +31,8 @@ namespace AntibodyPanels.Models
             if (ProbabilityThreshold > 0.95) ProbabilityThreshold = 0.95;
             if (IdentificationCellCount < 1 || IdentificationCellCount > 3)
                 IdentificationCellCount = 3;
+            if (AcsRuleoutCount < 1 || AcsRuleoutCount > 5)
+                AcsRuleoutCount = 3;
             if (ExpirationWarningDays < 1) ExpirationWarningDays = 1;
             if (ExpirationWarningDays > 90) ExpirationWarningDays = 90;
             if (DefaultSpecimenDatingDays < 0) DefaultSpecimenDatingDays = 0;

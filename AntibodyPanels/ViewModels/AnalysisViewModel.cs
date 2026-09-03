@@ -211,6 +211,7 @@ namespace AntibodyPanels.ViewModels
 
             var result = _analyzer.AnalyzeSpecimen(SelectedSpecimen.AccessionNumber, updateDb: true);
             PopulateFromResult(result);
+            OfferAcsException(result);
             IsStale = false;
             _main.SetStatus($"Analysis complete — {SuspectedRows.Count} suspected, {RuleoutRows.Count} ruled out.");
             _main.SpecimensVM.Refresh();
@@ -357,16 +358,54 @@ namespace AntibodyPanels.ViewModels
             }
             else
             {
-                FinalAntibodiesText = SuggestedFinalId(SuspectedRows);
+                var acs = _lastResult?.Acs;
+                FinalAntibodiesText = SuggestedFinalId(SuspectedRows, acs);
                 FinalComment = "";
-                FinalCallStatus = SuspectedRows.Any(r => r.MeetsIdentificationRule)
-                    ? "Final identification: not confirmed. Green rows meet the ID rule — add or edit, then confirm."
-                    : "Final identification: not confirmed. No antibody yet meets the ID rule. Double-click a row to add it.";
+                FinalCallStatus = AcsFinalCallStatus(acs, SuspectedRows);
             }
         }
 
         public static string SuggestedFinalId(IEnumerable<SuspectedRow> rows) =>
-            string.Join("; ", rows.Where(r => r.MeetsIdentificationRule).Select(r => r.Antibody));
+            SuggestedFinalId(rows, acs: null);
+
+        public static string SuggestedFinalId(IEnumerable<SuspectedRow> rows, AcsEvaluation? acs)
+        {
+            if (acs?.IsEligible == true)
+                return AntigenConstants.AcsResultText;
+            return string.Join("; ", rows.Where(r => r.MeetsIdentificationRule).Select(r => r.Antibody));
+        }
+
+        public static string AcsFinalCallStatus(AcsEvaluation? acs, IEnumerable<SuspectedRow> rows)
+        {
+            if (acs?.IsEligible == true)
+                return "Final identification: not confirmed. All clinically significant antibodies are ruled out — ACS is suggested.";
+            if (acs?.IsEligibleWithException == true)
+            {
+                var names = string.Join(", ", acs.Exceptions.Select(e => e.Antibody));
+                return $"Final identification: not confirmed. ACS is available with exception: {names} ≥95%.";
+            }
+            return rows.Any(r => r.MeetsIdentificationRule)
+                ? "Final identification: not confirmed. Green rows meet the ID rule — add or edit, then confirm."
+                : "Final identification: not confirmed. No antibody yet meets the ID rule. Double-click a row to add it.";
+        }
+
+        private void OfferAcsException(AnalysisResult result)
+        {
+            if (SelectedSpecimen == null) return;
+            var fresh = _db.GetSpecimen(SelectedSpecimen.AccessionNumber) ?? SelectedSpecimen;
+            if (fresh.HasFinalCall) return;
+            if (!result.Acs.IsEligibleWithException) return;
+
+            var names = string.Join(", ", result.Acs.Exceptions.Select(e => e.Antibody));
+            var verb = result.Acs.Exceptions.Count == 1 ? "has" : "have";
+            var message = $"{names} {verb} ≥95% probability. Result ACS and {names} with a comment listing rule-out counts?";
+            if (MessageBox.Show(message, "ACS with exception",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            FinalAntibodiesText = result.Acs.SuggestedCombinedResult;
+            FinalComment = result.Acs.SuggestedComment;
+        }
 
         public static string AppendAntibodyToFinalId(string? current, string antibody)
         {
@@ -474,6 +513,21 @@ namespace AntibodyPanels.ViewModels
             var sb = new StringBuilder();
             sb.AppendLine($"=== Analysis Results: {r.SpecimenId} ===");
             sb.AppendLine();
+
+            if (r.Acs.IsEligible)
+            {
+                sb.AppendLine("ACS: Eligible. Suggested result:");
+                sb.AppendLine($"  {AntigenConstants.AcsResultText}");
+                sb.AppendLine();
+            }
+            else if (r.Acs.IsEligibleWithException)
+            {
+                sb.AppendLine("ACS: Available with exception.");
+                sb.AppendLine($"  {r.Acs.SuggestedCombinedResult}");
+                if (!string.IsNullOrWhiteSpace(r.Acs.SuggestedComment))
+                    sb.AppendLine($"  Comment: {r.Acs.SuggestedComment}");
+                sb.AppendLine();
+            }
 
             if (r.Suspected.Count > 0)
             {

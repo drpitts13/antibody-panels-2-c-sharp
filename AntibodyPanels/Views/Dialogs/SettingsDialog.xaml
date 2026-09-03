@@ -20,6 +20,7 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
             </Grid.RowDefinitions>
 
             <Label Content="Lab name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -36,25 +37,29 @@
                    ToolTip="Minimum antigen-positive reactive cells and antigen-negative nonreactive cells required to identify an antibody (AABB 3 + 3 is the usual standard)."/>
             <ComboBox x:Name="IdRuleBox" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <Label Content="Default specimen type:" Grid.Row="4" VerticalAlignment="Center"/>
-            <ComboBox x:Name="DefaultTypeBox" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+            <Label Content="ACS rule-outs:" Grid.Row="4" VerticalAlignment="Center"
+                   ToolTip="Minimum times each clinically significant antibody must be ruled out before suggesting All Clinically Significant Antibodies Ruled Out (1–5)."/>
+            <TextBox x:Name="AcsRuleoutBox" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <Label Content="Specimen dating (days):" Grid.Row="5" VerticalAlignment="Center"
+            <Label Content="Default specimen type:" Grid.Row="5" VerticalAlignment="Center"/>
+            <ComboBox x:Name="DefaultTypeBox" Grid.Row="5" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+
+            <Label Content="Specimen dating (days):" Grid.Row="6" VerticalAlignment="Center"
                    ToolTip="Pre-fill expiration when adding a specimen. 0 = leave blank. Typical antibody workup dating is 3 days."/>
-            <TextBox x:Name="DatingDaysBox" Grid.Row="5" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+            <TextBox x:Name="DatingDaysBox" Grid.Row="6" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <Label Content="Expiration warning (days):" Grid.Row="6" VerticalAlignment="Center"/>
-            <TextBox x:Name="ExpiryDaysBox" Grid.Row="6" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+            <Label Content="Expiration warning (days):" Grid.Row="7" VerticalAlignment="Center"/>
+            <TextBox x:Name="ExpiryDaysBox" Grid.Row="7" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <Label Content="Max database size (MB):" Grid.Row="7" VerticalAlignment="Center"
+            <Label Content="Max database size (MB):" Grid.Row="8" VerticalAlignment="Center"
                    ToolTip="Warn when the database file reaches 80% of this size. Allowed range: 50–10240 MB."/>
-            <TextBox x:Name="MaxDbSizeBox" Grid.Row="7" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+            <TextBox x:Name="MaxDbSizeBox" Grid.Row="8" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
 
-            <CheckBox x:Name="ShowInactiveCheck" Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
+            <CheckBox x:Name="ShowInactiveCheck" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
                       Content="Show inactive specimens and panels by default"
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
 
-            <CheckBox x:Name="HideRuledOutCheck" Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
+            <CheckBox x:Name="HideRuledOutCheck" Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2"
                       Content="Hide ruled-out antigen columns on the Reactions tab"
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
         </Grid>

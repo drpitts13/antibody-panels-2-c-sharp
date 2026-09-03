@@ -35,6 +35,36 @@ namespace AntibodyPanels.Models
         /// Conclusions about which antibodies survived each allogeneic absorption step.
         /// </summary>
         public List<AbsorptionConclusion> AbsorptionConclusions { get; set; } = new();
+
+        /// <summary>
+        /// Whether the specimen can result as All Clinically Significant Antibodies Ruled Out.
+        /// </summary>
+        public AcsEvaluation Acs { get; set; } = new();
+    }
+
+    public class AcsExceptionAntibody
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public double CombinedScore { get; set; }
+        public int RuleoutCount { get; set; }
+    }
+
+    public class AcsEvaluation
+    {
+        public bool IsEligible { get; set; }
+        public bool IsEligibleWithException { get; set; }
+        public int RequiredRuleoutCount { get; set; }
+        public List<AcsShortfall> Shortfalls { get; set; } = new();
+        public List<AcsExceptionAntibody> Exceptions { get; set; } = new();
+        public string SuggestedCombinedResult { get; set; } = string.Empty;
+        public string SuggestedComment { get; set; } = string.Empty;
+    }
+
+    public class AcsShortfall
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public int Count { get; set; }
+        public int Required { get; set; }
     }
 
     /// <summary>
