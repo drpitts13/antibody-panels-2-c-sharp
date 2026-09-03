@@ -70,6 +70,22 @@ public class LabUxFeatureTests
         }
     }
 
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("2026-08-01", "Expired")]
+    [InlineData("2026-09-03", "Expiring")]
+    [InlineData("2026-09-10", "Expiring")]
+    [InlineData("2026-09-17", "Expiring")]
+    [InlineData("2026-09-18", "")]
+    public void ExpirationStatus_Classify_UsesInclusiveWarningWindow(string? date, string expected)
+    {
+        var today = new DateTime(2026, 9, 3);
+        Assert.Equal(expected, ExpirationStatus.Classify(date, today, 14));
+        Assert.Equal(expected == "Expired", ExpirationStatus.IsExpired(date, today));
+        Assert.Equal(expected == "Expiring", ExpirationStatus.IsExpiringSoon(date, today, 14));
+    }
+
     [Fact]
     public void WorklistItem_MatchesFilter_SearchesTitleDetailAndAccession()
     {

@@ -53,6 +53,20 @@
                       AutoGenerateColumns="False" IsReadOnly="True"
                       SelectionMode="Single" GridLinesVisibility="Horizontal"
                       HeadersVisibility="Column">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsExpiringSoon}" Value="True">
+                                <Setter Property="Background" Value="#FFF9C4"/>
+                                <Setter Property="ToolTip" Value="Panel lot is nearing expiration"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsExpired}" Value="True">
+                                <Setter Property="Background" Value="#FFCDD2"/>
+                                <Setter Property="ToolTip" Value="Panel lot is expired"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
                     <DataGridTextColumn Header="Lot #" Binding="{Binding LotNumber}" Width="80"/>

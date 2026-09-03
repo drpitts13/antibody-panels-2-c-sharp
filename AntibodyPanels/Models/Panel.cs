@@ -20,6 +20,13 @@ namespace AntibodyPanels.Models
 
         public string ListDisplay => FormatListDisplay(Name, LotNumber, ExpirationDate);
 
+        public bool IsExpired => ExpirationStatus.IsExpired(ExpirationDate, DateTime.Today);
+        public bool IsExpiringSoon =>
+            ExpirationStatus.IsExpiringSoon(ExpirationDate, DateTime.Today, ExpirationWarningDays);
+
+        private static int ExpirationWarningDays =>
+            Services.AppSettings.Current.ExpirationWarningDays;
+
         public static string FormatListDisplay(string? name, string? lotNumber, string? expirationDate)
         {
             var parts = new List<string>();
