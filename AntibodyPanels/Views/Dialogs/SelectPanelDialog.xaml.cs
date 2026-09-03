@@ -1,17 +1,34 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using AntibodyPanels.Models;
 
 namespace AntibodyPanels.Views.Dialogs
 {
     public partial class SelectPanelDialog : Window
     {
-        public Panel? SelectedPanel => PanelList.SelectedItem as Panel;
+        private readonly List<Models.Panel> _all;
 
-        public SelectPanelDialog(IEnumerable<Panel> panels)
+        public Models.Panel? SelectedPanel => PanelList.SelectedItem as Models.Panel;
+
+        public SelectPanelDialog(IEnumerable<Models.Panel> panels)
         {
             InitializeComponent();
-            PanelList.ItemsSource = panels;
+            _all = panels.ToList();
+            ApplyFilter();
+        }
+
+        private void FilterBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilter();
+
+        internal void ApplyFilter(string? query = null)
+        {
+            query ??= FilterBox.Text;
+            var keep = SelectedPanel?.PanelId;
+            var filtered = _all.Where(p => p.MatchesFilter(query)).ToList();
+            PanelList.ItemsSource = filtered;
+            PanelList.SelectedItem = filtered.FirstOrDefault(p => p.PanelId == keep)
+                ?? filtered.FirstOrDefault();
         }
 
         private void AttachClick(object sender, RoutedEventArgs e)

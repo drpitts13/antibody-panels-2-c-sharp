@@ -101,6 +101,13 @@ namespace AntibodyPanels.ViewModels
             }
         }
 
+        private string _listFilter = string.Empty;
+        public string ListFilter
+        {
+            get => _listFilter;
+            set { if (SetField(ref _listFilter, value)) ApplyFilter(); }
+        }
+
         public ICommand RefreshCommand { get; }
         public ICommand OpenCommand { get; }
         public ICommand ShowAllCommand { get; }
@@ -139,7 +146,8 @@ namespace AntibodyPanels.ViewModels
             kind ??= SelectedItem?.Kind;
             var settings = AppSettings.Current;
             Items.Clear();
-            foreach (var item in _allItems.Where(i => settings.ShowsWorklistKind(i.Kind)))
+            foreach (var item in _allItems.Where(i =>
+                         settings.ShowsWorklistKind(i.Kind) && i.MatchesFilter(_listFilter)))
                 Items.Add(item);
             SelectedItem = Items.FirstOrDefault(i => i.Title == title && i.Kind == kind)
                 ?? Items.FirstOrDefault();

@@ -31,6 +31,10 @@
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <TextBlock Text="Worklist" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock Text="Find:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#546E7A"/>
+                <TextBox Width="180" Margin="0,0,12,0" VerticalAlignment="Center"
+                         Text="{Binding ListFilter, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Filter by accession, panel name, kind, urgency, or detail"/>
                 <Button Content="Show all" Command="{Binding ShowAllCommand}" Padding="10,2" Margin="0,0,8,0"
                         ToolTip="Show every worklist category"/>
                 <Button Content="Open" Command="{Binding OpenCommand}" Padding="10,2" Margin="0,0,8,0"/>

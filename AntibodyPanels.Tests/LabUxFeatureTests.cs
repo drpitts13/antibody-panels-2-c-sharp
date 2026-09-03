@@ -71,6 +71,25 @@ public class LabUxFeatureTests
     }
 
     [Fact]
+    public void WorklistItem_MatchesFilter_SearchesTitleDetailAndAccession()
+    {
+        var item = new WorklistItem
+        {
+            KindLabel = "Incomplete",
+            Title = "2024-ABC",
+            Detail = "4 of 16 cells missing grades",
+            UrgencyLabel = "Today",
+            AccessionNumber = "2024-ABC"
+        };
+        Assert.True(item.MatchesFilter("abc"));
+        Assert.True(item.MatchesFilter("incomplete"));
+        Assert.True(item.MatchesFilter("missing"));
+        Assert.True(item.MatchesFilter("today"));
+        Assert.False(item.MatchesFilter("xyz"));
+        Assert.True(item.MatchesFilter(""));
+    }
+
+    [Fact]
     public void Worklist_IncludesExpiringSpecimen()
     {
         using var iso = new IsolatedDatabase();

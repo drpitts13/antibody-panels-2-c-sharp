@@ -21,5 +21,8 @@ namespace AntibodyPanels.Models
         public string? AccessionNumber { get; set; }
         public int? PanelId { get; set; }
         public string TargetTab { get; set; } = "Specimens";
+
+        public bool MatchesFilter(string? query) =>
+            TextFilter.Matches(query, Title, Detail, KindLabel, UrgencyLabel, AccessionNumber);
     }
 }
