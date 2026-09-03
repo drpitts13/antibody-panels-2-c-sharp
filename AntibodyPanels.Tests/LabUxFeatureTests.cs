@@ -387,4 +387,24 @@ public class LabUxFeatureTests
         Assert.True(p.MatchesFilter("2030"));
         Assert.False(p.MatchesFilter("Immucor"));
     }
+
+    [Theory]
+    [InlineData("SPECIMEN SUMMARY — 2024-001", true)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData("Error generating report: boom", false)]
+    public void ReportPreview_CanShare_RejectsEmptyAndErrors(string text, bool expected)
+    {
+        Assert.Equal(expected, ReportsViewModel.CanSharePreview(text));
+    }
+
+    [Fact]
+    public void ReportPrintLines_IncludesTitleAndBody()
+    {
+        var lines = ReportsViewModel.PrintLines("Clinical Identification", "Line A\nLine B\n");
+        Assert.Equal("Clinical Identification", lines[0]);
+        Assert.Equal("Line A", lines[1]);
+        Assert.Equal("Line B", lines[2]);
+        Assert.Equal("", lines[3]);
+    }
 }

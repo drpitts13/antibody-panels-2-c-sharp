@@ -2,6 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:AntibodyPanels.Views">
+    <UserControl.InputBindings>
+        <KeyBinding Key="P" Modifiers="Ctrl" Command="{Binding PrintCommand}"/>
+    </UserControl.InputBindings>
     <UserControl.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
@@ -53,10 +56,18 @@
                       DisplayMemberPath="Name"
                       Visibility="{Binding NeedsPanel, Converter={StaticResource BoolToVis}}"/>
 
-            <Button Grid.Column="12" Content="Export CSV" Command="{Binding ExportCsvCommand}"
-                    Margin="0,0,6,0" Padding="8,2"/>
-            <Button Grid.Column="13" Content="Export PDF" Command="{Binding ExportPdfCommand}"
-                    Padding="8,2"/>
+            <StackPanel Grid.Column="12" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Copy" Command="{Binding CopyCommand}"
+                        Margin="0,0,6,0" Padding="8,2"
+                        ToolTip="Copy the full report preview to the clipboard"/>
+                <Button Content="Print" Command="{Binding PrintCommand}"
+                        Margin="0,0,6,0" Padding="8,2"
+                        ToolTip="Print the current report"/>
+                <Button Content="Export CSV" Command="{Binding ExportCsvCommand}"
+                        Margin="0,0,6,0" Padding="8,2"/>
+                <Button Content="Export PDF" Command="{Binding ExportPdfCommand}"
+                        Padding="8,2"/>
+            </StackPanel>
         </Grid>
 
         <ScrollViewer HorizontalScrollBarVisibility="Auto">

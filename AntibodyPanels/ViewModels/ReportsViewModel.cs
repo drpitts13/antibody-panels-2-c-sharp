@@ -1,7 +1,11 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Win32;
 using AntibodyPanels.Data;
 using AntibodyPanels.Models;
@@ -54,7 +58,14 @@ namespace AntibodyPanels.ViewModels
         public string PreviewText
         {
             get => _previewText;
-            set => SetField(ref _previewText, value);
+            set
+            {
+                if (SetField(ref _previewText, value))
+                {
+                    (CopyCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    (PrintCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         private string _specimenFilter = string.Empty;
@@ -71,6 +82,8 @@ namespace AntibodyPanels.ViewModels
 
         public ICommand ExportCsvCommand { get; }
         public ICommand ExportPdfCommand { get; }
+        public ICommand CopyCommand { get; }
+        public ICommand PrintCommand { get; }
 
         private List<Specimen> _allSpecimens = new();
         private List<Panel> _allPanels = new();
@@ -83,6 +96,8 @@ namespace AntibodyPanels.ViewModels
 
             ExportCsvCommand = new RelayCommand(ExportCsv);
             ExportPdfCommand = new RelayCommand(ExportPdf);
+            CopyCommand = new RelayCommand(CopyPreview, () => CanSharePreview(PreviewText));
+            PrintCommand = new RelayCommand(PrintPreview, () => CanSharePreview(PreviewText));
 
             _allSpecimens = _db.GetAllSpecimens();
             _allPanels = _db.GetAllPanels();
@@ -148,6 +163,76 @@ namespace AntibodyPanels.ViewModels
             {
                 PreviewText = $"Error generating report: {ex.Message}";
             }
+        }
+
+        public static bool CanSharePreview(string? text) =>
+            !string.IsNullOrWhiteSpace(text) &&
+            !text.StartsWith("Error generating", StringComparison.OrdinalIgnoreCase);
+
+        public static IReadOnlyList<string> PrintLines(string title, string body)
+        {
+            var lines = new List<string> { title };
+            foreach (var line in (body ?? string.Empty).Replace("\r\n", "\n").Split('\n'))
+                lines.Add(line.TrimEnd());
+            return lines;
+        }
+
+        private void CopyPreview()
+        {
+            if (!CanSharePreview(PreviewText)) return;
+            try
+            {
+                Clipboard.SetText(PreviewText);
+                _main.SetStatus("Report copied to the clipboard.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Could not copy the report: {ex.Message}", "Copy",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void PrintPreview()
+        {
+            if (!CanSharePreview(PreviewText)) return;
+            try
+            {
+                var dialog = new System.Windows.Controls.PrintDialog();
+                if (dialog.ShowDialog() != true) return;
+                var width = dialog.PrintableAreaWidth > 0 ? dialog.PrintableAreaWidth : 816;
+                var height = dialog.PrintableAreaHeight > 0 ? dialog.PrintableAreaHeight : 1056;
+                var doc = BuildPrintDocument(SelectedReportType, PreviewText, width, height);
+                dialog.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator,
+                    $"{SelectedReportType} report");
+                _main.SetStatus($"Sent {SelectedReportType} to the printer.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Print failed: {ex.Message}", "Print",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        public static FlowDocument BuildPrintDocument(string title, string body, double pageWidth, double pageHeight)
+        {
+            var doc = new FlowDocument
+            {
+                PageWidth = pageWidth,
+                PageHeight = pageHeight,
+                PagePadding = new Thickness(48),
+                ColumnWidth = Math.Max(96, pageWidth - 96),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11
+            };
+            doc.Blocks.Add(new Paragraph(new Run(title))
+            {
+                FontWeight = FontWeights.Bold,
+                FontSize = 14,
+                Margin = new Thickness(0, 0, 0, 12)
+            });
+            foreach (var line in PrintLines(title, body).Skip(1))
+                doc.Blocks.Add(new Paragraph(new Run(line)) { Margin = new Thickness(0) });
+            return doc;
         }
 
         private void ExportCsv()

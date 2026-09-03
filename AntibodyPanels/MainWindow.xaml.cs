@@ -155,6 +155,8 @@ namespace AntibodyPanels
                 "Worklist:\n" +
                 "  Enter     open the selected item\n" +
                 "  Click a count card to filter that category\n\n" +
+                "Reports:\n" +
+                "  Ctrl+P    print the current report\n\n" +
                 "Reaction Entry:\n" +
                 "  0–4     write grade (0, 1+, 2+, 3+, 4+)\n" +
                 "  N       write NT\n" +
