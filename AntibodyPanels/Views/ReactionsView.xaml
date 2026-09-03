@@ -35,10 +35,10 @@
                 <ColumnDefinition Width="140"/>
                 <ColumnDefinition Width="8"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="240"/>
                 <ColumnDefinition Width="16"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="240"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Label Content="Find:" Grid.Column="0" VerticalAlignment="Center"/>
@@ -48,12 +48,12 @@
             <Label Content="Specimen:" Grid.Column="3" VerticalAlignment="Center"/>
             <ComboBox Grid.Column="4" ItemsSource="{Binding Specimens}"
                       SelectedItem="{Binding SelectedSpecimen}"
-                      DisplayMemberPath="AccessionNumber"
+                      DisplayMemberPath="ListDisplay"
                       IsEditable="True" IsTextSearchEnabled="True"/>
             <Label Content="Panel:" Grid.Column="6" VerticalAlignment="Center"/>
             <ComboBox Grid.Column="7" ItemsSource="{Binding Panels}"
                       SelectedItem="{Binding SelectedPanel}"
-                      DisplayMemberPath="Name"
+                      DisplayMemberPath="ListDisplay"
                       IsEditable="True" IsTextSearchEnabled="True"/>
         </Grid>
 

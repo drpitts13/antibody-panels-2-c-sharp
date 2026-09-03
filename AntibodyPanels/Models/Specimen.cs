@@ -25,6 +25,17 @@ namespace AntibodyPanels.Models
         public bool HasFinalCall => !string.IsNullOrWhiteSpace(FinalAntibodies);
         public string FinalIdDisplay => HasFinalCall ? FinalAntibodies! : "";
 
+        public string ListDisplay => FormatListDisplay(AccessionNumber, Type, FinalIdDisplay);
+
+        public static string FormatListDisplay(string? accession, string? type, string? finalId)
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(accession)) parts.Add(accession.Trim());
+            if (!string.IsNullOrWhiteSpace(type)) parts.Add(type.Trim());
+            if (!string.IsNullOrWhiteSpace(finalId)) parts.Add(finalId.Trim());
+            return string.Join("  ·  ", parts);
+        }
+
         public List<SpecimenAntibody> Antibodies { get; set; } = new();
         public List<SpecimenRuleout> Ruleouts { get; set; } = new();
         public List<Panel> LinkedPanels { get; set; } = new();

@@ -18,6 +18,17 @@ namespace AntibodyPanels.Models
 
         public override string ToString() => Name;
 
+        public string ListDisplay => FormatListDisplay(Name, LotNumber, ExpirationDate);
+
+        public static string FormatListDisplay(string? name, string? lotNumber, string? expirationDate)
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(name)) parts.Add(name.Trim());
+            if (!string.IsNullOrWhiteSpace(lotNumber)) parts.Add(lotNumber.Trim());
+            if (!string.IsNullOrWhiteSpace(expirationDate)) parts.Add($"Exp {expirationDate.Trim()}");
+            return string.Join("  ·  ", parts);
+        }
+
         public bool MatchesFilter(string? query) =>
             TextFilter.Matches(query, Name, LotNumber, Vendor, ExpirationDate);
     }

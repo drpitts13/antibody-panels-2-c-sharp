@@ -460,6 +460,24 @@ public class LabUxFeatureTests
     }
 
     [Theory]
+    [InlineData("2024-ABC", "serum", null, "2024-ABC  ·  serum")]
+    [InlineData("2024-ABC", "plasma", "anti-E", "2024-ABC  ·  plasma  ·  anti-E")]
+    [InlineData("2024-ABC", "", "", "2024-ABC")]
+    public void Specimen_ListDisplay_IncludesTypeAndFinalId(
+        string accession, string type, string? finalId, string expected)
+    {
+        Assert.Equal(expected, Specimen.FormatListDisplay(accession, type, finalId));
+    }
+
+    [Fact]
+    public void Panel_ListDisplay_IncludesLotAndExpiration()
+    {
+        Assert.Equal("Ortho ID  ·  LOT-99  ·  Exp 2030-01-01",
+            Panel.FormatListDisplay("Ortho ID", "LOT-99", "2030-01-01"));
+        Assert.Equal("Screen", Panel.FormatListDisplay("Screen", null, null));
+    }
+
+    [Theory]
     [InlineData(null, "")]
     [InlineData("", "")]
     [InlineData("   ", "")]
