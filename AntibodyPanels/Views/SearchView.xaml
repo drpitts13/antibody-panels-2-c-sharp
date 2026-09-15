@@ -67,7 +67,7 @@
 
         <!-- Results -->
         <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Margin="8,0,8,8">
-            <DataGrid ItemsSource="{Binding Results}" IsReadOnly="True"
+            <DataGrid x:Name="ResultsGrid" ItemsSource="{Binding Results}" IsReadOnly="True"
                       AutoGenerateColumns="False" GridLinesVisibility="All"
                       HeadersVisibility="Column" FontSize="12">
                 <DataGrid.Columns>
@@ -102,17 +102,6 @@
                     <DataGridTextColumn Header="Lub" Binding="{Binding Lub}" Width="40"/>
                     <DataGridTextColumn Header="Xga" Binding="{Binding Xga}" Width="40"/>
                     <DataGridTextColumn Header="P1"  Binding="{Binding P1}"  Width="38"/>
-                    <DataGridTextColumn Header="Doa" Binding="{Binding Doa}" Width="40"/>
-                    <DataGridTextColumn Header="Dob" Binding="{Binding Dob}" Width="40"/>
-                    <DataGridTextColumn Header="Dia" Binding="{Binding Dia}" Width="40"/>
-                    <DataGridTextColumn Header="Dib" Binding="{Binding Dib}" Width="40"/>
-                    <DataGridTextColumn Header="Wra" Binding="{Binding Wra}" Width="40"/>
-                    <DataGridTextColumn Header="Wrb" Binding="{Binding Wrb}" Width="40"/>
-                    <DataGridTextColumn Header="Coa" Binding="{Binding Coa}" Width="40"/>
-                    <DataGridTextColumn Header="Cob" Binding="{Binding Cob}" Width="40"/>
-                    <DataGridTextColumn Header="Yta" Binding="{Binding Yta}" Width="40"/>
-                    <DataGridTextColumn Header="Ytb" Binding="{Binding Ytb}" Width="40"/>
-                    <DataGridTextColumn Header="Vel" Binding="{Binding Vel}" Width="40"/>
                 </DataGrid.Columns>
             </DataGrid>
         </ScrollViewer>

@@ -9,7 +9,7 @@ using Xunit;
 namespace AntibodyPanels.Tests
 {
     /// <summary>
-    /// Integration tests for the seven real-world serology scenarios.
+    /// Integration tests for the demo serology scenarios.
     /// Each test uses an in-memory SQLite file, seeds data, runs analysis,
     /// and asserts the expected immunological conclusion.
     /// </summary>
@@ -221,6 +221,98 @@ namespace AntibodyPanels.Tests
             var ctx = new RunContext(pwRun);
             Assert.True(ctx.IsPhaseInterpretable("AHG"),
                 "AHG phase should be interpretable for prewarmed serum");
+        }
+
+        // ── Scenario 8 — Warehouse anti-Mia resolved by ficin ─────────────────
+
+        [Fact]
+        public void Scenario8_AntiMia_IsSuspectedFromUntreatedRun()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario8Id);
+            Assert.Contains("anti-Mia", result.Suspected.Keys);
+        }
+
+        [Fact]
+        public void Scenario8_Ficin_GatesMiaRuleout()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario8Id);
+            Assert.Contains(result.GatedRuleouts, g => g.Antibody == "anti-Mia");
+        }
+
+        [Fact]
+        public void Scenario8_AntiMia_IsNotRuledOut()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario8Id);
+            Assert.DoesNotContain("anti-Mia", result.RuledOut.Keys);
+        }
+
+        // ── Scenario 9 — Warehouse anti-LWa gated by DTT ──────────────────────
+
+        [Fact]
+        public void Scenario9_AntiLWa_IsSuspectedFromUntreatedRun()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario9Id);
+            Assert.Contains("anti-LWa", result.Suspected.Keys);
+        }
+
+        [Fact]
+        public void Scenario9_Dtt_GatesLWaRuleout()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario9Id);
+            Assert.Contains(result.GatedRuleouts, g => g.Antibody == "anti-LWa");
+        }
+
+        [Fact]
+        public void Scenario9_AntiLWa_IsNotRuledOut()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario9Id);
+            Assert.DoesNotContain("anti-LWa", result.RuledOut.Keys);
+        }
+
+        // ── Scenario 10 — Warehouse anti-VS enhanced by ficin ─────────────────
+
+        [Fact]
+        public void Scenario10_AntiVs_IsSuspected()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario10Id);
+            Assert.Contains("anti-VS", result.Suspected.Keys);
+        }
+
+        [Fact]
+        public void Scenario10_Ficin_DoesNotGateVs()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario10Id);
+            Assert.DoesNotContain(result.GatedRuleouts, g => g.Antibody == "anti-VS");
+        }
+
+        [Fact]
+        public void Scenario10_AntiVs_IsNotRuledOut()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario10Id);
+            Assert.DoesNotContain("anti-VS", result.RuledOut.Keys);
+        }
+
+        // ── Scenario 11 — Warehouse anti-Jra remains on DTT ───────────────────
+
+        [Fact]
+        public void Scenario11_AntiJra_IsSuspected()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario11Id);
+            Assert.Contains("anti-Jra", result.Suspected.Keys);
+        }
+
+        [Fact]
+        public void Scenario11_Dtt_DoesNotGateJra()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario11Id);
+            Assert.DoesNotContain(result.GatedRuleouts, g => g.Antibody == "anti-Jra");
+        }
+
+        [Fact]
+        public void Scenario11_AntiJra_IsNotRuledOut()
+        {
+            var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario11Id);
+            Assert.DoesNotContain("anti-Jra", result.RuledOut.Keys);
         }
 
         // ── Treatment model lookup tests ──────────────────────────────────────

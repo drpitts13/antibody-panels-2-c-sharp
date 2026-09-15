@@ -6,9 +6,10 @@ using AntibodyPanels.Models;
 namespace AntibodyPanels.Services
 {
     /// <summary>
-    /// Seeds seven real-world antibody identification scenarios into the database
-    /// so that both the UI and the xUnit test project can exercise them.
+    /// Seeds antibody identification scenarios into the database so that both
+    /// the UI and the xUnit test project can exercise them.
     /// Each scenario uses a dedicated panel and specimen so the data stays isolated.
+    /// Idempotent — skips a scenario if its specimen accession already exists.
     /// </summary>
     public static class DemoDataSeeder
     {
@@ -20,16 +21,32 @@ namespace AntibodyPanels.Services
         public const string Scenario5Id = "DEMO-S5-WARM-AUTO";
         public const string Scenario6Id = "DEMO-S6-MULTIANT";
         public const string Scenario7Id = "DEMO-S7-PREWARM";
+        public const string Scenario8Id = "DEMO-S8-FICIN-MIA";
+        public const string Scenario9Id = "DEMO-S9-DTT-LWA";
+        public const string Scenario10Id = "DEMO-S10-FICIN-VS";
+        public const string Scenario11Id = "DEMO-S11-DTT-JRA";
+
+        public static void SeedIfNeeded(DatabaseService db) => Seed(db);
 
         public static void Seed(DatabaseService db)
         {
-            SeedScenario1_AntiE(db);
-            SeedScenario2_FicinResolveFya(db);
-            SeedScenario3_ColdAntiM(db);
-            SeedScenario4_DttKell(db);
-            SeedScenario5_WarmAutoWithUnderlyingAntiC(db);
-            SeedScenario6_MultipleAntibodies(db);
-            SeedScenario7_PrewarmedIgM(db);
+            SeedIfMissing(db, Scenario1Id, SeedScenario1_AntiE);
+            SeedIfMissing(db, Scenario2Id, SeedScenario2_FicinResolveFya);
+            SeedIfMissing(db, Scenario3Id, SeedScenario3_ColdAntiM);
+            SeedIfMissing(db, Scenario4Id, SeedScenario4_DttKell);
+            SeedIfMissing(db, Scenario5Id, SeedScenario5_WarmAutoWithUnderlyingAntiC);
+            SeedIfMissing(db, Scenario6Id, SeedScenario6_MultipleAntibodies);
+            SeedIfMissing(db, Scenario7Id, SeedScenario7_PrewarmedIgM);
+            SeedIfMissing(db, Scenario8Id, SeedScenario8_FicinResolveMia);
+            SeedIfMissing(db, Scenario9Id, SeedScenario9_DttLwa);
+            SeedIfMissing(db, Scenario10Id, SeedScenario10_FicinEnhanceVs);
+            SeedIfMissing(db, Scenario11Id, SeedScenario11_DttJra);
+        }
+
+        private static void SeedIfMissing(DatabaseService db, string accession, Action<DatabaseService> seed)
+        {
+            if (db.GetSpecimen(accession) != null) return;
+            seed(db);
         }
 
         // ── Helper to add a specimen, panel, link them, and link runs ──────────
@@ -54,6 +71,12 @@ namespace AntibodyPanels.Services
             if (cell == null) return;
             foreach (var (ag, val) in profile)
                 db.UpdatePanelCellAntigen(cell.Id, ag, val);
+        }
+
+        private static void AddExtras(DatabaseService db, int panelId, params string[] antigens)
+        {
+            foreach (var ag in antigens)
+                db.AddPanelExtraAntigen(panelId, ag);
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -396,6 +419,209 @@ namespace AntibodyPanels.Services
             };
             foreach (var (cn, r) in pwRxns)
                 db.SaveReaction(pwRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Scenario 8 — Anti-Mia resolved by ficin (warehouse, enzyme-destroyed)
+        // Untreated: Mia+ cells reactive. Ficin: Mia destroyed → all negative.
+        // Expected: anti-Mia suspected; ficin run gates anti-Mia rule-out.
+        // ══════════════════════════════════════════════════════════════════════
+        private static void SeedScenario8_FicinResolveMia(DatabaseService db)
+        {
+            var specimenId = CreateSpecimen(db, Scenario8Id);
+            var panelId = CreatePanel(db, "DEMO Panel — Ficin/Mia", 6);
+            AddExtras(db, panelId, "Mia", "Vw");
+            db.LinkSpecimenPanel(specimenId, panelId);
+
+            var profiles = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["1"] = Ag("Mia+", "Vw-", "E-", "e+", "D+", "K-", "Jka+"),
+                ["2"] = Ag("Mia-", "Vw+", "E+", "e-", "D-", "K-", "Jka-"),
+                ["3"] = Ag("Mia+", "Vw+", "E-", "e+", "D-", "K+", "Jka+"),
+                ["4"] = Ag("Mia-", "Vw-", "E-", "e+", "D+", "K-", "Jka-"),
+                ["5"] = Ag("Mia+", "Vw-", "E+", "e-", "D-", "K-", "Jka-"),
+                ["6"] = Ag("Mia-", "Vw+", "E-", "e+", "D-", "K-", "Jka+"),
+            };
+            foreach (var (cn, p) in profiles) SetAntigen(db, panelId, cn, p);
+
+            var untreatedRunId = db.GetOrCreateDefaultRun(specimenId, panelId);
+            var untreatedRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("NT", "NT", "2+", "NT"),
+                ["2"] = ("0",  "0",  "0",  "2+"),
+                ["3"] = ("NT", "NT", "2+", "NT"),
+                ["4"] = ("0",  "0",  "0",  "2+"),
+                ["5"] = ("NT", "NT", "1+", "NT"),
+                ["6"] = ("0",  "0",  "0",  "2+"),
+            };
+            foreach (var (cn, r) in untreatedRxns)
+                db.SaveReaction(untreatedRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+
+            var ficinRunId = db.AddPanelRun(specimenId, panelId,
+                CellTreatment.Ficin, SerumTreatment.None, "Ficin panel");
+            var ficinRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("0", "0", "0", "2+"),
+                ["2"] = ("0", "0", "0", "2+"),
+                ["3"] = ("0", "0", "0", "2+"),
+                ["4"] = ("0", "0", "0", "2+"),
+                ["5"] = ("0", "0", "0", "2+"),
+                ["6"] = ("0", "0", "0", "2+"),
+            };
+            foreach (var (cn, r) in ficinRxns)
+                db.SaveReaction(ficinRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Scenario 9 — Anti-LWa gated by DTT (warehouse, DTT-destroyed)
+        // LWa/LWb typed for zygosity. Untreated: LWa+ reactive. DTT: all negative.
+        // Expected: anti-LWa suspected; DTT run gates anti-LWa rule-out.
+        // ══════════════════════════════════════════════════════════════════════
+        private static void SeedScenario9_DttLwa(DatabaseService db)
+        {
+            var specimenId = CreateSpecimen(db, Scenario9Id);
+            var panelId = CreatePanel(db, "DEMO Panel — DTT/LWa", 6);
+            AddExtras(db, panelId, "LWa", "LWb");
+            db.LinkSpecimenPanel(specimenId, panelId);
+
+            var profiles = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["1"] = Ag("LWa+", "LWb-", "E-", "e+", "D+", "K-", "Jka+"),
+                ["2"] = Ag("LWa-", "LWb+", "E+", "e-", "D-", "K-", "Jka-"),
+                ["3"] = Ag("LWa+", "LWb-", "E-", "e+", "D-", "K+", "Jka+"),
+                ["4"] = Ag("LWa-", "LWb+", "E-", "e+", "D+", "K-", "Jka-"),
+                ["5"] = Ag("LWa+", "LWb+", "E+", "e-", "D-", "K-", "Jka-"),
+                ["6"] = Ag("LWa-", "LWb+", "E-", "e+", "D-", "K-", "Jka+"),
+            };
+            foreach (var (cn, p) in profiles) SetAntigen(db, panelId, cn, p);
+
+            var untreatedRunId = db.GetOrCreateDefaultRun(specimenId, panelId);
+            var untreatedRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("NT", "NT", "2+", "NT"),
+                ["2"] = ("0",  "0",  "0",  "2+"),
+                ["3"] = ("NT", "NT", "2+", "NT"),
+                ["4"] = ("0",  "0",  "0",  "2+"),
+                ["5"] = ("NT", "NT", "1+", "NT"),
+                ["6"] = ("0",  "0",  "0",  "2+"),
+            };
+            foreach (var (cn, r) in untreatedRxns)
+                db.SaveReaction(untreatedRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+
+            var dttRunId = db.AddPanelRun(specimenId, panelId,
+                CellTreatment.DTT, SerumTreatment.None, "DTT panel");
+            var dttRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("0", "0", "0", "2+"),
+                ["2"] = ("0", "0", "0", "2+"),
+                ["3"] = ("0", "0", "0", "2+"),
+                ["4"] = ("0", "0", "0", "2+"),
+                ["5"] = ("0", "0", "0", "2+"),
+                ["6"] = ("0", "0", "0", "2+"),
+            };
+            foreach (var (cn, r) in dttRxns)
+                db.SaveReaction(dttRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Scenario 10 — Anti-VS enhanced by ficin (warehouse, enzyme-enhanced)
+        // VS+ cells reactive untreated and stronger on ficin. Ficin does not gate VS.
+        // ══════════════════════════════════════════════════════════════════════
+        private static void SeedScenario10_FicinEnhanceVs(DatabaseService db)
+        {
+            var specimenId = CreateSpecimen(db, Scenario10Id);
+            var panelId = CreatePanel(db, "DEMO Panel — Ficin/VS", 6);
+            AddExtras(db, panelId, "VS");
+            db.LinkSpecimenPanel(specimenId, panelId);
+
+            var profiles = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["1"] = Ag("VS+", "E-", "e+", "D+", "K-", "Jka+", "Fya+"),
+                ["2"] = Ag("VS-", "E+", "e-", "D-", "K-", "Jka-", "Fya-"),
+                ["3"] = Ag("VS+", "E-", "e+", "D-", "K+", "Jka+", "Fya-"),
+                ["4"] = Ag("VS-", "E-", "e+", "D+", "K-", "Jka-", "Fya+"),
+                ["5"] = Ag("VS+", "E+", "e-", "D-", "K-", "Jka-", "Fya-"),
+                ["6"] = Ag("VS-", "E-", "e+", "D-", "K-", "Jka+", "Fya+"),
+            };
+            foreach (var (cn, p) in profiles) SetAntigen(db, panelId, cn, p);
+
+            var untreatedRunId = db.GetOrCreateDefaultRun(specimenId, panelId);
+            var untreatedRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("NT", "NT", "1+", "NT"),
+                ["2"] = ("0",  "0",  "0",  "2+"),
+                ["3"] = ("NT", "NT", "1+", "NT"),
+                ["4"] = ("0",  "0",  "0",  "2+"),
+                ["5"] = ("NT", "NT", "1+", "NT"),
+                ["6"] = ("0",  "0",  "0",  "2+"),
+            };
+            foreach (var (cn, r) in untreatedRxns)
+                db.SaveReaction(untreatedRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+
+            var ficinRunId = db.AddPanelRun(specimenId, panelId,
+                CellTreatment.Ficin, SerumTreatment.None, "Ficin panel");
+            var ficinRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("NT", "NT", "3+", "NT"),
+                ["2"] = ("0",  "0",  "0",  "2+"),
+                ["3"] = ("NT", "NT", "3+", "NT"),
+                ["4"] = ("0",  "0",  "0",  "2+"),
+                ["5"] = ("NT", "NT", "3+", "NT"),
+                ["6"] = ("0",  "0",  "0",  "2+"),
+            };
+            foreach (var (cn, r) in ficinRxns)
+                db.SaveReaction(ficinRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Scenario 11 — Anti-Jra remains on DTT (warehouse, DTT-unaffected)
+        // High-incidence Jra; one Jra− cell is negative. DTT still reactive.
+        // Expected: anti-Jra suspected; DTT does not gate anti-Jra.
+        // ══════════════════════════════════════════════════════════════════════
+        private static void SeedScenario11_DttJra(DatabaseService db)
+        {
+            var specimenId = CreateSpecimen(db, Scenario11Id);
+            var panelId = CreatePanel(db, "DEMO Panel — DTT/Jra", 6);
+            AddExtras(db, panelId, "Jra");
+            db.LinkSpecimenPanel(specimenId, panelId);
+
+            var profiles = new Dictionary<string, Dictionary<string, string>>
+            {
+                ["1"] = Ag("Jra+", "E-", "e+", "D+", "K-", "Jka+", "Fya+"),
+                ["2"] = Ag("Jra+", "E+", "e-", "D-", "K-", "Jka-", "Fya-"),
+                ["3"] = Ag("Jra+", "E-", "e+", "D-", "K+", "Jka+", "Fya-"),
+                ["4"] = Ag("Jra-", "E-", "e+", "D+", "K-", "Jka-", "Fya+"),
+                ["5"] = Ag("Jra+", "E+", "e-", "D-", "K-", "Jka-", "Fya-"),
+                ["6"] = Ag("Jra+", "E-", "e+", "D-", "K-", "Jka+", "Fya+"),
+            };
+            foreach (var (cn, p) in profiles) SetAntigen(db, panelId, cn, p);
+
+            var untreatedRunId = db.GetOrCreateDefaultRun(specimenId, panelId);
+            var untreatedRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("NT", "NT", "2+", "NT"),
+                ["2"] = ("NT", "NT", "2+", "NT"),
+                ["3"] = ("NT", "NT", "2+", "NT"),
+                ["4"] = ("0",  "0",  "0",  "2+"),
+                ["5"] = ("NT", "NT", "2+", "NT"),
+                ["6"] = ("NT", "NT", "2+", "NT"),
+            };
+            foreach (var (cn, r) in untreatedRxns)
+                db.SaveReaction(untreatedRunId, cn, r.IS, r.C37, r.AHG, r.CC);
+
+            var dttRunId = db.AddPanelRun(specimenId, panelId,
+                CellTreatment.DTT, SerumTreatment.None, "DTT panel");
+            var dttRxns = new Dictionary<string, (string IS, string C37, string AHG, string CC)>
+            {
+                ["1"] = ("NT", "NT", "2+", "NT"),
+                ["2"] = ("NT", "NT", "2+", "NT"),
+                ["3"] = ("NT", "NT", "2+", "NT"),
+                ["4"] = ("0",  "0",  "0",  "2+"),
+                ["5"] = ("NT", "NT", "2+", "NT"),
+                ["6"] = ("NT", "NT", "2+", "NT"),
+            };
+            foreach (var (cn, r) in dttRxns)
+                db.SaveReaction(dttRunId, cn, r.IS, r.C37, r.AHG, r.CC);
         }
 
         // ── Antigen-profile builder ────────────────────────────────────────────

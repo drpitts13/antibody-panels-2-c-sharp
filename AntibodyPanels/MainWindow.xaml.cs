@@ -181,14 +181,14 @@ namespace AntibodyPanels
             try
             {
                 ClinicalDataSeeder.SeedIfNeeded(ViewModel.Database, ViewModel.Analyzer);
-                DemoDataSeeder.Seed(ViewModel.Database);
+                DemoDataSeeder.SeedIfNeeded(ViewModel.Database);
                 ViewModel.RefreshAll();
                 ViewModel.SetStatus("Sample workload and demo scenarios loaded.");
                 MessageBox.Show(
                     "Sample data loaded.\n\n" +
                     "• 10 clinical specimens (2026-001 … 2026-010) on 5 shared panels\n" +
                     "• Enzyme (ficin) and absorption runs mixed in\n" +
-                    "• 7 DEMO- scenarios for special-panel walkthroughs",
+                    "• 11 DEMO- scenarios including warehouse antigens with ficin/DTT runs",
                     "Done", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (System.Exception ex)

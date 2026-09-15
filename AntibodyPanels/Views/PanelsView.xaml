@@ -40,7 +40,7 @@
                 <Button Content="Antigram" Command="{Binding PrintAntigramCommand}" Width="70" Margin="0,0,4,4"
                         ToolTip="Save a bench-copy PDF of this panel's antigen grid"/>
                 <Button Content="Add antigen…" Command="{Binding AddExtraAntigenCommand}" Width="100" Margin="0,0,4,4"
-                        ToolTip="Add a non-standard antigen (Doa, Dob, Dia, …) to this panel only"/>
+                        ToolTip="Add a non-standard antigen from the warehouse catalog to this panel only"/>
                 <Button Content="Remove antigen…" Command="{Binding RemoveExtraAntigenCommand}" Width="120" Margin="0,0,4,4"
                         ToolTip="Remove a non-standard antigen column from this panel"/>
                 <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,8,4"/>

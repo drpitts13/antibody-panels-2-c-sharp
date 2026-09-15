@@ -43,7 +43,7 @@ namespace AntibodyPanels.Models
     /// </summary>
     public static class AntigenTreatmentEffects
     {
-        // ── Ficin / Papain (identical profile for our 28-antigen list) ────────
+        // ── Ficin / Papain (identical profile for standard + warehouse antigens) ─
 
         private static readonly Dictionary<string, AntigenEffect> FicinEffects = new()
         {
@@ -57,6 +57,12 @@ namespace AntibodyPanels.Models
             { "Xga", AntigenEffect.Destroyed },
             { "Lea", AntigenEffect.Destroyed },   // variable; treat as destroyed for rule-out gating
             { "Leb", AntigenEffect.Destroyed },   // variable; treat as destroyed for rule-out gating
+            { "Mia", AntigenEffect.Destroyed },
+            { "Vw",  AntigenEffect.Destroyed },
+            { "Mur", AntigenEffect.Destroyed },
+            { "Ge2", AntigenEffect.Destroyed },
+            { "Ch",  AntigenEffect.Destroyed },
+            { "Rg",  AntigenEffect.Destroyed },
 
             // Enhanced by ficin/papain
             { "D",   AntigenEffect.Enhanced },
@@ -70,9 +76,12 @@ namespace AntibodyPanels.Models
             { "Jka", AntigenEffect.Enhanced },
             { "Jkb", AntigenEffect.Enhanced },
             { "P1",  AntigenEffect.Enhanced },
-
-            // Warehouse — Vel is enzyme-enhanced; others in the catalog are enzyme-resistant
             { "Vel", AntigenEffect.Enhanced },
+            { "VS",  AntigenEffect.Enhanced },
+            { "Goa", AntigenEffect.Enhanced },
+            { "LWa", AntigenEffect.Enhanced },
+            { "LWb", AntigenEffect.Enhanced },
+            { "Inb", AntigenEffect.Enhanced },
         };
 
         // ── DTT / 2-ME ────────────────────────────────────────────────────────
@@ -89,11 +98,22 @@ namespace AntibodyPanels.Models
             { "Lua", AntigenEffect.Destroyed },
             { "Lub", AntigenEffect.Destroyed },
 
-            // Warehouse — Dombrock and Cartwright are disulfide-dependent
-            { "Doa", AntigenEffect.Destroyed },
-            { "Dob", AntigenEffect.Destroyed },
-            { "Yta", AntigenEffect.Destroyed },
-            { "Ytb", AntigenEffect.Destroyed },
+            // Warehouse — disulfide-dependent or DTT-sensitive systems
+            { "Doa",  AntigenEffect.Destroyed },
+            { "Dob",  AntigenEffect.Destroyed },
+            { "Yta",  AntigenEffect.Destroyed },
+            { "Ytb",  AntigenEffect.Destroyed },
+            { "LWa",  AntigenEffect.Destroyed },
+            { "LWb",  AntigenEffect.Destroyed },
+            { "Kna",  AntigenEffect.Destroyed },
+            { "McCa", AntigenEffect.Destroyed },
+            { "Yka",  AntigenEffect.Destroyed },
+            { "Hy",   AntigenEffect.Destroyed },
+            { "Joa",  AntigenEffect.Destroyed },
+            { "Inb",  AntigenEffect.Destroyed },
+            { "Cra",  AntigenEffect.Destroyed },
+            { "Ch",   AntigenEffect.Destroyed },   // classically weakened; treat as destroyed for rule-out
+            { "Rg",   AntigenEffect.Destroyed },
         };
 
         // ── Allogeneic absorption — antigens removed from serum per absorbing cell phenotype ──

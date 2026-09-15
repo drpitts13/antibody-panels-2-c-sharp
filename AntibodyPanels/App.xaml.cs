@@ -21,6 +21,7 @@ namespace AntibodyPanels
             {
                 using var db = new DatabaseService();
                 ClinicalDataSeeder.SeedIfNeeded(db, new AntibodyAnalyzer(db));
+                DemoDataSeeder.SeedIfNeeded(db);
                 Shutdown();
                 return;
             }

@@ -9,11 +9,19 @@ public class WarehouseAntigenTests
     [Fact]
     public void WarehouseCatalog_ContainsExpectedAntigens()
     {
-        Assert.Equal(new[] { "Doa", "Dob", "Dia", "Dib", "Wra", "Wrb", "Coa", "Cob", "Yta", "Ytb", "Vel" },
-            AntigenConstants.WarehouseAntigens);
+        Assert.Equal(new[]
+        {
+            "Doa", "Dob", "Dia", "Dib", "Wra", "Wrb", "Coa", "Cob", "Yta", "Ytb", "Vel",
+            "VS", "Goa", "Mia", "Vw", "Mur", "U", "Ge2", "Ge3", "Sc1", "Sc2",
+            "LWa", "LWb", "Kna", "McCa", "Yka", "Hy", "Joa", "Inb",
+            "Jra", "Cra", "Ata", "Lan", "Ch", "Rg"
+        }, AntigenConstants.WarehouseAntigens);
         Assert.Equal("Dob", AntigenConstants.AntitheticalPairs["Doa"]);
         Assert.Equal("Doa", AntigenConstants.AntitheticalPairs["Dob"]);
+        Assert.Equal("Sc2", AntigenConstants.AntitheticalPairs["Sc1"]);
+        Assert.Equal("LWa", AntigenConstants.AntitheticalPairs["LWb"]);
         Assert.False(AntigenConstants.AntitheticalPairs.ContainsKey("Vel"));
+        Assert.False(AntigenConstants.AntitheticalPairs.ContainsKey("Mia"));
     }
 
     [Fact]
@@ -35,6 +43,48 @@ public class WarehouseAntigenTests
             AntigenTreatmentEffects.GetCellEffect(CellTreatment.Ficin, "Vel"));
         Assert.Equal(AntigenEffect.Unaffected,
             AntigenTreatmentEffects.GetCellEffect(CellTreatment.DTT, "Vel"));
+    }
+
+    [Fact]
+    public void TreatmentEffects_NewWarehouseFicinDestroyed()
+    {
+        foreach (var ag in new[] { "Mia", "Vw", "Mur", "Ge2", "Ch", "Rg" })
+        {
+            Assert.Equal(AntigenEffect.Destroyed,
+                AntigenTreatmentEffects.GetCellEffect(CellTreatment.Ficin, ag));
+        }
+    }
+
+    [Fact]
+    public void TreatmentEffects_NewWarehouseFicinEnhanced()
+    {
+        foreach (var ag in new[] { "VS", "Goa", "LWa", "LWb", "Inb" })
+        {
+            Assert.Equal(AntigenEffect.Enhanced,
+                AntigenTreatmentEffects.GetCellEffect(CellTreatment.Ficin, ag));
+        }
+    }
+
+    [Fact]
+    public void TreatmentEffects_NewWarehouseDttDestroyed()
+    {
+        foreach (var ag in new[] { "LWa", "LWb", "Kna", "McCa", "Yka", "Hy", "Joa", "Inb", "Cra", "Ch", "Rg" })
+        {
+            Assert.Equal(AntigenEffect.Destroyed,
+                AntigenTreatmentEffects.GetCellEffect(CellTreatment.DTT, ag));
+        }
+    }
+
+    [Fact]
+    public void TreatmentEffects_NewWarehouseUnaffectedByBothTreatments()
+    {
+        foreach (var ag in new[] { "U", "Ge3", "Sc1", "Sc2", "Jra", "Ata", "Lan" })
+        {
+            Assert.Equal(AntigenEffect.Unaffected,
+                AntigenTreatmentEffects.GetCellEffect(CellTreatment.Ficin, ag));
+            Assert.Equal(AntigenEffect.Unaffected,
+                AntigenTreatmentEffects.GetCellEffect(CellTreatment.DTT, ag));
+        }
     }
 
     [Fact]

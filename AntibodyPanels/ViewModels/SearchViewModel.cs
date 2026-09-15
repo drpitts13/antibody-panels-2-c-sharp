@@ -138,17 +138,7 @@ namespace AntibodyPanels.ViewModels
         public string Lub { get; }
         public string Xga { get; }
         public string P1 { get; }
-        public string Doa { get; }
-        public string Dob { get; }
-        public string Dia { get; }
-        public string Dib { get; }
-        public string Wra { get; }
-        public string Wrb { get; }
-        public string Coa { get; }
-        public string Cob { get; }
-        public string Yta { get; }
-        public string Ytb { get; }
-        public string Vel { get; }
+        public IReadOnlyDictionary<string, string> Extra { get; }
 
         public SearchResultRow(Panel panel, PanelCell cell)
         {
@@ -168,12 +158,8 @@ namespace AntibodyPanels.ViewModels
             S = cell.GetAntigen("S"); s = cell.GetAntigen("s");
             Lua = cell.GetAntigen("Lua"); Lub = cell.GetAntigen("Lub");
             Xga = cell.GetAntigen("Xga"); P1 = cell.GetAntigen("P1");
-            Doa = TypedOrBlank(cell, "Doa"); Dob = TypedOrBlank(cell, "Dob");
-            Dia = TypedOrBlank(cell, "Dia"); Dib = TypedOrBlank(cell, "Dib");
-            Wra = TypedOrBlank(cell, "Wra"); Wrb = TypedOrBlank(cell, "Wrb");
-            Coa = TypedOrBlank(cell, "Coa"); Cob = TypedOrBlank(cell, "Cob");
-            Yta = TypedOrBlank(cell, "Yta"); Ytb = TypedOrBlank(cell, "Ytb");
-            Vel = TypedOrBlank(cell, "Vel");
+            Extra = AntigenConstants.WarehouseAntigens.ToDictionary(
+                ag => ag, ag => TypedOrBlank(cell, ag));
         }
 
         private static string TypedOrBlank(PanelCell cell, string antigen) =>

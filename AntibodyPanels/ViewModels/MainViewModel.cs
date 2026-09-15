@@ -53,6 +53,7 @@ namespace AntibodyPanels.ViewModels
             Database = new DatabaseService();
             Analyzer = new AntibodyAnalyzer(Database);
             ClinicalDataSeeder.SeedIfNeeded(Database, Analyzer);
+            DemoDataSeeder.SeedIfNeeded(Database);
 
             WorklistVM = new WorklistViewModel(Database, this);
             SpecimensVM = new SpecimensViewModel(Database, this);
