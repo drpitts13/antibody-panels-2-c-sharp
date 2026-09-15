@@ -136,10 +136,10 @@
                   AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionMode="Single" GridLinesVisibility="Horizontal"
                   HeadersVisibility="Column"
-                  MouseDoubleClick="WorklistGrid_MouseDoubleClick"
                   PreviewKeyDown="WorklistGrid_PreviewKeyDown">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
+                    <EventSetter Event="MouseDoubleClick" Handler="WorklistRow_MouseDoubleClick"/>
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding Kind}" Value="ExpiredSpecimen">
                             <Setter Property="Background" Value="#FFCDD2"/>

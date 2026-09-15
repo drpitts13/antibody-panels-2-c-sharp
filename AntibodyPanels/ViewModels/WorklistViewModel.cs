@@ -244,10 +244,16 @@ namespace AntibodyPanels.ViewModels
             OnPropertyChanged(nameof(HasIsolatedKind));
         }
 
+        public void OpenItem(WorklistItem item)
+        {
+            SelectedItem = item;
+            _main.NavigateToWorklistItem(item);
+        }
+
         private void OpenSelected()
         {
             if (SelectedItem == null) return;
-            _main.NavigateToWorklistItem(SelectedItem);
+            OpenItem(SelectedItem);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using System.Windows.Input;
+using AntibodyPanels.Models;
 using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels.Views
@@ -11,9 +12,12 @@ namespace AntibodyPanels.Views
             InitializeComponent();
         }
 
-        private void WorklistGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void WorklistRow_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            OpenSelected();
+            if (sender is not DataGridRow { Item: WorklistItem item }) return;
+            if (DataContext is not WorklistViewModel vm) return;
+            vm.OpenItem(item);
+            e.Handled = true;
         }
 
         private void WorklistGrid_PreviewKeyDown(object sender, KeyEventArgs e)

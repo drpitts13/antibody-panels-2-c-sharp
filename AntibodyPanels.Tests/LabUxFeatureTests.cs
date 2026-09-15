@@ -116,6 +116,37 @@ public class LabUxFeatureTests
     }
 
     [Fact]
+    public void Worklist_TargetTab_OpensMatchingScreen()
+    {
+        using var iso = new IsolatedDatabase();
+        var soon = DateTime.Now.AddDays(5).ToString("yyyy-MM-dd");
+        var expired = DateTime.Now.AddDays(-2).ToString("yyyy-MM-dd");
+
+        iso.Db.AddSpecimen("NO-PANEL", "serum", null);
+        iso.Db.AddSpecimen("NEEDS-RXN", "serum", null);
+        iso.Db.AddSpecimen("EXP-SOON", "serum", soon);
+        iso.Db.AddSpecimen("EXP-PAST", "serum", expired, true);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+        iso.Db.LinkSpecimenPanel("NEEDS-RXN", panelId);
+        iso.Db.AddPanel("Old Lot", "LOT-Z", "Vendor", 1, expired, true, 1, true);
+
+        var items = iso.Db.GetWorklistItems(14);
+
+        Assert.Equal("Specimens", Assert.Single(items,
+            i => i.AccessionNumber == "NO-PANEL" && i.Kind == WorklistKind.IncompleteReactions).TargetTab);
+        Assert.Equal("Reactions", Assert.Single(items,
+            i => i.AccessionNumber == "NEEDS-RXN" && i.Kind == WorklistKind.IncompleteReactions).TargetTab);
+        Assert.Equal("Analysis", Assert.Single(items,
+            i => i.AccessionNumber == "NEEDS-RXN" && i.Kind == WorklistKind.StaleAnalysis).TargetTab);
+        Assert.Equal("Specimens", Assert.Single(items,
+            i => i.AccessionNumber == "EXP-SOON" && i.Kind == WorklistKind.ExpiringSpecimen).TargetTab);
+        Assert.Equal("Specimens", Assert.Single(items,
+            i => i.AccessionNumber == "EXP-PAST" && i.Kind == WorklistKind.ExpiredSpecimen).TargetTab);
+        Assert.Equal("Panels", Assert.Single(items,
+            i => i.Kind == WorklistKind.ExpiredPanel && i.Title == "Old Lot").TargetTab);
+    }
+
+    [Fact]
     public void Worklist_ConfirmedId_DropsIncompleteAndStaleItems()
     {
         using var iso = new IsolatedDatabase();
