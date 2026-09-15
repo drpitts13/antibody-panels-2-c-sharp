@@ -1,0 +1,100 @@
+<UserControl x:Class="AntibodyPanels.Views.AnalyticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:scottplot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
+    <UserControl.Resources>
+        <Style x:Key="StatCard" TargetType="Border">
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Background" Value="#E3F2FD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#90CAF9"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+    </UserControl.Resources>
+    <DockPanel Margin="8">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <TextBlock Text="Antibody ID Analytics" FontWeight="Bold" FontSize="16" VerticalAlignment="Center"/>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock Text="From:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#546E7A"/>
+                <DatePicker SelectedDate="{Binding FromDate}" Width="130" Margin="0,0,10,0"
+                            VerticalAlignment="Center"
+                            ToolTip="Include confirmations on or after this date"/>
+                <TextBlock Text="To:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#546E7A"/>
+                <DatePicker SelectedDate="{Binding ToDate}" Width="130" Margin="0,0,12,0"
+                            VerticalAlignment="Center"
+                            ToolTip="Include confirmations on or before this date"/>
+                <Button Content="30 days" Command="{Binding Last30DaysCommand}" Padding="8,2" Margin="0,0,6,0"
+                        ToolTip="Last 30 days through today"/>
+                <Button Content="90 days" Command="{Binding Last90DaysCommand}" Padding="8,2" Margin="0,0,6,0"
+                        ToolTip="Last 90 days through today"/>
+                <Button Content="12 months" Command="{Binding Last12MonthsCommand}" Padding="8,2" Margin="0,0,6,0"
+                        ToolTip="Last 12 months through today"/>
+                <Button Content="All time" Command="{Binding AllTimeCommand}" Padding="8,2" Margin="0,0,12,0"
+                        ToolTip="Every confirmed identification, including those without a date"/>
+                <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="8,2" Margin="0,0,6,0"/>
+                <Button Content="Export CSV" Command="{Binding ExportCsvCommand}" Padding="8,2"/>
+            </StackPanel>
+        </DockPanel>
+
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8" Foreground="#546E7A" TextWrapping="Wrap">
+            <Run Text="Confirmed antibody identifications"/>
+            <Run Text=" ("/>
+            <Run Text="{Binding RangeLabel, Mode=OneWay}"/>
+            <Run Text="). Counts split multi-specific calls (anti-E; anti-K) into each specificity."/>
+        </TextBlock>
+
+        <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,8">
+            <Border Style="{StaticResource StatCard}" Background="#E3F2FD" BorderBrush="#90CAF9">
+                <StackPanel>
+                    <TextBlock Text="Confirmed specimens" FontSize="11" Foreground="#37474F"/>
+                    <TextBlock Text="{Binding ConfirmedSpecimens}" FontSize="22" FontWeight="Bold" Foreground="#1565C0"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource StatCard}" Background="#E0F7FA" BorderBrush="#80DEEA">
+                <StackPanel>
+                    <TextBlock Text="Distinct IDs" FontSize="11" Foreground="#37474F"/>
+                    <TextBlock Text="{Binding DistinctSpecificities}" FontSize="22" FontWeight="Bold" Foreground="#00838F"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource StatCard}" Background="#E8F5E9" BorderBrush="#A5D6A7">
+                <StackPanel>
+                    <TextBlock Text="Total occurrences" FontSize="11" Foreground="#37474F"/>
+                    <TextBlock Text="{Binding TotalOccurrences}" FontSize="22" FontWeight="Bold" Foreground="#2E7D32"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource StatCard}" Background="#FFF3E0" BorderBrush="#FFCC80" Margin="0">
+                <StackPanel>
+                    <TextBlock Text="Most common" FontSize="11" Foreground="#37474F"/>
+                    <TextBlock Text="{Binding MostCommonId}" FontSize="18" FontWeight="Bold" Foreground="#EF6C00"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <Grid DockPanel.Dock="Top" Height="280" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" BorderBrush="#B0BEC5" BorderThickness="1" Margin="0,0,8,0">
+                <scottplot:WpfPlot x:Name="BarPlot"/>
+            </Border>
+            <Border Grid.Column="1" BorderBrush="#B0BEC5" BorderThickness="1">
+                <scottplot:WpfPlot x:Name="TrendPlot"/>
+            </Border>
+        </Grid>
+
+        <DataGrid ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="*"/>
+                <DataGridTextColumn Header="Count" Binding="{Binding Count}" Width="100"/>
+                <DataGridTextColumn Header="% of IDs" Binding="{Binding PercentDisplay}" Width="100"/>
+                <DataGridTextColumn Header="Specimens" Binding="{Binding Specimens}" Width="110"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

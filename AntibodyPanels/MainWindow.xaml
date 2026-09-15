@@ -67,6 +67,9 @@
             <TabItem Header="Reports">
                 <views:ReportsView DataContext="{Binding ReportsVM}"/>
             </TabItem>
+            <TabItem Header="Analytics">
+                <views:AnalyticsView DataContext="{Binding AnalyticsVM}"/>
+            </TabItem>
             <TabItem Header="Search">
                 <views:SearchView DataContext="{Binding SearchVM}"/>
             </TabItem>

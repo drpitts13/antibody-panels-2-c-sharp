@@ -18,6 +18,7 @@ namespace AntibodyPanels.ViewModels
         public ReactionsViewModel ReactionsVM { get; }
         public AnalysisViewModel AnalysisVM { get; }
         public ReportsViewModel ReportsVM { get; }
+        public AnalyticsViewModel AnalyticsVM { get; }
         public SearchViewModel SearchVM { get; }
         public RulesViewModel RulesVM { get; }
 
@@ -61,6 +62,7 @@ namespace AntibodyPanels.ViewModels
             ReactionsVM = new ReactionsViewModel(Database, Analyzer, this);
             AnalysisVM = new AnalysisViewModel(Database, Analyzer, this);
             ReportsVM = new ReportsViewModel(Database, this);
+            AnalyticsVM = new AnalyticsViewModel(Database, this);
             SearchVM = new SearchViewModel(Database, this);
             RulesVM = new RulesViewModel(Database, this);
 
@@ -112,6 +114,7 @@ namespace AntibodyPanels.ViewModels
             ReactionsVM.RefreshSpecimens();
             AnalysisVM.Refresh();
             ReportsVM.Refresh();
+            AnalyticsVM.Refresh();
             RulesVM.Refresh();
             SetStatus("All tabs refreshed");
         }

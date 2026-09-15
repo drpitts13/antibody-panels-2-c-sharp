@@ -436,7 +436,8 @@ namespace AntibodyPanels.Data
         }
 
         public void SetSpecimenFinalCall(string accessionNumber,
-            string? antibodies, string? comment, string? identifiedBy)
+            string? antibodies, string? comment, string? identifiedBy,
+            DateTime? identifiedAt = null)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
@@ -451,7 +452,7 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$by", (object?)identifiedBy ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$at", antibodies == null
                 ? DBNull.Value
-                : DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
+                : (identifiedAt ?? DateTime.Now).ToString("yyyy-MM-dd HH:mm"));
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.ExecuteNonQuery();
         }

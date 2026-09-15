@@ -418,21 +418,8 @@ namespace AntibodyPanels.ViewModels
             FinalComment = result.Acs.SuggestedComment;
         }
 
-        public static string AppendAntibodyToFinalId(string? current, string antibody)
-        {
-            if (string.IsNullOrWhiteSpace(antibody))
-                return current?.Trim() ?? string.Empty;
-
-            var parts = (current ?? string.Empty)
-                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(p => p.Trim())
-                .Where(p => p.Length > 0)
-                .ToList();
-            if (parts.Any(p => string.Equals(p, antibody, StringComparison.OrdinalIgnoreCase)))
-                return string.Join("; ", parts);
-            parts.Add(antibody.Trim());
-            return string.Join("; ", parts);
-        }
+        public static string AppendAntibodyToFinalId(string? current, string antibody) =>
+            FinalAntibodyParser.Append(current, antibody);
 
         private void AddSelectedToFinalId()
         {
@@ -465,6 +452,7 @@ namespace AntibodyPanels.ViewModels
             LoadFinalCall(SelectedSpecimen);
             _main.SpecimensVM.Refresh();
             _main.ReportsVM.Refresh();
+            _main.AnalyticsVM.Refresh();
             _main.WorklistVM.Refresh();
             _main.SetStatus($"Identification confirmed for {SelectedSpecimen.AccessionNumber}.");
         }
@@ -480,6 +468,7 @@ namespace AntibodyPanels.ViewModels
             LoadFinalCall(SelectedSpecimen);
             _main.SpecimensVM.Refresh();
             _main.ReportsVM.Refresh();
+            _main.AnalyticsVM.Refresh();
             _main.WorklistVM.Refresh();
             _main.SetStatus("Confirmed identification cleared.");
         }

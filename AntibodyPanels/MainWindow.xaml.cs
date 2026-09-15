@@ -157,6 +157,8 @@ namespace AntibodyPanels
                 "  Click a count card to filter that category\n\n" +
                 "Reports:\n" +
                 "  Ctrl+P    print the current report\n\n" +
+                "Analytics:\n" +
+                "  Use From/To dates or 30 days / 90 days / 12 months / All time\n\n" +
                 "Reaction Entry:\n" +
                 "  0–4     write grade (0, 1+, 2+, 3+, 4+)\n" +
                 "  N       write NT\n" +
