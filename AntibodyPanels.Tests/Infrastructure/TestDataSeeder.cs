@@ -20,6 +20,7 @@ public static class TestDataSeeder
         if (File.Exists(dbPath))
             File.Delete(dbPath);
 
+        Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
         using var db = new DatabaseService(dbPath);
         var panelIds = SeedPanels(db);
         SeedSpecimens(db, panelIds);
