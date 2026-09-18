@@ -49,6 +49,42 @@ public class VendorPanelImportTests
         Assert.Equal("-", first.GetAntigen("Doa"));
         Assert.Equal("+", cells.First(c => c.CellNumber == "3").GetAntigen("Doa"));
         Assert.Equal(stored.PanelId, iso.Db.FindPanelByVendorLot(VendorIds.Immucor, "IMM-TEST-1")!.PanelId);
+        Assert.Contains("Fya", iso.Db.GetPanelDisplayAntigens(id));
+        Assert.Contains("Doa", iso.Db.GetPanelDisplayAntigens(id));
+    }
+
+    [Fact]
+    public void ImportedSubsetPanel_HidesAntigensNotOnSheet()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"vendor_subset_{Guid.NewGuid():N}.csv");
+        try
+        {
+            File.WriteAllText(path,
+                "Cell,D,C,c,E,e,M,N,S,s\n" +
+                "1,+,-,-,-,+,+,+,-,+\n" +
+                "2,-,+,+,+,-,-,-,+,+\n");
+            using var iso = new IsolatedDatabase();
+            using var catalog = new VendorCatalogService();
+            var parsed = catalog.ImportFile(VendorIds.BioRad, path);
+            Assert.True(parsed.Success, string.Join("\n", parsed.Errors));
+            parsed.Vendor = VendorIds.BioRad;
+            parsed.LotNumber = "BIO-SUBSET-1";
+            parsed.SourceFormat = "csv";
+            parsed.AntigenOrder.Clear();
+            parsed.AntigenOrder.AddRange(new[] { "D", "C", "c", "E", "e", "M", "N", "S", "s" });
+
+            var id = new VendorPanelImportService(iso.Db).Persist(parsed);
+            var shown = iso.Db.GetPanelDisplayAntigens(id);
+            Assert.Equal(new[] { "D", "C", "c", "E", "e", "M", "N", "S", "s" }, shown);
+            Assert.DoesNotContain("Fya", shown);
+            Assert.DoesNotContain("Fyb", shown);
+            Assert.DoesNotContain("K", shown);
+            Assert.DoesNotContain("Jka", shown);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
     }
 
     [Fact]
@@ -161,6 +197,14 @@ public class VendorPanelImportTests
     {
         Assert.Equal("Fya", VendorAntigenAliases.Resolve("Fy^a"));
         Assert.Equal("Kpa", VendorAntigenAliases.Resolve("Kp a"));
+        Assert.Equal("C", VendorAntigenAliases.Resolve("C"));
+        Assert.Equal("c", VendorAntigenAliases.Resolve("c"));
+        Assert.Equal("E", VendorAntigenAliases.Resolve("E"));
+        Assert.Equal("e", VendorAntigenAliases.Resolve("e"));
+        Assert.Equal("K", VendorAntigenAliases.Resolve("K"));
+        Assert.Equal("k", VendorAntigenAliases.Resolve("k"));
+        Assert.Equal("S", VendorAntigenAliases.Resolve("S"));
+        Assert.Equal("s", VendorAntigenAliases.Resolve("s"));
         Assert.Equal("+", VendorAntigenAliases.NormalizeValue("+w", true));
         Assert.Equal("-", VendorAntigenAliases.NormalizeValue("0", true));
         Assert.Null(VendorAntigenAliases.NormalizeValue("NT", required: false));
@@ -185,6 +229,31 @@ public class VendorPanelImportTests
             Assert.Equal("-", cell2.GetAntigen("D"));
             Assert.Equal("45161.99.1", parsed.LotNumber);
             Assert.Equal("2026-12-01", parsed.ExpirationDate);
+            Assert.Contains("Fya", parsed.AntigenOrder);
+            Assert.DoesNotContain("Lua", parsed.AntigenOrder);
+        }
+        finally
+        {
+            if (File.Exists(pdfPath)) File.Delete(pdfPath);
+        }
+    }
+
+    [Fact]
+    public void PdfParser_JoinsSplitSuperscriptHeaders()
+    {
+        var pdfPath = Path.Combine(Path.GetTempPath(), $"vendor_split_{Guid.NewGuid():N}.pdf");
+        try
+        {
+            WriteSplitHeaderPdf(pdfPath);
+            using var catalog = new VendorCatalogService();
+            var parsed = catalog.ImportFile(VendorIds.BioRad, pdfPath);
+            Assert.True(parsed.Success, string.Join("\n", parsed.Errors));
+            Assert.Contains("Fya", parsed.AntigenOrder);
+            Assert.Contains("Fyb", parsed.AntigenOrder);
+            Assert.Contains("Cw", parsed.AntigenOrder);
+            var cell1 = parsed.Cells.First(c => c.CellNumber == "1");
+            Assert.Equal("+", cell1.GetAntigen("Fya"));
+            Assert.Equal("-", cell1.GetAntigen("Fyb"));
         }
         finally
         {
@@ -228,6 +297,35 @@ public class VendorPanelImportTests
         string[] row2 = { "-", "-", "+", "-", "+", "+", "+", "-", "+", "-", "+" };
         for (int i = 0; i < row2.Length; i++)
             gfx.DrawString(row2[i], font, XBrushes.Black, 80 + i * 40, 140);
+        doc.Save(path);
+    }
+
+    private static void WriteSplitHeaderPdf(string path)
+    {
+        using var doc = new PdfDocument();
+        var page = doc.AddPage();
+        page.Width = 700;
+        page.Height = 300;
+        using var gfx = XGraphics.FromPdfPage(page);
+        var font = new XFont("Arial", 10);
+        gfx.DrawString("ID-DiaPanel LOT 45161.88.1 Exp. date: 2026.12.01", font, XBrushes.Black, 20, 24);
+        string[] stems = { "D", "C", "c", "E", "e", "C", "Fy", "Fy", "M", "N", "S", "s" };
+        string[] mods  = { "",  "",  "",  "",  "",  "w", "a",  "b",  "",  "",  "",  "" };
+        for (int i = 0; i < stems.Length; i++)
+        {
+            var x = 70 + i * 42;
+            gfx.DrawString(stems[i], font, XBrushes.Black, x, 70);
+            if (mods[i].Length > 0)
+                gfx.DrawString(mods[i], font, XBrushes.Black, x + 8, 58);
+        }
+        gfx.DrawString("1", font, XBrushes.Black, 20, 110);
+        string[] row1 = { "+", "+", "-", "-", "+", "-", "+", "-", "+", "+", "-", "+" };
+        for (int i = 0; i < row1.Length; i++)
+            gfx.DrawString(row1[i], font, XBrushes.Black, 70 + i * 42, 110);
+        gfx.DrawString("2", font, XBrushes.Black, 20, 140);
+        string[] row2 = { "-", "-", "+", "+", "+", "+", "-", "+", "-", "-", "+", "-" };
+        for (int i = 0; i < row2.Length; i++)
+            gfx.DrawString(row2[i], font, XBrushes.Black, 70 + i * 42, 140);
         doc.Save(path);
     }
 }

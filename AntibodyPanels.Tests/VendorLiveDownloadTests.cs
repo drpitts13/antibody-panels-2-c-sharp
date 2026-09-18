@@ -67,7 +67,22 @@ public class VendorLiveDownloadTests
                 };
                 foreach (var cell in iso.Db.GetPanelCells(source.PanelId))
                     parsed.Cells.Add(cell);
+                foreach (var ag in iso.Db.GetPanelAntigenOrder(source.PanelId))
+                    parsed.AntigenOrder.Add(ag);
                 new VendorPanelImportService(live).Persist(parsed, replaceExisting: true);
+                var stored = live.FindPanelByVendorLot(parsed.Vendor, parsed.LotNumber)!;
+                if (parsed.AntigenOrder.Count > 0)
+                {
+                    foreach (var other in live.GetAllPanels()
+                        .Where(p => p.PanelId != stored.PanelId
+                            && string.Equals(p.Vendor, parsed.Vendor, StringComparison.OrdinalIgnoreCase)
+                            && !string.IsNullOrWhiteSpace(p.ImportedAt)
+                            && live.GetPanelAntigenOrder(p.PanelId).Count == 0))
+                    {
+                        live.SetPanelAntigenOrder(other.PanelId, parsed.AntigenOrder);
+                    }
+                }
+                _output.WriteLine($"{parsed.Vendor} {parsed.LotNumber} display antigens: {string.Join(",", live.GetPanelDisplayAntigens(stored.PanelId))}");
                 Assert.NotNull(live.FindPanelByVendorLot(parsed.Vendor, parsed.LotNumber));
             }
             _output.WriteLine($"Persisted {persisted.Count} vendor panel(s) to {path}");

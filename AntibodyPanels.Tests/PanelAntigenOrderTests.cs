@@ -39,6 +39,20 @@ public class PanelAntigenOrderTests
     }
 
     [Fact]
+    public void ResolveDisplayOrder_SavedSubset_DoesNotAppendMissingStandard()
+    {
+        var saved = new[] { "D", "C", "c", "E", "e", "M", "N", "S", "s" };
+        var order = AntigenConstants.ResolveDisplayOrder(saved, Array.Empty<string>());
+        Assert.Equal(saved, order);
+        Assert.DoesNotContain("Fya", order);
+        Assert.DoesNotContain("K", order);
+
+        var withDoa = AntigenConstants.ResolveDisplayOrder(saved, new[] { "Doa" });
+        Assert.Equal(saved.Concat(new[] { "Doa" }), withDoa);
+        Assert.DoesNotContain("Fya", withDoa);
+    }
+
+    [Fact]
     public void ResolveDisplayOrder_AppendsNewExtra_AndDropsRemoved()
     {
         var saved = AntigenConstants.Antigens.ToList();

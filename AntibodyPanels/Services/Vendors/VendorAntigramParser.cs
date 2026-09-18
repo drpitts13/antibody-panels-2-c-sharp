@@ -144,7 +144,10 @@ namespace AntibodyPanels.Services.Vendors
                 return result;
             }
 
-            var columns = BuildAntigenColumns(header.row);
+            var nearby = rows
+                .Where((_, i) => i != header.idx && Math.Abs(i - header.idx) <= 2)
+                .ToList();
+            var columns = BuildAntigenColumns(header.row, nearby);
             if (columns.Count < 6)
             {
                 result.Errors.Add("PDF antigen header could not be mapped.");
@@ -152,6 +155,7 @@ namespace AntibodyPanels.Services.Vendors
             }
 
             result.AntigenOrder.AddRange(columns.Select(c => c.Antigen).Distinct());
+            var onPanel = new HashSet<string>(result.AntigenOrder, StringComparer.Ordinal);
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var row in rows.Skip(header.idx + 1))
             {
@@ -179,7 +183,7 @@ namespace AntibodyPanels.Services.Vendors
                     if (!cell.HasTypedAntigen(nearest.Antigen))
                         cell.SetAntigen(nearest.Antigen, value);
                 }
-                foreach (var ag in AntigenConstants.Antigens)
+                foreach (var ag in onPanel)
                 {
                     if (!cell.HasTypedAntigen(ag))
                         cell.SetAntigen(ag, "-");
@@ -370,18 +374,67 @@ namespace AntibodyPanels.Services.Vendors
         private static int CountAntigenHits(List<PdfWord> row) =>
             row.Select(w => VendorAntigenAliases.Resolve(w.Text)).Count(a => a != null);
 
-        private static List<AntigenColumn> BuildAntigenColumns(List<PdfWord> header)
+        private static List<AntigenColumn> BuildAntigenColumns(
+            List<PdfWord> header, IReadOnlyList<List<PdfWord>>? nearbyRows = null)
         {
             var cols = new List<AntigenColumn>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var word in header.OrderBy(w => w.X))
+            var modifiers = new List<PdfWord>();
+            if (nearbyRows != null)
             {
-                var ag = VendorAntigenAliases.Resolve(word.Text);
+                foreach (var row in nearbyRows)
+                {
+                    foreach (var word in row)
+                    {
+                        if (IsHeaderModifier(word.Text))
+                            modifiers.Add(word);
+                    }
+                }
+            }
+
+            var words = header.OrderBy(w => w.X).ToList();
+            for (int i = 0; i < words.Count; i++)
+            {
+                var word = words[i];
+                string? ag = null;
+                var x = word.X;
+
+                if (i + 1 < words.Count && words[i + 1].X - word.X < 16)
+                {
+                    var combined = ResolveCombinedHeader(word.Text, words[i + 1].Text);
+                    if (combined != null)
+                    {
+                        ag = combined;
+                        x = (word.X + words[i + 1].X) / 2;
+                        i++;
+                    }
+                }
+
+                if (ag == null && modifiers.Count > 0)
+                {
+                    var nearbyMod = modifiers
+                        .OrderBy(m => Math.Abs(m.X - word.X))
+                        .FirstOrDefault(m => Math.Abs(m.X - word.X) < 14);
+                    if (nearbyMod != null)
+                        ag = ResolveCombinedHeader(word.Text, nearbyMod.Text);
+                }
+
+                ag ??= VendorAntigenAliases.Resolve(word.Text);
                 if (ag == null || !seen.Add(ag)) continue;
-                cols.Add(new AntigenColumn { Antigen = ag, X = word.X });
+                cols.Add(new AntigenColumn { Antigen = ag, X = x });
             }
             return cols;
         }
+
+        private static bool IsHeaderModifier(string text)
+        {
+            var t = text.Trim();
+            return t.Length == 1 && "abwABW".Contains(t, StringComparison.Ordinal);
+        }
+
+        private static string? ResolveCombinedHeader(string stem, string modifier) =>
+            VendorAntigenAliases.Resolve(stem + modifier)
+            ?? VendorAntigenAliases.Resolve(stem + "^" + modifier);
 
         private static string? GuessCellNumber(List<PdfWord> row)
         {

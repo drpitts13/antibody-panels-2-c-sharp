@@ -142,6 +142,9 @@ namespace AntibodyPanels.Models
         /// Display order for a panel: honor a saved sequence, keep only antigens
         /// still on the panel, and append any new extras in catalog order.
         /// An empty or null saved list uses the default (standard then extras).
+        /// A non-empty saved list is the panel's antigen set — missing standard
+        /// antigens are not appended, so imported vendor sheets do not grow
+        /// columns the source never typed.
         /// </summary>
         public static IReadOnlyList<string> ResolveDisplayOrder(
             IEnumerable<string>? savedOrder,
@@ -151,6 +154,7 @@ namespace AntibodyPanels.Models
                 ? new HashSet<string>(System.StringComparer.Ordinal)
                 : extraOnPanel as HashSet<string>
                     ?? new HashSet<string>(extraOnPanel, System.StringComparer.Ordinal);
+            var extraList = WarehouseAntigens.Where(extras.Contains).ToList();
             var expected = GetAnalyzedAntigens(extras);
             if (savedOrder == null)
                 return expected;
@@ -159,21 +163,21 @@ namespace AntibodyPanels.Models
             if (saved.Count == 0)
                 return expected;
 
-            var expectedSet = expected as HashSet<string>
+            var allowed = expected as HashSet<string>
                 ?? new HashSet<string>(expected, System.StringComparer.Ordinal);
-            var result = new List<string>(expected.Count);
+            var result = new List<string>(saved.Count + extraList.Count);
             var seen = new HashSet<string>(System.StringComparer.Ordinal);
             foreach (var ag in saved)
             {
-                if (!expectedSet.Contains(ag) || !seen.Add(ag)) continue;
+                if (!allowed.Contains(ag) || !seen.Add(ag)) continue;
                 result.Add(ag);
             }
-            foreach (var ag in expected)
+            foreach (var ag in extraList)
             {
                 if (seen.Add(ag))
                     result.Add(ag);
             }
-            return result;
+            return result.Count > 0 ? result : expected;
         }
 
         public static readonly IReadOnlyList<string> ReactionValues =

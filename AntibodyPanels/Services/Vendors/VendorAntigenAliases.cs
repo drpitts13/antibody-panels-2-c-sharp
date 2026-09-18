@@ -85,6 +85,9 @@ namespace AntibodyPanels.Services.Vendors
         public static string? Resolve(string? raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return null;
+            var trimmed = raw.Trim();
+            if (trimmed.Length == 1 && AntigenConstants.IsKnown(trimmed))
+                return trimmed;
             var key = NormalizeKey(raw);
             return Map.TryGetValue(key, out var ag) ? ag : null;
         }
