@@ -105,6 +105,7 @@
                           FrozenColumnCount="1"
                           SelectionUnit="Cell"
                           FontSize="13"
+                          RowHeight="36"
                           Loaded="AntigenGrid_Loaded"
                           ColumnDisplayIndexChanged="AntigenGrid_ColumnDisplayIndexChanged"
                           PreviewMouseLeftButtonDown="AntigenGrid_PreviewMouseLeftButtonDown"

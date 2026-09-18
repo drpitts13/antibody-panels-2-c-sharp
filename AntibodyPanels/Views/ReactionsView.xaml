@@ -162,6 +162,7 @@
                   CanUserAddRows="False" CanUserDeleteRows="False"
                   GridLinesVisibility="All" HeadersVisibility="Column"
                   SelectionUnit="Cell" FontSize="12"
+                  RowHeight="32"
                   FrozenColumnCount="1"
                   Loaded="ReactionsGrid_Loaded"
                   PreviewKeyDown="ReactionsGrid_PreviewKeyDown">

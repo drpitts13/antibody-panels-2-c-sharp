@@ -68,6 +68,7 @@ namespace AntibodyPanels.Views
                 var centeredText = new Style(typeof(TextBlock));
                 centeredText.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
                 centeredText.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
+                centeredText.Setters.Add(new Setter(TextBlock.FontSizeProperty, 26.0));
 
                 foreach (var ag in _vm.AntigenDisplayOrder)
                 {

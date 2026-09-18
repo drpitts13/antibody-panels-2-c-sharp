@@ -1,3 +1,5 @@
+using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using AntibodyPanels.Models;
@@ -10,6 +12,7 @@ namespace AntibodyPanels.Views
         {
             InitializeComponent();
             AddWarehouseColumns();
+            ApplyAntigenMarkStyle();
         }
 
         private void AddWarehouseColumns()
@@ -23,6 +26,17 @@ namespace AntibodyPanels.Views
                     Width = ag.Length >= 3 ? 44 : 40
                 });
             }
+        }
+
+        private void ApplyAntigenMarkStyle()
+        {
+            var markStyle = new Style(typeof(TextBlock));
+            markStyle.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
+            markStyle.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
+            markStyle.Setters.Add(new Setter(TextBlock.FontSizeProperty, 24.0));
+
+            foreach (var col in ResultsGrid.Columns.Skip(3).OfType<DataGridTextColumn>())
+                col.ElementStyle = markStyle;
         }
     }
 }
