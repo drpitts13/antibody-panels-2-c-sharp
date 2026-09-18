@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels.Views
@@ -133,9 +134,6 @@ namespace AntibodyPanels.Views
 
             var headerTemplate = (DataTemplate)FindResource("AntigenHeaderTemplate");
             var positiveBg = new SolidColorBrush(Color.FromRgb(200, 230, 201));
-            var centeredText = new Style(typeof(TextBlock));
-            centeredText.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
-            centeredText.Setters.Add(new Setter(TextBlock.FontSizeProperty, 11.0));
 
             int insertIdx = 1;
             foreach (var ag in _vm.AntigenDisplayOrder)
@@ -152,14 +150,13 @@ namespace AntibodyPanels.Views
                 posTrigger.Setters.Add(new Setter(BackgroundProperty, positiveBg));
                 cellStyle.Triggers.Add(posTrigger);
 
-                var col = new DataGridTextColumn
+                var col = new DataGridTemplateColumn
                 {
                     Header = header,
                     HeaderTemplate = headerTemplate,
                     Width = ag.Length >= 3 ? 42 : 38,
                     IsReadOnly = true,
-                    Binding = new Binding($"AntigenValues[{ag}]"),
-                    ElementStyle = centeredText,
+                    CellTemplate = CreateAntigenCellTemplate(ag),
                     CellStyle = cellStyle,
                 };
                 ReactionsGrid.Columns.Insert(insertIdx++, col);
@@ -170,6 +167,40 @@ namespace AntibodyPanels.Views
             ApplyRuledOutToHeaders();
             ApplyDestroyedToHeaders();
             ApplyAntigenColumnVisibility();
+        }
+
+        private static DataTemplate CreateAntigenCellTemplate(string antigen)
+        {
+            var grid = new FrameworkElementFactory(typeof(Grid));
+            grid.SetValue(FrameworkElement.ClipToBoundsProperty, true);
+
+            var text = new FrameworkElementFactory(typeof(TextBlock));
+            text.SetBinding(TextBlock.TextProperty, new Binding($"AntigenValues[{antigen}]"));
+            text.SetValue(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+            text.SetValue(TextBlock.TextAlignmentProperty, TextAlignment.Center);
+            text.SetValue(TextBlock.FontSizeProperty, 11.0);
+            grid.AppendChild(text);
+
+            var slash = new FrameworkElementFactory(typeof(Line));
+            slash.SetValue(Line.X1Property, 0.0);
+            slash.SetValue(Line.Y1Property, 1.0);
+            slash.SetValue(Line.X2Property, 1.0);
+            slash.SetValue(Line.Y2Property, 0.0);
+            slash.SetValue(Line.StretchProperty, Stretch.Fill);
+            slash.SetValue(Line.StrokeProperty, new SolidColorBrush(Color.FromRgb(33, 33, 33)));
+            slash.SetValue(Line.StrokeThicknessProperty, 1.4);
+            slash.SetValue(UIElement.IsHitTestVisibleProperty, false);
+            slash.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+            slash.SetValue(FrameworkElement.MarginProperty, new Thickness(1));
+            slash.SetBinding(UIElement.VisibilityProperty, new Binding(nameof(ReactionRow.SlashedAntigens))
+            {
+                Converter = CollectionContainsToVisibilityConverter.Instance,
+                ConverterParameter = antigen
+            });
+            grid.AppendChild(slash);
+
+            return new DataTemplate { VisualTree = grid };
         }
 
         private void EnsureRuledOutColumn()

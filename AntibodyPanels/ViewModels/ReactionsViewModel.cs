@@ -795,25 +795,33 @@ namespace AntibodyPanels.ViewModels
         /// </summary>
         public bool IsNegative => AHG == "0" && IsNtOrZero(IS) && IsNtOrZero(C37);
 
-        public string RuledOutNote
+        /// <summary>
+        /// Antigen names on this row whose + boxes should show a rule-out slash.
+        /// Empty unless the cell is negative (AC is never slashed).
+        /// </summary>
+        public IReadOnlyList<string> SlashedAntigens
         {
             get
             {
-                if (!IsNegative) return string.Empty;
+                if (CellNumber == "AC" || !IsNegative) return Array.Empty<string>();
                 var list = new List<string>();
                 foreach (var ag in AntigenConstants.GetAnalyzedAntigens(
                              _antigens.Keys.Where(AntigenConstants.IsWarehouse)))
                 {
                     if (!_antigens.TryGetValue(ag, out var v) || v != "+") continue;
-                    // Skip antigens destroyed by the cell treatment
                     if (_ctx.GetAntigenEffect(ag) == AntigenEffect.Destroyed) continue;
-                    if (CanRuleOut(ag)) list.Add($"anti-{ag}");
+                    if (CanRuleOut(ag)) list.Add(ag);
                 }
-                return string.Join(", ", list);
+                return list;
             }
         }
 
-        public bool HasRuleout => !string.IsNullOrEmpty(RuledOutNote);
+        public string RuledOutNote =>
+            SlashedAntigens.Count == 0
+                ? string.Empty
+                : string.Join(", ", SlashedAntigens.Select(ag => $"anti-{ag}"));
+
+        public bool HasRuleout => SlashedAntigens.Count > 0;
 
         public bool HasEnteredGrade =>
             IsGradeEntered(IS) || IsGradeEntered(C37) || IsGradeEntered(AHG);
@@ -865,6 +873,7 @@ namespace AntibodyPanels.ViewModels
         private void NotifyRuleout()
         {
             OnPropertyChanged(nameof(IsNegative));
+            OnPropertyChanged(nameof(SlashedAntigens));
             OnPropertyChanged(nameof(RuledOutNote));
             OnPropertyChanged(nameof(HasRuleout));
             OnPropertyChanged(nameof(IsCcInvalid));
