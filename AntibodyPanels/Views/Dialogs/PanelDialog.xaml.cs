@@ -15,6 +15,9 @@ namespace AntibodyPanels.Views.Dialogs
         public string? ExpirationDate => ExpirationPicker.SelectedDate?.ToString("yyyy-MM-dd");
         public bool IncludeAc => IncludeAcCheck.IsChecked == true;
         public bool ItemIsActive => ActiveCheck.IsChecked == true;
+        public string? CatalogNumber => string.IsNullOrWhiteSpace(CatalogBox.Text) ? null : CatalogBox.Text.Trim();
+        public string? ProductLine => string.IsNullOrWhiteSpace(ProductLineBox.Text) ? null : ProductLineBox.Text.Trim();
+        public bool EnzymeTreated => EnzymeCheck.IsChecked == true;
 
         public PanelDialog(ModelPanel? existing = null)
         {
@@ -28,6 +31,9 @@ namespace AntibodyPanels.Views.Dialogs
                 NumCellsBox.Text = existing.NumCells.ToString();
                 StartCellBox.Text = existing.StartCell.ToString();
                 IncludeAcCheck.IsChecked = existing.IncludeAc;
+                CatalogBox.Text = existing.CatalogNumber;
+                ProductLineBox.Text = existing.ProductLine;
+                EnzymeCheck.IsChecked = existing.EnzymeTreated;
                 if (existing.ExpirationDate != null &&
                     DateTime.TryParse(existing.ExpirationDate, out var d))
                     ExpirationPicker.SelectedDate = d;

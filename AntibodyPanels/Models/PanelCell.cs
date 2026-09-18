@@ -7,6 +7,9 @@ namespace AntibodyPanels.Models
         public int Id { get; set; }
         public int PanelId { get; set; }
         public string CellNumber { get; set; } = string.Empty;
+        public string? DonorId { get; set; }
+        public string? RhPhenotype { get; set; }
+        public string? SpecialTypes { get; set; }
 
         // Antigen values keyed by antigen name (e.g. "D", "C", "c", ...)
         public Dictionary<string, string> Antigens { get; set; } = new();

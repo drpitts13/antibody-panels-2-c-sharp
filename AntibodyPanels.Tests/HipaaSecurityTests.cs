@@ -142,12 +142,23 @@ public class HipaaSecurityTests
     }
 
     [Fact]
-    public void NoNetworkEndpoints_InApplicationArchitecture()
+    public void NoInboundNetworkEndpoints_InApplicationArchitecture()
     {
         var assembly = typeof(AntibodyPanels.Data.DatabaseService).Assembly;
         var types = assembly.GetTypes();
-        Assert.DoesNotContain(types, t => t.Name.Contains("HttpClient", StringComparison.Ordinal));
         Assert.DoesNotContain(types, t => t.Name.Contains("Controller", StringComparison.Ordinal));
+        Assert.DoesNotContain(types, t => t.Name.Contains("HttpListener", StringComparison.Ordinal));
+        Assert.DoesNotContain(types, t => t.Name is "HttpClient");
+
+        var vendorHttp = types.Single(t => t.Name == "VendorHttpClient");
+        Assert.Contains("Vendors", vendorHttp.Namespace, StringComparison.Ordinal);
+        Assert.True(Services.Vendors.VendorHttpClient.TryValidateVendorUrl(
+            "https://ih-area.bio-rad.com/product/OUS/Reagents/Gel/Test_Cells_for_Antibody_Identification/ID-DiaPanel",
+            out _));
+        Assert.False(Services.Vendors.VendorHttpClient.TryValidateVendorUrl(
+            "http://ih-area.bio-rad.com/product", out _));
+        Assert.False(Services.Vendors.VendorHttpClient.TryValidateVendorUrl(
+            "https://evil.example/steal?accession=MRN-1", out _));
     }
 
     [Fact]

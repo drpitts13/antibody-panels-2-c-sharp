@@ -13,6 +13,13 @@ namespace AntibodyPanels.Models
         public string? ExpirationDate { get; set; }
         public bool IncludeAc { get; set; }
         public bool IsActive { get; set; } = true;
+        public string? CatalogNumber { get; set; }
+        public string? ProductLine { get; set; }
+        public bool EnzymeTreated { get; set; }
+        public string? SourceUrl { get; set; }
+        public string? SourceFormat { get; set; }
+        public string? ImportedAt { get; set; }
+        public string? SpecialNotes { get; set; }
 
         public List<PanelCell> Cells { get; set; } = new();
 
@@ -37,6 +44,6 @@ namespace AntibodyPanels.Models
         }
 
         public bool MatchesFilter(string? query) =>
-            TextFilter.Matches(query, Name, LotNumber, Vendor, ExpirationDate);
+            TextFilter.Matches(query, Name, LotNumber, Vendor, ExpirationDate, CatalogNumber, ProductLine);
     }
 }

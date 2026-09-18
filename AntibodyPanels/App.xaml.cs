@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Windows;
+using AntibodyPanels.Services.Vendors;
 using AntibodyPanels.Data;
 using AntibodyPanels.Services;
 
@@ -23,6 +24,17 @@ namespace AntibodyPanels
                 ClinicalDataSeeder.SeedIfNeeded(db, new AntibodyAnalyzer(db));
                 DemoDataSeeder.SeedIfNeeded(db);
                 Shutdown();
+                return;
+            }
+
+            if (e.Args.Any(a => string.Equals(a, "--import-vendor-samples", StringComparison.OrdinalIgnoreCase)))
+            {
+                using var db = new DatabaseService();
+                var results = AntibodyPanels.Services.Vendors.VendorLiveImport
+                    .ImportRandomLotPerVendorAsync(db).GetAwaiter().GetResult();
+                foreach (var row in results)
+                    Console.WriteLine($"{row.Vendor}: {(row.Persisted ? "OK" : "SKIP")} {row.LotNumber} {row.Message}");
+                Shutdown(results.Any(r => r.DownloadSupported && !r.Persisted) ? 2 : 0);
                 return;
             }
 

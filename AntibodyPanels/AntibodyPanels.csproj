@@ -28,6 +28,7 @@
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
     <PackageReference Include="PDFsharp-WPF" Version="6.2.4" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
     <PackageReference Include="ScottPlot.WPF" Version="5.0.55" />
   </ItemGroup>
 

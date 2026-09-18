@@ -83,6 +83,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand DeleteCommand { get; }
         public ICommand CopyCommand { get; }
         public ICommand ImportCsvCommand { get; }
+        public ICommand DownloadVendorCommand { get; }
         public ICommand ExportCsvCommand { get; }
         public ICommand PrintAntigramCommand { get; }
         public ICommand AddExtraAntigenCommand { get; }
@@ -101,6 +102,7 @@ namespace AntibodyPanels.ViewModels
             DeleteCommand = new RelayCommand(DeletePanel, () => SelectedPanel != null && !IsEditingAntigens);
             CopyCommand = new RelayCommand(CopyPanel, () => SelectedPanel != null && !IsEditingAntigens);
             ImportCsvCommand = new RelayCommand(ImportCsv, () => !IsEditingAntigens);
+            DownloadVendorCommand = new RelayCommand(DownloadFromVendor, () => !IsEditingAntigens);
             ExportCsvCommand = new RelayCommand(ExportCsv, () => SelectedPanel != null && !IsEditingAntigens);
             PrintAntigramCommand = new RelayCommand(PrintAntigram, () => SelectedPanel != null && !IsEditingAntigens);
             AddExtraAntigenCommand = new RelayCommand(AddExtraAntigen, () => SelectedPanel != null && !IsEditingAntigens);
@@ -206,7 +208,8 @@ namespace AntibodyPanels.ViewModels
             var dlg = new Views.Dialogs.PanelDialog();
             if (dlg.ShowDialog() != true) return;
             var id = _db.AddPanel(dlg.PanelName, dlg.LotNumber, dlg.Vendor,
-                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive);
+                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive,
+                dlg.CatalogNumber, dlg.ProductLine, dlg.EnzymeTreated);
             _main.SetStatus($"Panel '{dlg.PanelName}' created (cells {dlg.StartCell}–{dlg.StartCell + dlg.NumCells - 1}).");
             NotifyPanelsChanged();
             SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == id);
@@ -218,7 +221,8 @@ namespace AntibodyPanels.ViewModels
             var dlg = new Views.Dialogs.PanelDialog(SelectedPanel);
             if (dlg.ShowDialog() != true) return;
             _db.UpdatePanel(SelectedPanel.PanelId, dlg.PanelName, dlg.LotNumber,
-                dlg.Vendor, dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive);
+                dlg.Vendor, dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive,
+                dlg.CatalogNumber, dlg.ProductLine, dlg.EnzymeTreated);
             _main.SetStatus($"Panel '{dlg.PanelName}' updated.");
             NotifyPanelsChanged();
         }
@@ -245,16 +249,32 @@ namespace AntibodyPanels.ViewModels
                 NumCells = SelectedPanel.NumCells,
                 StartCell = SelectedPanel.StartCell,
                 IncludeAc = SelectedPanel.IncludeAc,
+                CatalogNumber = SelectedPanel.CatalogNumber,
+                ProductLine = SelectedPanel.ProductLine,
+                EnzymeTreated = SelectedPanel.EnzymeTreated,
             });
             dlg.Title = "Copy Panel — Edit Details";
             if (dlg.ShowDialog() != true) return;
             // AddPanel creates placeholder cells; CopyPanelCells then replaces them with the real data.
             var newId = _db.AddPanel(dlg.PanelName, dlg.LotNumber, dlg.Vendor,
-                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive);
+                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive,
+                dlg.CatalogNumber, dlg.ProductLine, dlg.EnzymeTreated);
             _db.CopyPanelCells(SelectedPanel.PanelId, newId);
             _main.SetStatus($"Panel copied as '{dlg.PanelName}'.");
             NotifyPanelsChanged();
             SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == newId);
+        }
+
+        private void DownloadFromVendor()
+        {
+            var dlg = new Views.Dialogs.DownloadFromVendorDialog(_db)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            if (dlg.ShowDialog() != true || dlg.ImportedPanelId is not int id) return;
+            NotifyPanelsChanged();
+            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == id);
+            _main.SetStatus($"Imported vendor panel '{dlg.ImportedPanelName}'.");
         }
 
         private void ImportCsv()
@@ -296,7 +316,8 @@ namespace AntibodyPanels.ViewModels
             if (dlg.ShowDialog() != true) return;
 
             var id = _db.AddPanel(dlg.PanelName, dlg.LotNumber, dlg.Vendor,
-                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive);
+                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive,
+                dlg.CatalogNumber, dlg.ProductLine, dlg.EnzymeTreated);
             var cells = imported.Cells.Select(c =>
             {
                 var cell = new PanelCell { CellNumber = c.CellNumber };

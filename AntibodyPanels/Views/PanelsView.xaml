@@ -35,6 +35,8 @@
                 <Button Content="Copy" Command="{Binding CopyCommand}" Width="60" Margin="0,0,4,4"/>
                 <Button Content="Import" Command="{Binding ImportCsvCommand}" Width="60" Margin="0,0,4,4"
                         ToolTip="Create a panel from a CSV lot sheet (Cell, D, C, c, ...)"/>
+                <Button Content="Download…" Command="{Binding DownloadVendorCommand}" Width="84" Margin="0,0,4,4"
+                        ToolTip="Download a lot sheet from a vendor catalog or import a vendor PDF/CSV"/>
                 <Button Content="Export" Command="{Binding ExportCsvCommand}" Width="60" Margin="0,0,4,4"
                         ToolTip="Export the selected panel antigen grid as CSV"/>
                 <Button Content="Antigram" Command="{Binding PrintAntigramCommand}" Width="70" Margin="0,0,4,4"

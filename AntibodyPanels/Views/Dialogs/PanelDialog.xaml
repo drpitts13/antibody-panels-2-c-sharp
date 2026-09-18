@@ -18,6 +18,9 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
             </Grid.RowDefinitions>
 
             <Label Content="Panel Name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -50,6 +53,16 @@
             <Label Content="Active:" Grid.Row="7" VerticalAlignment="Center"/>
             <CheckBox x:Name="ActiveCheck" Grid.Row="7" Grid.Column="1"
                       VerticalAlignment="Center" Margin="0,2" IsChecked="True"/>
+
+            <Label Content="Catalog #:" Grid.Row="8" VerticalAlignment="Center"/>
+            <TextBox x:Name="CatalogBox" Grid.Row="8" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+
+            <Label Content="Product line:" Grid.Row="9" VerticalAlignment="Center"/>
+            <TextBox x:Name="ProductLineBox" Grid.Row="9" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"/>
+
+            <Label Content="Enzyme treated:" Grid.Row="10" VerticalAlignment="Center"/>
+            <CheckBox x:Name="EnzymeCheck" Grid.Row="10" Grid.Column="1"
+                      VerticalAlignment="Center" Margin="0,2"/>
         </Grid>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

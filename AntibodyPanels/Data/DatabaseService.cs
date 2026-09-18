@@ -31,6 +31,7 @@ namespace AntibodyPanels.Data
             MigrateSpecimenFinalCall();
             MigrateWarehouseAntigens();
             MigratePanelAntigenOrder();
+            MigrateVendorPanelMetadata();
             DeactivateExpiredSpecimens();
             DeactivateExpiredPanels();
         }
@@ -255,6 +256,33 @@ namespace AntibodyPanels.Data
                     PRIMARY KEY (panel_id, antigen_name),
                     FOREIGN KEY (panel_id) REFERENCES panels(panel_id) ON DELETE CASCADE
                 )");
+        }
+
+        private void MigrateVendorPanelMetadata()
+        {
+            var panelCols = GetColumnNames("panels");
+            if (!panelCols.Contains("catalog_number"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN catalog_number TEXT");
+            if (!panelCols.Contains("product_line"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN product_line TEXT");
+            if (!panelCols.Contains("enzyme_treated"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN enzyme_treated INTEGER NOT NULL DEFAULT 0");
+            if (!panelCols.Contains("source_url"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN source_url TEXT");
+            if (!panelCols.Contains("source_format"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN source_format TEXT");
+            if (!panelCols.Contains("imported_at"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN imported_at TEXT");
+            if (!panelCols.Contains("special_notes"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN special_notes TEXT");
+
+            var cellCols = GetColumnNames("panel_cells");
+            if (!cellCols.Contains("donor_id"))
+                ExecNonQuery("ALTER TABLE panel_cells ADD COLUMN donor_id TEXT");
+            if (!cellCols.Contains("rh_phenotype"))
+                ExecNonQuery("ALTER TABLE panel_cells ADD COLUMN rh_phenotype TEXT");
+            if (!cellCols.Contains("special_types"))
+                ExecNonQuery("ALTER TABLE panel_cells ADD COLUMN special_types TEXT");
         }
 
         private void DeactivateExpiredSpecimens()
@@ -607,14 +635,19 @@ namespace AntibodyPanels.Data
         // ── Panels ────────────────────────────────────────────────────────────
 
         public int AddPanel(string name, string? lotNumber, string? vendor,
-            int numCells, string? expirationDate, bool includeAc, int startCell = 1, bool? isActive = null)
+            int numCells, string? expirationDate, bool includeAc, int startCell = 1, bool? isActive = null,
+            string? catalogNumber = null, string? productLine = null, bool enzymeTreated = false,
+            string? sourceUrl = null, string? sourceFormat = null, string? importedAt = null,
+            string? specialNotes = null)
         {
             var today = DateTime.Now.ToString("yyyy-MM-dd");
             bool active = isActive ?? (expirationDate == null || string.Compare(expirationDate, today) >= 0);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                INSERT INTO panels (name, lot_number, vendor, num_cells, expiration_date, include_ac, start_cell, is_active)
-                VALUES ($name, $lot, $vendor, $num, $exp, $ac, $sc, $active);
+                INSERT INTO panels (name, lot_number, vendor, num_cells, expiration_date, include_ac, start_cell, is_active,
+                    catalog_number, product_line, enzyme_treated, source_url, source_format, imported_at, special_notes)
+                VALUES ($name, $lot, $vendor, $num, $exp, $ac, $sc, $active,
+                    $cat, $pline, $enz, $url, $fmt, $imp, $notes);
                 SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("$name", name);
             cmd.Parameters.AddWithValue("$lot", (object?)lotNumber ?? DBNull.Value);
@@ -624,6 +657,13 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$ac", includeAc ? 1 : 0);
             cmd.Parameters.AddWithValue("$sc", startCell);
             cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
+            cmd.Parameters.AddWithValue("$cat", (object?)catalogNumber ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pline", (object?)productLine ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$enz", enzymeTreated ? 1 : 0);
+            cmd.Parameters.AddWithValue("$url", (object?)sourceUrl ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$fmt", (object?)sourceFormat ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$imp", (object?)importedAt ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$notes", (object?)specialNotes ?? DBNull.Value);
             var panelId = Convert.ToInt32(cmd.ExecuteScalar());
 
             for (int i = startCell; i < startCell + numCells; i++)
@@ -664,12 +704,15 @@ namespace AntibodyPanels.Data
         }
 
         public void UpdatePanel(int panelId, string name, string? lotNumber, string? vendor,
-            int numCells, string? expirationDate, bool includeAc, int startCell = 1, bool isActive = true)
+            int numCells, string? expirationDate, bool includeAc, int startCell = 1, bool isActive = true,
+            string? catalogNumber = null, string? productLine = null, bool enzymeTreated = false,
+            string? specialNotes = null)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 UPDATE panels SET name=$name, lot_number=$lot, vendor=$vendor,
-                num_cells=$num, expiration_date=$exp, include_ac=$ac, start_cell=$sc, is_active=$active
+                num_cells=$num, expiration_date=$exp, include_ac=$ac, start_cell=$sc, is_active=$active,
+                catalog_number=$cat, product_line=$pline, enzyme_treated=$enz, special_notes=$notes
                 WHERE panel_id=$id";
             cmd.Parameters.AddWithValue("$name", name);
             cmd.Parameters.AddWithValue("$lot", (object?)lotNumber ?? DBNull.Value);
@@ -679,6 +722,10 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$ac", includeAc ? 1 : 0);
             cmd.Parameters.AddWithValue("$sc", startCell);
             cmd.Parameters.AddWithValue("$active", isActive ? 1 : 0);
+            cmd.Parameters.AddWithValue("$cat", (object?)catalogNumber ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pline", (object?)productLine ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$enz", enzymeTreated ? 1 : 0);
+            cmd.Parameters.AddWithValue("$notes", (object?)specialNotes ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$id", panelId);
             cmd.ExecuteNonQuery();
 
@@ -687,6 +734,43 @@ namespace AntibodyPanels.Data
                 AddPanelCell(panelId, i.ToString());
             if (includeAc)
                 AddPanelCell(panelId, "AC");
+        }
+
+        public Panel? FindPanelByVendorLot(string? vendor, string? lotNumber)
+        {
+            if (string.IsNullOrWhiteSpace(lotNumber)) return null;
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT * FROM panels
+                WHERE lot_number = $lot
+                  AND ($vendor IS NULL OR vendor = $vendor)
+                ORDER BY panel_id
+                LIMIT 1";
+            cmd.Parameters.AddWithValue("$lot", lotNumber.Trim());
+            cmd.Parameters.AddWithValue("$vendor",
+                string.IsNullOrWhiteSpace(vendor) ? DBNull.Value : vendor.Trim());
+            using var r = cmd.ExecuteReader();
+            return r.Read() ? ReadPanel(r) : null;
+        }
+
+        public void SetPanelVendorMetadata(int panelId, string? catalogNumber, string? productLine,
+            bool enzymeTreated, string? sourceUrl, string? sourceFormat, string? importedAt,
+            string? specialNotes)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE panels SET catalog_number=$cat, product_line=$pline, enzyme_treated=$enz,
+                    source_url=$url, source_format=$fmt, imported_at=$imp, special_notes=$notes
+                WHERE panel_id=$id";
+            cmd.Parameters.AddWithValue("$cat", (object?)catalogNumber ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$pline", (object?)productLine ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$enz", enzymeTreated ? 1 : 0);
+            cmd.Parameters.AddWithValue("$url", (object?)sourceUrl ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$fmt", (object?)sourceFormat ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$imp", (object?)importedAt ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$notes", (object?)specialNotes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$id", panelId);
+            cmd.ExecuteNonQuery();
         }
 
         public void SetPanelActive(int panelId, bool active)
@@ -771,6 +855,21 @@ namespace AntibodyPanels.Data
                 if (!cell.HasTypedAntigen(ag)) continue;
                 UpdatePanelCellAntigen(cell.Id, ag, cell.GetAntigen(ag));
             }
+            UpdatePanelCellMetadata(cell.Id, cell.DonorId, cell.RhPhenotype, cell.SpecialTypes);
+        }
+
+        public void UpdatePanelCellMetadata(int cellId, string? donorId, string? rhPhenotype, string? specialTypes)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                UPDATE panel_cells
+                SET donor_id = $donor, rh_phenotype = $rh, special_types = $notes
+                WHERE id = $id";
+            cmd.Parameters.AddWithValue("$donor", (object?)donorId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$rh", (object?)rhPhenotype ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$notes", (object?)specialTypes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$id", cellId);
+            cmd.ExecuteNonQuery();
         }
 
         public void DeletePanelCells(int panelId)
@@ -820,6 +919,9 @@ namespace AntibodyPanels.Data
                     cell.SetAntigen(ag, imported.GetAntigen(ag));
                 foreach (var ag in extrasOnImport)
                     cell.SetAntigen(ag, imported.GetAntigen(ag));
+                cell.DonorId = imported.DonorId;
+                cell.RhPhenotype = imported.RhPhenotype;
+                cell.SpecialTypes = imported.SpecialTypes;
                 UpdatePanelCell(cell);
             }
 
@@ -841,8 +943,8 @@ namespace AntibodyPanels.Data
             using (var cmd = _conn.CreateCommand())
             {
                 cmd.CommandText = $@"
-                    INSERT INTO panel_cells (panel_id, cell_number, {agCols})
-                    SELECT {targetPanelId}, cell_number, {agCols}
+                    INSERT INTO panel_cells (panel_id, cell_number, donor_id, rh_phenotype, special_types, {agCols})
+                    SELECT {targetPanelId}, cell_number, donor_id, rh_phenotype, special_types, {agCols}
                     FROM panel_cells WHERE panel_id = $src";
                 cmd.Parameters.AddWithValue("$src", sourcePanelId);
                 cmd.ExecuteNonQuery();
@@ -1686,6 +1788,13 @@ namespace AntibodyPanels.Data
             ExpirationDate = r.IsDBNull(r.GetOrdinal("expiration_date")) ? null : r.GetString(r.GetOrdinal("expiration_date")),
             IncludeAc = r.GetInt32(r.GetOrdinal("include_ac")) != 0,
             IsActive = SafeGetInt(r, "is_active", 1) != 0,
+            CatalogNumber = SafeGetString(r, "catalog_number"),
+            ProductLine = SafeGetString(r, "product_line"),
+            EnzymeTreated = SafeGetInt(r, "enzyme_treated") != 0,
+            SourceUrl = SafeGetString(r, "source_url"),
+            SourceFormat = SafeGetString(r, "source_format"),
+            ImportedAt = SafeGetString(r, "imported_at"),
+            SpecialNotes = SafeGetString(r, "special_notes"),
         };
 
         private static PanelCell ReadPanelCell(SqliteDataReader r)
@@ -1695,6 +1804,9 @@ namespace AntibodyPanels.Data
                 Id = r.GetInt32(r.GetOrdinal("id")),
                 PanelId = r.GetInt32(r.GetOrdinal("panel_id")),
                 CellNumber = r.GetString(r.GetOrdinal("cell_number")),
+                DonorId = SafeGetString(r, "donor_id"),
+                RhPhenotype = SafeGetString(r, "rh_phenotype"),
+                SpecialTypes = SafeGetString(r, "special_types"),
             };
             foreach (var ag in AntigenConstants.Antigens)
             {
