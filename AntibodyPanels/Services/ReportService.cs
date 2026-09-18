@@ -35,7 +35,7 @@ namespace AntibodyPanels.Services
 
         public string GeneratePreviewText(ReportType type, string? specimenId = null, int? panelId = null)
         {
-            return type switch
+            var body = type switch
             {
                 ReportType.SpecimenSummary => SpecimenSummaryText(specimenId),
                 ReportType.PanelSummary => PanelSummaryText(panelId),
@@ -47,6 +47,7 @@ namespace AntibodyPanels.Services
                 ReportType.PendingWork => PendingWorkText(),
                 _ => string.Empty
             };
+            return SoftwareIdentity.ReportPreamble() + body;
         }
 
         private string SpecimenSummaryText(string? specimenId)
@@ -143,6 +144,7 @@ namespace AntibodyPanels.Services
             var sb = new StringBuilder();
             sb.AppendLine($"ANALYSIS RESULTS — {specimenId}");
             sb.AppendLine(new string('=', 50));
+            sb.AppendLine(AnalysisTraceLine(specimenId));
             sb.AppendLine($"Suspected Antibodies: {antibodies.Count}");
             foreach (var a in antibodies) sb.AppendLine($"  {a.Antibody}  {a.Probability * 100:F1}%");
             sb.AppendLine();
@@ -176,6 +178,7 @@ namespace AntibodyPanels.Services
                 sb.AppendLine(settings.Department);
             sb.AppendLine("ANTIBODY IDENTIFICATION WORKSHEET");
             sb.AppendLine(new string('=', 78));
+            sb.AppendLine(AnalysisTraceLine(specimenId));
             sb.AppendLine($"Accession: {s.AccessionNumber,-16} Type: {s.Type,-10} Date: {DateTime.Now:yyyy-MM-dd}");
             sb.AppendLine($"Phenotype: {s.Phenotype ?? "N/A"}");
             sb.AppendLine($"Previous antibodies: {s.PreviousAntibodies ?? "N/A"}");
@@ -283,6 +286,17 @@ namespace AntibodyPanels.Services
             sb.AppendLine();
             sb.AppendLine("Supervisor:   ___________________________  Date: ______________");
             return sb.ToString();
+        }
+
+        private string AnalysisTraceLine(string specimenId)
+        {
+            var settings = AppSettings.Current;
+            var snap = _db.GetLatestAnalysisSnapshot(specimenId);
+            var version = snap?.SoftwareVersion ?? SoftwareIdentity.Version;
+            var settingsText = snap?.SettingsJson
+                ?? $"threshold={settings.ProbabilityThreshold:0.00}; idRule={settings.IdentificationRuleLabel}; acs={settings.AcsRuleoutCount}";
+            var fingerprint = snap == null ? "n/a" : snap.InputFingerprint;
+            return $"Software {version}  Settings: {settingsText}  Input fingerprint: {fingerprint}";
         }
 
         private static string FormatSuspectedAntibodyLine(string antibody, double probability,

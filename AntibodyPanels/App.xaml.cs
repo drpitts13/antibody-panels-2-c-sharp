@@ -13,10 +13,12 @@ namespace AntibodyPanels
         {
             DispatcherUnhandledException += (_, args) =>
             {
+                AppLog.Error("Unhandled exception", args.Exception);
                 MessageBox.Show(args.Exception.Message, "Antibody Panels",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 args.Handled = true;
             };
+            AppLog.Info("Application starting");
 
             if (e.Args.Any(a => string.Equals(a, "--seed-clinical", StringComparison.OrdinalIgnoreCase)))
             {

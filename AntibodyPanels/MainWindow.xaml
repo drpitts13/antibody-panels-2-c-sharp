@@ -28,6 +28,8 @@
                           ToolTip="Remove old specimens to reclaim database space"/>
                 <MenuItem Header="_Open Archive..." Command="{Binding ShowOpenArchiveCommand}"
                           ToolTip="Read or restore a previously saved specimen archive"/>
+                <MenuItem Header="_Audit Log..." Command="{Binding ShowAuditLogCommand}"
+                          ToolTip="View the append-only clinical audit trail"/>
                 <Separator/>
                 <MenuItem Header="Load _Demo Data" Command="{Binding LoadDemoDataCommand}"
                           ToolTip="Seeds seven real-world scenarios for testing"/>

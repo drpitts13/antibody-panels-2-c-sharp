@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using AntibodyPanels.Models;
 
@@ -32,6 +33,7 @@ namespace AntibodyPanels.Data
             MigrateWarehouseAntigens();
             MigratePanelAntigenOrder();
             MigrateVendorPanelMetadata();
+            MigrateAuditAndSnapshots();
             DeactivateExpiredSpecimens();
             DeactivateExpiredPanels();
         }
@@ -285,6 +287,36 @@ namespace AntibodyPanels.Data
                 ExecNonQuery("ALTER TABLE panel_cells ADD COLUMN special_types TEXT");
         }
 
+        private void MigrateAuditAndSnapshots()
+        {
+            ExecNonQuery(@"
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    occurred_at_utc TEXT NOT NULL,
+                    operator TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    entity_type TEXT,
+                    entity_id TEXT,
+                    reason TEXT,
+                    before_json TEXT,
+                    after_json TEXT
+                )");
+
+            ExecNonQuery(@"
+                CREATE TABLE IF NOT EXISTS analysis_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    specimen_id TEXT NOT NULL,
+                    analyzed_at_utc TEXT NOT NULL,
+                    software_version TEXT NOT NULL,
+                    settings_json TEXT NOT NULL,
+                    input_fingerprint TEXT NOT NULL,
+                    ruled_out_json TEXT,
+                    suspected_json TEXT,
+                    acs_json TEXT,
+                    FOREIGN KEY (specimen_id) REFERENCES specimens(accession_number) ON DELETE CASCADE
+                )");
+        }
+
         private void DeactivateExpiredSpecimens()
         {
             var today = DateTime.Now.ToString("yyyy-MM-dd");
@@ -438,6 +470,7 @@ namespace AntibodyPanels.Data
         public void UpdateSpecimen(string accessionNumber, string type, string? expirationDate, bool isActive = true,
             string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null)
         {
+            EnsureSpecimenUnlocked(accessionNumber);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 UPDATE specimens SET type = $type, expiration_date = $exp, is_active = $active,
@@ -483,10 +516,34 @@ namespace AntibodyPanels.Data
                 : (identifiedAt ?? DateTime.Now).ToString("yyyy-MM-dd HH:mm"));
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.ExecuteNonQuery();
+            if (antibodies != null)
+            {
+                AppendAudit("confirm_final_call", "specimen", accessionNumber, null,
+                    afterJson: JsonSerializer.Serialize(new
+                    {
+                        antibodies,
+                        comment,
+                        identifiedBy
+                    }));
+            }
         }
 
-        public void ClearSpecimenFinalCall(string accessionNumber) =>
+        public void ClearSpecimenFinalCall(string accessionNumber, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("A reason is required to clear a confirmed identification.", nameof(reason));
+
+            var before = GetSpecimen(accessionNumber);
             SetSpecimenFinalCall(accessionNumber, null, null, null);
+            AppendAudit("clear_final_call", "specimen", accessionNumber, reason.Trim(),
+                beforeJson: before == null ? null : JsonSerializer.Serialize(new
+                {
+                    before.FinalAntibodies,
+                    before.FinalComment,
+                    before.IdentifiedBy,
+                    before.IdentifiedAt
+                }));
+        }
 
         public void DeleteSpecimen(string accessionNumber)
         {
@@ -671,6 +728,8 @@ namespace AntibodyPanels.Data
             if (includeAc)
                 AddPanelCell(panelId, "AC");
 
+            AppendAudit("add_panel", "panel", panelId.ToString(), null,
+                afterJson: JsonSerializer.Serialize(new { name, lotNumber, vendor }));
             return panelId;
         }
 
@@ -734,6 +793,8 @@ namespace AntibodyPanels.Data
                 AddPanelCell(panelId, i.ToString());
             if (includeAc)
                 AddPanelCell(panelId, "AC");
+            AppendAudit("update_panel", "panel", panelId.ToString(), null,
+                afterJson: JsonSerializer.Serialize(new { name, lotNumber, vendor }));
         }
 
         public Panel? FindPanelByVendorLot(string? vendor, string? lotNumber)
@@ -788,6 +849,7 @@ namespace AntibodyPanels.Data
             cmd.CommandText = "DELETE FROM panels WHERE panel_id = $id";
             cmd.Parameters.AddWithValue("$id", panelId);
             cmd.ExecuteNonQuery();
+            AppendAudit("delete_panel", "panel", panelId.ToString(), null, null, null);
         }
 
         // ── Panel Cells ───────────────────────────────────────────────────────
@@ -1169,6 +1231,7 @@ namespace AntibodyPanels.Data
 
         public void LinkSpecimenPanel(string specimenId, int panelId)
         {
+            EnsureSpecimenUnlocked(specimenId);
             try
             {
                 using var cmd = _conn.CreateCommand();
@@ -1183,6 +1246,7 @@ namespace AntibodyPanels.Data
 
         public void UnlinkSpecimenPanel(string specimenId, int panelId)
         {
+            EnsureSpecimenUnlocked(specimenId);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 DELETE FROM specimen_panels WHERE specimen_id = $sid AND panel_id = $pid";
@@ -1217,6 +1281,7 @@ namespace AntibodyPanels.Data
             SerumTreatment serumTreatment,
             string label = "")
         {
+            EnsureSpecimenUnlocked(specimenId);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 INSERT INTO panel_runs (specimen_id, panel_id, cell_treatment, serum_treatment, label, created_date)
@@ -1302,6 +1367,8 @@ namespace AntibodyPanels.Data
 
         public void DeletePanelRun(int runId)
         {
+            var run = GetPanelRun(runId);
+            if (run != null) EnsureSpecimenUnlocked(run.SpecimenId);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = "DELETE FROM panel_runs WHERE run_id = $id";
             cmd.Parameters.AddWithValue("$id", runId);
@@ -1324,6 +1391,7 @@ namespace AntibodyPanels.Data
         {
             // Need specimen_id to call TouchSpecimenReactionsUpdated
             var run = GetPanelRun(runId);
+            if (run != null) EnsureSpecimenUnlocked(run.SpecimenId);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 INSERT OR REPLACE INTO reactions (run_id, cell_number, ""IS"", C37, AHG, CC)
@@ -1335,7 +1403,20 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$ahg", ahg);
             cmd.Parameters.AddWithValue("$cc", cc);
             cmd.ExecuteNonQuery();
-            if (run != null) TouchSpecimenReactionsUpdated(run.SpecimenId);
+            if (run != null)
+            {
+                TouchSpecimenReactionsUpdated(run.SpecimenId);
+                AppendAudit("save_reaction", "specimen", run.SpecimenId, null,
+                    afterJson: JsonSerializer.Serialize(new
+                    {
+                        runId,
+                        cellNumber,
+                        is_,
+                        c37,
+                        ahg,
+                        cc
+                    }));
+            }
         }
 
         /// <summary>
@@ -1412,6 +1493,8 @@ namespace AntibodyPanels.Data
         /// <summary>Deletes all reactions for a specific run.</summary>
         public void DeleteReactions(int runId)
         {
+            var run = GetPanelRun(runId);
+            if (run != null) EnsureSpecimenUnlocked(run.SpecimenId);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = "DELETE FROM reactions WHERE run_id = $rid";
             cmd.Parameters.AddWithValue("$rid", runId);
@@ -1423,6 +1506,7 @@ namespace AntibodyPanels.Data
         /// </summary>
         public void DeleteReactions(string specimenId, int panelId)
         {
+            EnsureSpecimenUnlocked(specimenId);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 DELETE FROM reactions WHERE run_id IN (
@@ -1619,7 +1703,10 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$exc", (object?)exceptionAntigen ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$hetok", heterozygousOk ? 1 : 0);
             cmd.Parameters.AddWithValue("$min", minRuleoutCount);
-            return Convert.ToInt32(cmd.ExecuteScalar());
+            var id = Convert.ToInt32(cmd.ExecuteScalar());
+            AppendAudit("add_rule", "rule", id.ToString(), null,
+                afterJson: JsonSerializer.Serialize(new { name, antibody }));
+            return id;
         }
 
         public List<Rule> GetAllRules()
@@ -1648,6 +1735,8 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$min", minRuleoutCount);
             cmd.Parameters.AddWithValue("$id", ruleId);
             cmd.ExecuteNonQuery();
+            AppendAudit("update_rule", "rule", ruleId.ToString(), null,
+                afterJson: JsonSerializer.Serialize(new { name, antibody }));
         }
 
         public void DeleteRule(int ruleId)
@@ -1656,6 +1745,7 @@ namespace AntibodyPanels.Data
             cmd.CommandText = "DELETE FROM rules WHERE rule_id = $id";
             cmd.Parameters.AddWithValue("$id", ruleId);
             cmd.ExecuteNonQuery();
+            AppendAudit("delete_rule", "rule", ruleId.ToString(), null, null, null);
         }
 
         // ── Search ────────────────────────────────────────────────────────────
@@ -1994,6 +2084,8 @@ namespace AntibodyPanels.Data
             }
 
             Vacuum();
+            AppendAudit("purge", "database", cutoffDate, createdArchive,
+                afterJson: JsonSerializer.Serialize(new { count, archive = createdArchive }));
 
             return new PurgeResult
             {
@@ -2128,6 +2220,9 @@ namespace AntibodyPanels.Data
             BumpSequence("specimen_panels", "id");
             BumpSequence("panel_runs", "run_id");
             BumpSequence("reactions", "reaction_id");
+
+            AppendAudit("restore", "archive", path, null,
+                afterJson: JsonSerializer.Serialize(new { restored, skipped = archiveSpecimenCount - restored }));
 
             return new RestoreResult
             {
@@ -2366,6 +2461,113 @@ namespace AntibodyPanels.Data
             cmd.CommandText = $"PRAGMA {name};";
             var value = cmd.ExecuteScalar();
             return value == null || value is DBNull ? 0 : Convert.ToInt64(value);
+        }
+
+        public bool IsSpecimenLocked(string specimenId)
+        {
+            var specimen = GetSpecimen(specimenId);
+            return specimen?.HasFinalCall == true;
+        }
+
+        public void EnsureSpecimenUnlocked(string specimenId)
+        {
+            if (IsSpecimenLocked(specimenId))
+                throw new RecordLockedException(specimenId);
+        }
+
+        public void AppendAudit(string action, string? entityType, string? entityId, string? reason,
+            string? beforeJson = null, string? afterJson = null)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO audit_events
+                    (occurred_at_utc, operator, action, entity_type, entity_id, reason, before_json, after_json)
+                VALUES ($at, $op, $action, $type, $id, $reason, $before, $after)";
+            cmd.Parameters.AddWithValue("$at", DateTime.UtcNow.ToString("o"));
+            cmd.Parameters.AddWithValue("$op", Environment.UserName ?? "");
+            cmd.Parameters.AddWithValue("$action", action);
+            cmd.Parameters.AddWithValue("$type", (object?)entityType ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$id", (object?)entityId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$reason", (object?)reason ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$before", (object?)beforeJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$after", (object?)afterJson ?? DBNull.Value);
+            cmd.ExecuteNonQuery();
+        }
+
+        public List<AuditEvent> GetAuditEvents(int limit = 500)
+        {
+            var list = new List<AuditEvent>();
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT id, occurred_at_utc, operator, action, entity_type, entity_id, reason, before_json, after_json
+                FROM audit_events
+                ORDER BY id DESC
+                LIMIT $limit";
+            cmd.Parameters.AddWithValue("$limit", limit);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                list.Add(new AuditEvent
+                {
+                    Id = r.GetInt64(0),
+                    OccurredAtUtc = r.GetString(1),
+                    Operator = r.GetString(2),
+                    Action = r.GetString(3),
+                    EntityType = r.IsDBNull(4) ? null : r.GetString(4),
+                    EntityId = r.IsDBNull(5) ? null : r.GetString(5),
+                    Reason = r.IsDBNull(6) ? null : r.GetString(6),
+                    BeforeJson = r.IsDBNull(7) ? null : r.GetString(7),
+                    AfterJson = r.IsDBNull(8) ? null : r.GetString(8)
+                });
+            }
+            return list;
+        }
+
+        public void SaveAnalysisSnapshot(string specimenId, string softwareVersion, string settingsJson,
+            string inputFingerprint, string? ruledOutJson, string? suspectedJson, string? acsJson)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO analysis_snapshots
+                    (specimen_id, analyzed_at_utc, software_version, settings_json, input_fingerprint,
+                     ruled_out_json, suspected_json, acs_json)
+                VALUES ($sid, $at, $ver, $settings, $fp, $ro, $sus, $acs)";
+            cmd.Parameters.AddWithValue("$sid", specimenId);
+            cmd.Parameters.AddWithValue("$at", DateTime.UtcNow.ToString("o"));
+            cmd.Parameters.AddWithValue("$ver", softwareVersion);
+            cmd.Parameters.AddWithValue("$settings", settingsJson);
+            cmd.Parameters.AddWithValue("$fp", inputFingerprint);
+            cmd.Parameters.AddWithValue("$ro", (object?)ruledOutJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$sus", (object?)suspectedJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$acs", (object?)acsJson ?? DBNull.Value);
+            cmd.ExecuteNonQuery();
+        }
+
+        public AnalysisSnapshot? GetLatestAnalysisSnapshot(string specimenId)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT id, specimen_id, analyzed_at_utc, software_version, settings_json, input_fingerprint,
+                       ruled_out_json, suspected_json, acs_json
+                FROM analysis_snapshots
+                WHERE specimen_id = $sid
+                ORDER BY id DESC
+                LIMIT 1";
+            cmd.Parameters.AddWithValue("$sid", specimenId);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return null;
+            return new AnalysisSnapshot
+            {
+                Id = r.GetInt64(0),
+                SpecimenId = r.GetString(1),
+                AnalyzedAtUtc = r.GetString(2),
+                SoftwareVersion = r.GetString(3),
+                SettingsJson = r.GetString(4),
+                InputFingerprint = r.GetString(5),
+                RuledOutJson = r.IsDBNull(6) ? null : r.GetString(6),
+                SuspectedJson = r.IsDBNull(7) ? null : r.GetString(7),
+                AcsJson = r.IsDBNull(8) ? null : r.GetString(8)
+            };
         }
 
         public void Dispose() => _conn?.Dispose();

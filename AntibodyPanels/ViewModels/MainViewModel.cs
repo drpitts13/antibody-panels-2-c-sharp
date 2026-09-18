@@ -33,6 +33,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand? ShowSettingsCommand { get; set; }
         public ICommand? ShowPurgeDatabaseCommand { get; set; }
         public ICommand? ShowOpenArchiveCommand { get; set; }
+        public ICommand? ShowAuditLogCommand { get; set; }
 
         private string _statusText = "Ready";
         public string StatusText
@@ -53,8 +54,6 @@ namespace AntibodyPanels.ViewModels
             SettingsService.Load();
             Database = new DatabaseService();
             Analyzer = new AntibodyAnalyzer(Database);
-            ClinicalDataSeeder.SeedIfNeeded(Database, Analyzer);
-            DemoDataSeeder.SeedIfNeeded(Database);
 
             WorklistVM = new WorklistViewModel(Database, this);
             SpecimensVM = new SpecimensViewModel(Database, this);

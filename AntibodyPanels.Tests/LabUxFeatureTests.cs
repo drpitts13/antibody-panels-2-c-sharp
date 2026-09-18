@@ -167,7 +167,7 @@ public class LabUxFeatureTests
         Assert.DoesNotContain(after, i => i.Kind == WorklistKind.IncompleteReactions);
         Assert.DoesNotContain(after, i => i.Kind == WorklistKind.StaleAnalysis);
 
-        iso.Db.ClearSpecimenFinalCall("DONE-001");
+        iso.Db.ClearSpecimenFinalCall("DONE-001", "worklist restore test");
         var restored = iso.Db.GetWorklistItems(14)
             .Where(i => i.AccessionNumber == "DONE-001")
             .ToList();

@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Windows;
+using AntibodyPanels.Data;
 using AntibodyPanels.Models;
 using AntibodyPanels.Services;
 
@@ -7,8 +9,11 @@ namespace AntibodyPanels.Views.Dialogs
 {
     public partial class SettingsDialog : Window
     {
-        public SettingsDialog()
+        private readonly DatabaseService? _db;
+
+        public SettingsDialog(DatabaseService? db = null)
         {
+            _db = db;
             InitializeComponent();
             var s = AppSettings.Current;
             LabNameBox.Text = s.LabName;
@@ -70,6 +75,7 @@ namespace AntibodyPanels.Views.Dialogs
                 return;
             }
 
+            var before = JsonSerializer.Serialize(AppSettings.Current.ClinicalSnapshot());
             AppSettings.Current.LabName = LabNameBox.Text.Trim();
             AppSettings.Current.Department = DepartmentBox.Text.Trim();
             AppSettings.Current.ProbabilityThreshold = threshold;
@@ -85,6 +91,9 @@ namespace AntibodyPanels.Views.Dialogs
             AppSettings.Current.ShowInactiveByDefault = ShowInactiveCheck.IsChecked == true;
             AppSettings.Current.HideRuledOutAntigenColumns = HideRuledOutCheck.IsChecked == true;
             SettingsService.Save();
+            var after = JsonSerializer.Serialize(AppSettings.Current.ClinicalSnapshot());
+            if (_db != null && before != after)
+                _db.AppendAudit("update_settings", "settings", "lab", null, before, after);
             DialogResult = true;
         }
     }

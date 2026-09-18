@@ -20,6 +20,7 @@ namespace AntibodyPanels.Models
         public bool WorklistShowStale { get; set; } = true;
         public bool WorklistShowExpiring { get; set; } = true;
         public bool WorklistShowExpired { get; set; } = true;
+        public bool IntendedUseAcknowledged { get; set; }
 
         public string IdentificationRuleLabel =>
             $"{IdentificationCellCount} + {IdentificationCellCount}";
@@ -80,6 +81,13 @@ namespace AntibodyPanels.Models
             "Expired" => WorklistShowExpired && !WorklistShowIncomplete &&
                          !WorklistShowStale && !WorklistShowExpiring,
             _ => false
+        };
+
+        public object ClinicalSnapshot() => new
+        {
+            ProbabilityThreshold,
+            IdentificationCellCount,
+            AcsRuleoutCount
         };
 
         public string IsolatedWorklistLabel =>

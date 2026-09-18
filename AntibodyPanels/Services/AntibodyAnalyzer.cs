@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using AntibodyPanels.Data;
 using AntibodyPanels.Models;
 
@@ -42,7 +45,8 @@ namespace AntibodyPanels.Services
             var inferences = BuildTreatmentInferences(byRun, contexts, suspected);
             var absorptionConclusions = BuildAbsorptionConclusions(byRun, contexts, suspected);
 
-            if (updateDb) UpdateSpecimenAnalysis(specimenId, ruledOut, suspected);
+            if (updateDb && _db.IsSpecimenLocked(specimenId))
+                throw new RecordLockedException(specimenId);
 
             var result = new AnalysisResult
             {
@@ -62,7 +66,55 @@ namespace AntibodyPanels.Services
                 Acs = EvaluateAcs(ruledOut, allScores),
             };
             result.Suggestions = GenerateSuggestions(result);
+
+            if (updateDb)
+            {
+                UpdateSpecimenAnalysis(specimenId, ruledOut, suspected);
+                PersistSnapshot(specimenId, reactions, runs, result);
+            }
+
             return result;
+        }
+
+        private void PersistSnapshot(string specimenId, List<Reaction> reactions,
+            List<PanelRun> runs, AnalysisResult result)
+        {
+            var settings = AppSettings.Current;
+            var settingsJson = JsonSerializer.Serialize(settings.ClinicalSnapshot());
+            var fingerprint = ComputeInputFingerprint(reactions, runs);
+            _db.SaveAnalysisSnapshot(
+                specimenId,
+                SoftwareIdentity.Version,
+                settingsJson,
+                fingerprint,
+                JsonSerializer.Serialize(result.RuledOut),
+                JsonSerializer.Serialize(result.Suspected),
+                JsonSerializer.Serialize(new
+                {
+                    result.Acs.IsEligible,
+                    result.Acs.IsEligibleWithException,
+                    result.Acs.RequiredRuleoutCount,
+                    result.Acs.SuggestedCombinedResult
+                }));
+        }
+
+        public static string ComputeInputFingerprint(IEnumerable<Reaction> reactions, IEnumerable<PanelRun> runs)
+        {
+            var sb = new StringBuilder();
+            foreach (var run in runs.OrderBy(r => r.RunId))
+            {
+                sb.Append(run.RunId).Append('|')
+                    .Append(run.CellTreatment).Append('|')
+                    .Append(run.SerumTreatment).Append(';');
+            }
+            foreach (var rx in reactions.OrderBy(r => r.RunId).ThenBy(r => r.CellNumber, StringComparer.Ordinal))
+            {
+                sb.Append(rx.RunId).Append('|').Append(rx.CellNumber).Append('|')
+                    .Append(rx.IS).Append('|').Append(rx.C37).Append('|')
+                    .Append(rx.AHG).Append('|').Append(rx.CC).Append(';');
+            }
+
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
         }
 
         // ── Context helpers ───────────────────────────────────────────────────

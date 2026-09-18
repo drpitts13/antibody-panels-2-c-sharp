@@ -6,6 +6,7 @@ using System.Windows.Input;
 using AntibodyPanels.Data;
 using AntibodyPanels.Models;
 using AntibodyPanels.Services;
+using AntibodyPanels.Views.Dialogs;
 
 namespace AntibodyPanels.ViewModels
 {
@@ -213,13 +214,21 @@ namespace AntibodyPanels.ViewModels
             if (SelectedSpecimen == null) return;
             _main.SetStatus("Running analysis...");
 
-            var result = _analyzer.AnalyzeSpecimen(SelectedSpecimen.AccessionNumber, updateDb: true);
-            PopulateFromResult(result);
-            OfferAcsException(result);
-            IsStale = false;
-            _main.SetStatus($"Analysis complete — {SuspectedRows.Count} suspected, {RuleoutRows.Count} ruled out.");
-            _main.SpecimensVM.Refresh();
-            _main.WorklistVM.Refresh();
+            try
+            {
+                var result = _analyzer.AnalyzeSpecimen(SelectedSpecimen.AccessionNumber, updateDb: true);
+                PopulateFromResult(result);
+                OfferAcsException(result);
+                IsStale = false;
+                _main.SetStatus($"Analysis complete — {SuspectedRows.Count} suspected, {RuleoutRows.Count} ruled out.");
+                _main.SpecimensVM.Refresh();
+                _main.WorklistVM.Refresh();
+            }
+            catch (RecordLockedException ex)
+            {
+                MessageBox.Show(ex.Message, "Record locked",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void ClearResults()
@@ -460,10 +469,10 @@ namespace AntibodyPanels.ViewModels
         private void ClearConfirmation()
         {
             if (SelectedSpecimen == null) return;
-            if (MessageBox.Show("Clear the confirmed identification for this specimen?",
-                "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
-                return;
-            _db.ClearSpecimenFinalCall(SelectedSpecimen.AccessionNumber);
+            var reasonDlg = new ReasonDialog(
+                "Enter the reason for clearing the confirmed identification. This is recorded in the audit log.");
+            if (reasonDlg.ShowDialog() != true) return;
+            _db.ClearSpecimenFinalCall(SelectedSpecimen.AccessionNumber, reasonDlg.Reason);
             FinalComment = string.Empty;
             LoadFinalCall(SelectedSpecimen);
             _main.SpecimensVM.Refresh();

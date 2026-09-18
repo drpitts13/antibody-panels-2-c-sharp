@@ -28,6 +28,7 @@ namespace AntibodyPanels
             vm.ShowSettingsCommand = new RelayCommand(ShowSettings);
             vm.ShowPurgeDatabaseCommand = new RelayCommand(ShowPurgeDatabase);
             vm.ShowOpenArchiveCommand = new RelayCommand(ShowOpenArchive);
+            vm.ShowAuditLogCommand = new RelayCommand(ShowAuditLog);
 
             // F1 shortcut
             InputBindings.Add(new KeyBinding(vm.ShowShortcutsCommand, Key.F1, ModifierKeys.None));
@@ -46,6 +47,7 @@ namespace AntibodyPanels
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            AcknowledgeIntendedUseIfNeeded();
             ViewModel.NotifyCapacityIfNeeded();
             if (!ViewModel.IsDatabaseNearCapacity) return;
 
@@ -136,7 +138,7 @@ namespace AntibodyPanels
 
         private void ShowSettings()
         {
-            var dlg = new Views.Dialogs.SettingsDialog { Owner = this };
+            var dlg = new Views.Dialogs.SettingsDialog(ViewModel.Database) { Owner = this };
             if (dlg.ShowDialog() == true)
             {
                 ViewModel.SetStatus("Preferences saved.");
@@ -148,6 +150,7 @@ namespace AntibodyPanels
         {
             MessageBox.Show(
                 "Keyboard Shortcuts\n\n" +
+                SoftwareIdentity.IntendedUse + "\n\n" +
                 "Ctrl+S     Save current tab\n" +
                 "Ctrl+R     Refresh all tabs\n" +
                 "Ctrl+N     New item (context-aware)\n" +
@@ -200,15 +203,25 @@ namespace AntibodyPanels
             }
         }
 
+        private void ShowAuditLog()
+        {
+            var dlg = new Views.Dialogs.AuditLogDialog(ViewModel.Database) { Owner = this };
+            dlg.ShowDialog();
+        }
+
+        private void AcknowledgeIntendedUseIfNeeded()
+        {
+            if (AppSettings.Current.IntendedUseAcknowledged) return;
+            MessageBox.Show(SoftwareIdentity.IntendedUse, "Intended use",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            AppSettings.Current.IntendedUseAcknowledged = true;
+            SettingsService.Save();
+        }
+
         private void ShowAbout()
         {
-            MessageBox.Show(
-                "Antibody Panel Management System\n\n" +
-                "Version 2.0 (C# / WPF)\n\n" +
-                "A comprehensive system for managing antibody panels,\n" +
-                "specimen reactions, and antibody identification analysis.\n\n" +
-                "Press F1 for keyboard shortcuts.",
-                "About", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(SoftwareIdentity.AboutText(), "About",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 }
