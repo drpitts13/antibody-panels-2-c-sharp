@@ -115,6 +115,36 @@ public class ReactionSlashTests
     }
 
     [Fact]
+    public void CorrectingAhgToPositive_RemovesSlashes()
+    {
+        var cell = Cell("2", ("K", "+"), ("k", "-"), ("D", "+"));
+        var row = Row(cell, NegativeReaction());
+        Assert.Contains("K", row.SlashedAntigens);
+        Assert.Contains("D", row.SlashedAntigens);
+
+        row.AHG = "2+";
+
+        Assert.False(row.IsNegative);
+        Assert.Empty(row.SlashedAntigens);
+        Assert.False(row.HasRuleout);
+        Assert.Equal(string.Empty, row.RuledOutNote);
+    }
+
+    [Fact]
+    public void CorrectingIsToPositive_RemovesSlashes()
+    {
+        var cell = Cell("2", ("K", "+"), ("k", "-"));
+        var row = Row(cell, NegativeReaction());
+        Assert.Contains("K", row.SlashedAntigens);
+
+        row.IS = "1+";
+
+        Assert.False(row.IsNegative);
+        Assert.Empty(row.SlashedAntigens);
+        Assert.False(row.HasRuleout);
+    }
+
+    [Fact]
     public void UnknownZygosity_IsNotSlashed()
     {
         var cell = Cell("2", ("K", "+"));
