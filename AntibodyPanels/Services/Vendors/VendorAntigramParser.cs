@@ -14,11 +14,23 @@ namespace AntibodyPanels.Services.Vendors
     public static class VendorAntigramParser
     {
         private static readonly Regex LotRegex = new(
-            @"\b(?:LOT|Lot|lot)\s*[:#]?\s*([A-Z0-9][A-Z0-9.\-/]{2,})",
+            @"\b(?:LOT|Lot|lot)\s*(?:No\.?|Number|#)?\s*[:#]?\s*([A-Z0-9][A-Z0-9.\-/]{2,})",
+            RegexOptions.Compiled);
+        private static readonly Regex BioRadLotRegex = new(
+            @"\b((?:45161|45171)(?:\.\d+){1,2}(?:\.[0-9xX]+)?)\b",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex QuotientLotRegex = new(
+            @"(?<![A-Za-z0-9])(V\d{6})(?![0-9])",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex OrthoLotRegex = new(
+            @"\b((?:RA|RB|RC)\d{3})\b",
             RegexOptions.Compiled);
         private static readonly Regex ExpRegex = new(
-            @"\b(?:Exp(?:\.|iration)?|Vencimento|Valid(?:ity)?)\s*(?:date)?\s*[:.]?\s*(\d{4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})",
+            @"\b(?:Exp(?:\.|ir(?:y|ation))?|Vencimento|Valid(?:ity)?)\s*(?:date)?\s*[:.]?\s*(\d{4}[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex BareIsoDateRegex = new(
+            @"\b(20\d{2}[./-]\d{1,2}[./-]\d{1,2})\b",
+            RegexOptions.Compiled);
 
         public static VendorParseResult Parse(Stream stream, string vendor, string? fileNameHint,
             VendorLotListing? listing)
@@ -185,7 +197,7 @@ namespace AntibodyPanels.Services.Vendors
         private static VendorParseResult SeedResult(string vendor, VendorLotListing? listing,
             string fileName, string text)
         {
-            var lot = listing?.LotNumber ?? ExtractLot(text);
+            var lot = listing?.LotNumber ?? ExtractLot(text) ?? ExtractLot(fileName);
             var exp = listing?.ExpirationDate ?? ExtractExpiration(text);
             var product = listing?.ProductLine
                 ?? GuessProductLine(vendor, text, fileName);
@@ -424,13 +436,40 @@ namespace AntibodyPanels.Services.Vendors
 
         public static string? ExtractLot(string text)
         {
-            var m = LotRegex.Match(text);
-            return m.Success ? m.Groups[1].Value.Trim().TrimEnd('.') : null;
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            var labeled = LotRegex.Match(text);
+            if (labeled.Success)
+            {
+                var value = labeled.Groups[1].Value.Trim().TrimEnd('.');
+                if (value.Length >= 3 &&
+                    !value.Equals("No", StringComparison.OrdinalIgnoreCase) &&
+                    !value.Equals("Number", StringComparison.OrdinalIgnoreCase))
+                    return value;
+            }
+
+            var bioRad = BioRadLotRegex.Match(text);
+            if (bioRad.Success)
+                return bioRad.Groups[1].Value.Trim();
+
+            var quotient = QuotientLotRegex.Match(text);
+            if (quotient.Success)
+                return quotient.Groups[1].Value.Trim().ToUpperInvariant();
+
+            var ortho = OrthoLotRegex.Match(text);
+            if (ortho.Success)
+                return ortho.Groups[1].Value.Trim().ToUpperInvariant();
+
+            return null;
         }
 
         public static string? ExtractExpiration(string text)
         {
+            if (string.IsNullOrWhiteSpace(text)) return null;
             var m = ExpRegex.Match(text);
+            if (m.Success)
+                return NormalizeDate(m.Groups[1].Value);
+            m = BareIsoDateRegex.Match(text);
             return m.Success ? NormalizeDate(m.Groups[1].Value) : null;
         }
 

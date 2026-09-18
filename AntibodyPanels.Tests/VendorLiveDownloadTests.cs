@@ -73,4 +73,51 @@ public class VendorLiveDownloadTests
             _output.WriteLine($"Persisted {persisted.Count} vendor panel(s) to {path}");
         }
     }
+
+    [Fact]
+    public async Task PublicPdf_ImportFile_ParsesKnownVendorAntigrams()
+    {
+        using var http = new VendorHttpClient();
+        using var catalog = new VendorCatalogService();
+        using var iso = new IsolatedDatabase();
+        var importer = new VendorPanelImportService(iso.Db);
+        var dir = Path.Combine(Path.GetTempPath(), "AntibodyPanelsVendorImport");
+        Directory.CreateDirectory(dir);
+
+        var files = new (string Vendor, string Url, string FileName)[]
+        {
+            (VendorIds.BioRad,
+                "https://backend.ih-area.bio-rad.com/system/files/F06171.31X_V.01.pdf",
+                "F06171.31X_V.01.pdf"),
+            (VendorIds.Quotient,
+                "https://alivedx.com/wp-content/uploads/2023/10/V265925.pdf",
+                "V265925.pdf"),
+            (VendorIds.Quotient,
+                "https://alivedx.com/wp-content/uploads/2023/10/V265842_V265844.pdf",
+                "V265842_V265844.pdf"),
+        };
+
+        foreach (var (vendor, url, fileName) in files)
+        {
+            var path = Path.Combine(dir, fileName);
+            var bytes = await http.GetBytesAsync(url);
+            await File.WriteAllBytesAsync(path, bytes);
+            Assert.True(bytes.Length > 1000, $"{fileName} download was too small ({bytes.Length} bytes)");
+
+            var parsed = catalog.ImportFile(vendor, path);
+            parsed.SourceUrl ??= url;
+            parsed.SourceFormat = "pdf";
+            _output.WriteLine(
+                $"{vendor} {fileName}: success={parsed.Success} cells={parsed.Cells.Count} " +
+                $"lot={parsed.LotNumber} errors={string.Join("; ", parsed.Errors)}");
+            Assert.True(parsed.Success, $"{fileName}: " + string.Join("\n", parsed.Errors));
+            Assert.False(string.IsNullOrWhiteSpace(parsed.LotNumber), $"{fileName} parsed cells but no lot number");
+            Assert.True(parsed.Cells.Count >= 8, $"{fileName} parsed {parsed.Cells.Count} cells");
+            Assert.Contains(parsed.Cells, c => c.GetAntigen("D") == "+" || c.GetAntigen("D") == "-");
+
+            var id = importer.Persist(parsed, replaceExisting: true);
+            Assert.NotNull(iso.Db.FindPanelByVendorLot(parsed.Vendor, parsed.LotNumber));
+            _output.WriteLine($"Persisted {vendor} lot {parsed.LotNumber} as panel #{id} from {path}");
+        }
+    }
 }

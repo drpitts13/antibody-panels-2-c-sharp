@@ -52,6 +52,35 @@ public class VendorPanelImportTests
     }
 
     [Fact]
+    public void MedionCsvImport_PersistsVendorMetadata()
+    {
+        using var iso = new IsolatedDatabase();
+        using var catalog = new VendorCatalogService();
+        var parsed = catalog.ImportFile(VendorIds.Medion, Fixture("vendor-generic.csv"));
+        Assert.True(parsed.Success, string.Join("\n", parsed.Errors));
+        Assert.Equal(3, parsed.Cells.Count);
+        Assert.Equal("+", parsed.Cells[0].GetAntigen("D"));
+
+        parsed.Vendor = VendorIds.Medion;
+        parsed.LotNumber = "MED-TEST-1";
+        parsed.ExpirationDate = "2030-06-01";
+        parsed.CatalogNumber = "213654";
+        parsed.ProductLine = "Data-Cyte Plus";
+        parsed.SourceFormat = "csv";
+
+        var id = new VendorPanelImportService(iso.Db).Persist(parsed);
+        var stored = iso.Db.GetPanel(id);
+        Assert.NotNull(stored);
+        Assert.Equal(VendorIds.Medion, stored!.Vendor);
+        Assert.Equal("MED-TEST-1", stored.LotNumber);
+        Assert.Equal("213654", stored.CatalogNumber);
+        Assert.Equal("Data-Cyte Plus", stored.ProductLine);
+        Assert.Equal("csv", stored.SourceFormat);
+        Assert.False(string.IsNullOrWhiteSpace(stored.ImportedAt));
+        Assert.Equal(stored.PanelId, iso.Db.FindPanelByVendorLot(VendorIds.Medion, "MED-TEST-1")!.PanelId);
+    }
+
+    [Fact]
     public void DuplicateLot_ThrowsUnlessReplaceRequested()
     {
         using var iso = new IsolatedDatabase();
@@ -106,6 +135,25 @@ public class VendorPanelImportTests
         Assert.False(catalog.GetSource(VendorIds.Grifols).CanListLots);
         Assert.False(catalog.GetSource(VendorIds.Medion).CanListLots);
         Assert.True(catalog.GetSource(VendorIds.BioRad).CanListLots);
+    }
+
+    [Theory]
+    [InlineData("Set ID-DiaPanel: 45161.31.x (Japan: 4516.31.xx) 2025.11.24", "45161.31.x")]
+    [InlineData("Lot No: V265925 Expiry Date: 2023.12.04", "V265925")]
+    [InlineData("ALBAcyte V265842_V265844.pdf", "V265842")]
+    [InlineData("Resolve Panel A RA301 Exp 2026/10/13", "RA301")]
+    public void ExtractLot_ReadsVendorSpecificLabels(string text, string expected)
+    {
+        Assert.Equal(expected, VendorAntigramParser.ExtractLot(text));
+    }
+
+    [Theory]
+    [InlineData("Expiry Date: 2023.12.04", "2023-12-04")]
+    [InlineData("Exp. date: 2026.04.13", "2026-04-13")]
+    [InlineData("Set ID-DiaPanel: 45161.31.x 2025.11.24", "2025-11-24")]
+    public void ExtractExpiration_NormalizesVendorDates(string text, string expected)
+    {
+        Assert.Equal(expected, VendorAntigramParser.ExtractExpiration(text));
     }
 
     [Fact]
