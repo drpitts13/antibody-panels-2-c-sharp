@@ -44,7 +44,7 @@ namespace AntibodyPanels.Views
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextAlignment = TextAlignment.Center,
-                FontSize = 22,
+                FontSize = 11,
                 FontWeight = FontWeights.SemiBold
             };
             Children.Add(_text);

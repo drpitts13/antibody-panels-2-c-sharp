@@ -84,12 +84,12 @@
         <!-- Right: Antigen Grid -->
         <DockPanel Grid.Column="2" Margin="6">
             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-                <TextBlock FontWeight="Bold" FontSize="14">
+                <TextBlock FontWeight="Bold" FontSize="13">
                     <Run Text="Antigen Grid: "/>
                     <Run Text="{Binding SelectedPanel.Name}"/>
                 </TextBlock>
             </DockPanel>
-            <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Foreground="#546E7A" FontSize="12"
+            <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Foreground="#546E7A" FontSize="13"
                        Text="Press Edit to change antigens or drag column headers to reorder. Green = +, light gray = −. Save or Cancel to leave edit mode."/>
 
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
@@ -105,7 +105,6 @@
                           FrozenColumnCount="1"
                           SelectionUnit="Cell"
                           FontSize="13"
-                          RowHeight="36"
                           Loaded="AntigenGrid_Loaded"
                           ColumnDisplayIndexChanged="AntigenGrid_ColumnDisplayIndexChanged"
                           PreviewMouseLeftButtonDown="AntigenGrid_PreviewMouseLeftButtonDown"

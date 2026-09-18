@@ -33,7 +33,7 @@ namespace AntibodyPanels.Views
             var markStyle = new Style(typeof(TextBlock));
             markStyle.Setters.Add(new Setter(TextBlock.TextAlignmentProperty, TextAlignment.Center));
             markStyle.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
-            markStyle.Setters.Add(new Setter(TextBlock.FontSizeProperty, 24.0));
+            markStyle.Setters.Add(new Setter(TextBlock.FontSizeProperty, 12.0));
 
             foreach (var col in ResultsGrid.Columns.Skip(3).OfType<DataGridTextColumn>())
                 col.ElementStyle = markStyle;
