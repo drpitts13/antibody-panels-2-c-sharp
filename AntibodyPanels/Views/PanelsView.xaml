@@ -82,7 +82,15 @@
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTextColumn Header="Lot #" Binding="{Binding LotNumber}" Width="64"/>
+                    <DataGridTextColumn Header="Lot #" Binding="{Binding LotNumber}" Width="Auto" MinWidth="56">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="TextWrapping" Value="NoWrap"/>
+                                <Setter Property="TextTrimming" Value="None"/>
+                                <Setter Property="Padding" Value="4,0"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Cells" Binding="{Binding NumCells}" Width="40"/>
                     <DataGridTextColumn Header="Expires" Binding="{Binding ExpirationDate}" Width="72"/>
                     <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" IsReadOnly="True" Width="44"/>
