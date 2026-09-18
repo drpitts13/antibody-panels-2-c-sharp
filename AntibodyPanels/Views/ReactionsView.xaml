@@ -6,7 +6,7 @@
     <UserControl.Resources>
         <!-- Header template for antigen columns — binds to AntigenColumnHeader objects -->
         <DataTemplate x:Key="AntigenHeaderTemplate" DataType="{x:Type views:AntigenColumnHeader}">
-            <TextBlock Text="{Binding Antigen}" FontSize="11" FontWeight="SemiBold"
+            <TextBlock Text="{Binding Antigen}" FontSize="13.75" FontWeight="SemiBold"
                        HorizontalAlignment="Center">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
@@ -161,10 +161,19 @@
                   AutoGenerateColumns="False"
                   CanUserAddRows="False" CanUserDeleteRows="False"
                   GridLinesVisibility="All" HeadersVisibility="Column"
-                  SelectionUnit="Cell" FontSize="11"
+                  SelectionUnit="Cell" FontSize="13.75"
+                  RowHeight="28"
                   FrozenColumnCount="1"
                   Loaded="ReactionsGrid_Loaded"
                   PreviewKeyDown="ReactionsGrid_PreviewKeyDown">
+            <DataGrid.Resources>
+                <Style x:Key="ReactionGradeComboStyle" TargetType="ComboBox">
+                    <Setter Property="FontSize" Value="13.75"/>
+                    <Setter Property="MinHeight" Value="24"/>
+                    <Setter Property="Padding" Value="2,1"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                </Style>
+            </DataGrid.Resources>
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
@@ -181,20 +190,28 @@
             </DataGrid.RowStyle>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}"
-                                    Width="48" IsReadOnly="True"/>
+                                    Width="60" IsReadOnly="True"/>
                 <!-- antigen columns inserted here by code-behind -->
-                <DataGridComboBoxColumn Header="IS" Width="72"
+                <DataGridComboBoxColumn Header="IS" Width="90"
                     SelectedItemBinding="{Binding IS, UpdateSourceTrigger=PropertyChanged}"
-                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
-                <DataGridComboBoxColumn Header="37°C" Width="72"
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"
+                    ElementStyle="{StaticResource ReactionGradeComboStyle}"
+                    EditingElementStyle="{StaticResource ReactionGradeComboStyle}"/>
+                <DataGridComboBoxColumn Header="37°C" Width="90"
                     SelectedItemBinding="{Binding C37, UpdateSourceTrigger=PropertyChanged}"
-                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
-                <DataGridComboBoxColumn Header="AHG" Width="72"
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"
+                    ElementStyle="{StaticResource ReactionGradeComboStyle}"
+                    EditingElementStyle="{StaticResource ReactionGradeComboStyle}"/>
+                <DataGridComboBoxColumn Header="AHG" Width="90"
                     SelectedItemBinding="{Binding AHG, UpdateSourceTrigger=PropertyChanged}"
-                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
-                <DataGridComboBoxColumn Header="CC" Width="72"
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"
+                    ElementStyle="{StaticResource ReactionGradeComboStyle}"
+                    EditingElementStyle="{StaticResource ReactionGradeComboStyle}"/>
+                <DataGridComboBoxColumn Header="CC" Width="90"
                     SelectedItemBinding="{Binding CC, UpdateSourceTrigger=PropertyChanged}"
-                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"/>
+                    ItemsSource="{x:Static local:ReactionsViewModel.ReactionValues}"
+                    ElementStyle="{StaticResource ReactionGradeComboStyle}"
+                    EditingElementStyle="{StaticResource ReactionGradeComboStyle}"/>
                 <!-- Ruled Out column appended after antigens in code-behind -->
             </DataGrid.Columns>
         </DataGrid>

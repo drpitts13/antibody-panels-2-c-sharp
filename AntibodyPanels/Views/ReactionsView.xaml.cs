@@ -153,7 +153,7 @@ namespace AntibodyPanels.Views
                 {
                     Header = header,
                     HeaderTemplate = headerTemplate,
-                    Width = ag.Length >= 3 ? 42 : 38,
+                    Width = ag.Length >= 3 ? 52.5 : 47.5,
                     IsReadOnly = true,
                     CellTemplate = CreateAntigenCellTemplate(ag),
                     CellStyle = cellStyle,
@@ -184,13 +184,13 @@ namespace AntibodyPanels.Views
             ruledOutStyle.Setters.Add(new Setter(TextBlock.ForegroundProperty,
                 new SolidColorBrush(Color.FromRgb(46, 125, 50))));
             ruledOutStyle.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeights.SemiBold));
-            ruledOutStyle.Setters.Add(new Setter(TextBlock.FontSizeProperty, 11.0));
+            ruledOutStyle.Setters.Add(new Setter(TextBlock.FontSizeProperty, 13.75));
 
             var ruledOutCol = new DataGridTextColumn
             {
                 Header = "Ruled Out",
                 Width = DataGridLength.Auto,
-                MinWidth = 120,
+                MinWidth = 150,
                 IsReadOnly = true,
                 Binding = new Binding("RuledOutNote"),
                 ElementStyle = ruledOutStyle,
