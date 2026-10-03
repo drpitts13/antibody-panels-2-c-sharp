@@ -15,8 +15,59 @@ namespace AntibodyPanels.Models
 
         public static readonly IReadOnlyList<string> Suggested = new[] { "RT", "PEG", "Gel", "Solid" };
 
+        private static readonly HashSet<string> IatLike = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "AHG", "IAT", "Gel", "Solid", "PEG"
+        };
+
         public static bool IsReserved(string? name) =>
             !string.IsNullOrWhiteSpace(name) && Reserved.Contains(name.Trim());
+
+        public static bool IsIatLike(string? name) =>
+            !string.IsNullOrWhiteSpace(name) && IatLike.Contains(name.Trim());
+
+        public static bool Contains(string? configured, string name) =>
+            Parse(configured).Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
+
+        public static string CanonicalName(string? name)
+        {
+            var trimmed = (name ?? string.Empty).Trim();
+            return Suggested.FirstOrDefault(s => string.Equals(s, trimmed, StringComparison.OrdinalIgnoreCase))
+                   ?? trimmed;
+        }
+
+        /// <summary>
+        /// Builds the lab ExtraPhases list from suggested method columns plus any
+        /// custom names already stored. Empty stays empty — tube-only labs keep
+        /// the classic IS / 37°C / AHG / CC grid.
+        /// </summary>
+        public static string FromSuggested(bool rt, bool peg, bool gel, bool solid, string? current = null)
+        {
+            var custom = Parse(current)
+                .Where(n => !Suggested.Any(s => string.Equals(s, n, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            var list = new List<string>();
+            if (rt) list.Add("RT");
+            if (peg) list.Add("PEG");
+            if (gel) list.Add("Gel");
+            if (solid) list.Add("Solid");
+            list.AddRange(custom);
+            return string.Join(", ", list);
+        }
+
+        public static string Toggle(string? configured, string name, bool enabled)
+        {
+            if (IsReserved(name) || !IsValidName(name))
+                return NormalizeList(configured);
+            var canonical = CanonicalName(name);
+            var list = Parse(configured).ToList();
+            var idx = list.FindIndex(p => string.Equals(p, canonical, StringComparison.OrdinalIgnoreCase));
+            if (enabled && idx < 0)
+                list.Add(canonical);
+            else if (!enabled && idx >= 0)
+                list.RemoveAt(idx);
+            return string.Join(", ", list);
+        }
 
         public static IReadOnlyList<string> Parse(string? configured)
         {
@@ -27,8 +78,7 @@ namespace AntibodyPanels.Models
             foreach (var part in configured.Split(new[] { ',', ';', '/' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var name = part.Trim();
-                if (name.Length == 0 || name.Length > 12) continue;
-                if (!Regex.IsMatch(name, @"^[A-Za-z][A-Za-z0-9]*$")) continue;
+                if (!IsValidName(name)) continue;
                 if (Reserved.Contains(name)) continue;
                 if (!seen.Add(name)) continue;
                 list.Add(name);
@@ -36,6 +86,11 @@ namespace AntibodyPanels.Models
             }
             return list;
         }
+
+        private static bool IsValidName(string? name) =>
+            !string.IsNullOrWhiteSpace(name)
+            && name.Trim().Length <= 12
+            && Regex.IsMatch(name.Trim(), @"^[A-Za-z][A-Za-z0-9]*$");
 
         public static string NormalizeList(string? configured) =>
             string.Join(", ", Parse(configured));

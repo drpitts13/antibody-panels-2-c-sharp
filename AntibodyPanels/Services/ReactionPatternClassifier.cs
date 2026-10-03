@@ -29,11 +29,6 @@ namespace AntibodyPanels.Services
         public const string Autoantibody = "Autoantibody";
         public const string LowFrequency = "LowFrequency";
 
-        private static readonly HashSet<string> IatPhases = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "AHG", "Gel", "Solid", "PEG", "IAT"
-        };
-
         public static PatternCellObservation Observe(Reaction rxn, RunContext? ctx = null)
         {
             var cold = InterpretablePositive(ctx, "IS", rxn.IS)
@@ -42,7 +37,7 @@ namespace AntibodyPanels.Services
             var iatStrength = InterpretablePositive(ctx, "AHG", rxn.AHG) ? ReactionGrade.Strength(rxn.AHG) : 0;
             foreach (var (phase, value) in rxn.ExtraPhases)
             {
-                if (!IatPhases.Contains(phase) || !InterpretablePositive(ctx, phase, value)) continue;
+                if (!ExtraPhaseParser.IsIatLike(phase) || !InterpretablePositive(ctx, phase, value)) continue;
                 iat = true;
                 iatStrength = Math.Max(iatStrength, ReactionGrade.Strength(value));
             }

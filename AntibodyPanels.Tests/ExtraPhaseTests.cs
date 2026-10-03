@@ -14,6 +14,61 @@ public class ExtraPhaseTests
     }
 
     [Fact]
+    public void EmptyConfigured_DoesNotInventSuggestedColumns()
+    {
+        Assert.Empty(ExtraPhaseParser.Parse(""));
+        Assert.Equal("", ExtraPhaseParser.FromSuggested(false, false, false, false, ""));
+        Assert.Equal("", ExtraPhaseParser.NormalizeList(null));
+        var settings = LabSettings.CreateDefault();
+        settings.Clamp();
+        Assert.Equal("", settings.ExtraPhases);
+    }
+
+    [Fact]
+    public void FromSuggested_SolidOnly_IsIatLikeAndKeepsCustom()
+    {
+        Assert.Equal("Solid", ExtraPhaseParser.FromSuggested(false, false, false, true, ""));
+        Assert.Equal("RT, Gel, Albumin", ExtraPhaseParser.FromSuggested(true, false, true, false, "RT, Albumin"));
+        Assert.True(ExtraPhaseParser.IsIatLike("Solid"));
+        Assert.True(ExtraPhaseParser.IsIatLike("Gel"));
+        Assert.True(ExtraPhaseParser.IsIatLike("PEG"));
+        Assert.False(ExtraPhaseParser.IsIatLike("RT"));
+        Assert.False(ExtraPhaseParser.Contains("", "Solid"));
+        Assert.True(ExtraPhaseParser.Contains("solid, gel", "Solid"));
+    }
+
+    [Fact]
+    public void Toggle_AddsCanonicalSuggested_AndRefusesReserved()
+    {
+        Assert.Equal("Gel", ExtraPhaseParser.Toggle("", "gel", true));
+        Assert.Equal("PEG", ExtraPhaseParser.Toggle("RT, PEG", "rt", false));
+        Assert.Equal("", ExtraPhaseParser.Toggle("", "AHG", true));
+        Assert.Equal("RT, PEG", ExtraPhaseParser.Toggle("RT, PEG", "37C", true));
+        Assert.Equal("RT, LISS", ExtraPhaseParser.Toggle("RT, LISS", "Solid", false));
+    }
+
+    [Fact]
+    public void SolidOnlyLabDefault_StillLeavesAhgRuleOutWhenSolidIsZero()
+    {
+        using var iso = new IsolatedDatabase();
+        var previous = AppSettings.Current.ExtraPhases;
+        try
+        {
+            AppSettings.Current.ExtraPhases = ExtraPhaseParser.FromSuggested(false, false, false, true);
+            Assert.Equal("Solid", AppSettings.Current.ExtraPhases);
+            SeedECell(iso, "XP-SOLID0", extra: new Dictionary<string, string> { ["Solid"] = "0" },
+                ahg: "0", extraNegative: true);
+            var result = iso.Analyzer.AnalyzeSpecimen("XP-SOLID0", updateDb: false);
+            Assert.True(result.RuledOut.ContainsKey("anti-E"));
+            Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == ReactionPatternClassifier.Warm);
+        }
+        finally
+        {
+            AppSettings.Current.ExtraPhases = previous;
+        }
+    }
+
+    [Fact]
     public void RtTwoPlus_AhgZero_IsPositive_AndDoesNotRuleOut()
     {
         using var iso = new IsolatedDatabase();

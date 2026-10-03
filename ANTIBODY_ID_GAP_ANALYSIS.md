@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 18 — structured patient genotype fields).
+Last updated: 2026-10-03 (iteration 19 — lab ExtraPhases suggested defaults).
 
 ## Capability matrix
 
@@ -26,7 +26,7 @@ Last updated: 2026-10-03 (iteration 18 — structured patient genotype fields).
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
-| Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra phases stored as JSON; Gel/Solid/PEG count as IAT-like in pattern labels | Lab default ExtraPhases list |
+| Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like | Custom method names later |
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
@@ -291,9 +291,24 @@ Conflicts are explained. Nothing is auto-ruled-out or auto-confirmed.
 **Not in this tick:** ExtraPhases lab default list, variant-allele risk
 catalog, authenticated APIs.
 
+## Iteration 19 (this change)
+
+**Deficiency:** Extra phases existed only as a comma-separated string. Labs
+did not have a visible RT / PEG / Gel / Solid default, and empty settings
+gave no hint that Solid is an IAT-like Capture column.
+
+**Bounded improvement:** Preferences now toggles the suggested extras.
+`FromSuggested` / `Toggle` keep custom names, refuse reserved IS/AHG
+columns, and leave a blank list blank so tube-only labs stay on IS / 37°C /
+AHG / CC. Solid-phase 0 with AHG 0 can still rule out; Solid+ remains
+IAT-like evidence, not a diagnosis.
+
+**Not in this tick:** Variant-allele catalog, titration workflow,
+authenticated APIs.
+
 ## Likely next tick
 
-Lab default ExtraPhases list / solid-phase defaults.
+Selected-cell vial preference, or stronger HTLA titration notes.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

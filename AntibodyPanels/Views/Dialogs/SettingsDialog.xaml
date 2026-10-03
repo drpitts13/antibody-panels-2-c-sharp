@@ -24,6 +24,7 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="32"/>
             </Grid.RowDefinitions>
 
             <Label Content="Lab name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -76,9 +77,23 @@
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
 
             <Label Content="Extra phases:" Grid.Row="13" VerticalAlignment="Center"
-                   ToolTip="Optional extra reaction columns, comma-separated (RT, PEG, Gel, Solid). Leave blank for IS / 37°C / AHG / CC only."/>
+                   ToolTip="Optional extra reaction columns. Leave blank for the classic IS / 37°C / AHG / CC grid. Gel, Solid, and PEG count as IAT-like evidence."/>
             <TextBox x:Name="ExtraPhasesBox" Grid.Row="13" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"
-                     ToolTip="Example: RT, PEG, Gel"/>
+                     ToolTip="Suggested: RT, PEG, Gel, Solid. Custom names are kept. Example: RT, PEG, Gel"
+                     TextChanged="ExtraPhasesBox_TextChanged"/>
+
+            <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal"
+                        Margin="4,0,0,0">
+                <CheckBox x:Name="PhaseRtCheck" Content="RT" Margin="0,0,12,0"
+                          VerticalAlignment="Center" Checked="SuggestedPhaseChanged" Unchecked="SuggestedPhaseChanged"/>
+                <CheckBox x:Name="PhasePegCheck" Content="PEG" Margin="0,0,12,0"
+                          VerticalAlignment="Center" Checked="SuggestedPhaseChanged" Unchecked="SuggestedPhaseChanged"/>
+                <CheckBox x:Name="PhaseGelCheck" Content="Gel" Margin="0,0,12,0"
+                          VerticalAlignment="Center" Checked="SuggestedPhaseChanged" Unchecked="SuggestedPhaseChanged"/>
+                <CheckBox x:Name="PhaseSolidCheck" Content="Solid" Margin="0,0,12,0"
+                          VerticalAlignment="Center" Checked="SuggestedPhaseChanged" Unchecked="SuggestedPhaseChanged"
+                          ToolTip="Solid-phase / Capture IAT column. Counts as IAT-like, not a diagnosis."/>
+            </StackPanel>
         </Grid>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

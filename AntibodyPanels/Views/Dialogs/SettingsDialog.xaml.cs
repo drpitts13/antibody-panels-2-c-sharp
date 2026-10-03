@@ -35,6 +35,39 @@ namespace AntibodyPanels.Views.Dialogs
             ShowInactiveCheck.IsChecked = s.ShowInactiveByDefault;
             HideRuledOutCheck.IsChecked = s.HideRuledOutAntigenColumns;
             ExtraPhasesBox.Text = s.ExtraPhases;
+            SyncSuggestedChecks();
+        }
+
+        private bool _syncingPhases;
+
+        private void ExtraPhasesBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            if (_syncingPhases) return;
+            SyncSuggestedChecks();
+        }
+
+        private void SuggestedPhaseChanged(object sender, RoutedEventArgs e)
+        {
+            if (_syncingPhases) return;
+            _syncingPhases = true;
+            ExtraPhasesBox.Text = ExtraPhaseParser.FromSuggested(
+                PhaseRtCheck.IsChecked == true,
+                PhasePegCheck.IsChecked == true,
+                PhaseGelCheck.IsChecked == true,
+                PhaseSolidCheck.IsChecked == true,
+                ExtraPhasesBox.Text);
+            _syncingPhases = false;
+        }
+
+        private void SyncSuggestedChecks()
+        {
+            if (PhaseRtCheck == null) return;
+            _syncingPhases = true;
+            PhaseRtCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "RT");
+            PhasePegCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "PEG");
+            PhaseGelCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "Gel");
+            PhaseSolidCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "Solid");
+            _syncingPhases = false;
         }
 
         private void SaveClick(object sender, RoutedEventArgs e)

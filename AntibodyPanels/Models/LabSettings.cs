@@ -33,8 +33,9 @@ namespace AntibodyPanels.Models
         public bool WorklistShowExpired { get; set; } = true;
         public bool IntendedUseAcknowledged { get; set; }
         /// <summary>
-        /// Comma-separated extra reaction phases (e.g. RT, PEG, Gel). Empty keeps
-        /// the classic IS / 37°C / AHG / CC grid.
+        /// Comma-separated extra reaction phases (e.g. RT, PEG, Gel, Solid).
+        /// Empty keeps the classic IS / 37°C / AHG / CC grid. Gel, Solid, and PEG
+        /// are IAT-like evidence, not a diagnosis.
         /// </summary>
         public string ExtraPhases { get; set; } = "";
 
