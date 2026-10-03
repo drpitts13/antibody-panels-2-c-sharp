@@ -625,6 +625,13 @@ namespace AntibodyPanels.ViewModels
                     sb.AppendLine("  " + note);
                 sb.AppendLine();
             }
+            if (r.ReactionPatterns.Count > 0)
+            {
+                sb.AppendLine("REACTION PATTERNS (evidence only):");
+                foreach (var pattern in r.ReactionPatterns)
+                    sb.AppendLine("  " + pattern.Explanation);
+                sb.AppendLine();
+            }
 
             if (r.Acs.IsEligible)
             {

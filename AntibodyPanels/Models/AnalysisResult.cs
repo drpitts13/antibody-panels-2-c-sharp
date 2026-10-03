@@ -22,6 +22,7 @@ namespace AntibodyPanels.Models
         public bool PatientPhenotypeUnreliable { get; set; }
         public List<CandidateExplanation> CandidateExplanations { get; set; } = new();
         public List<string> SpecialReactionNotes { get; set; } = new();
+        public List<ReactionPatternNote> ReactionPatterns { get; set; } = new();
 
         // ── Special-panel inference outputs ───────────────────────────────────
 
@@ -47,6 +48,14 @@ namespace AntibodyPanels.Models
         /// Whether the specimen can result as All Clinically Significant Antibodies Ruled Out.
         /// </summary>
         public AcsEvaluation Acs { get; set; } = new();
+    }
+
+    public class ReactionPatternNote
+    {
+        public string Kind { get; set; } = "";
+        public int MatchingCells { get; set; }
+        public int EvaluatedCells { get; set; }
+        public string Explanation { get; set; } = "";
     }
 
     public class AcsExceptionAntibody

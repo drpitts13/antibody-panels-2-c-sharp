@@ -78,6 +78,7 @@ namespace AntibodyPanels.Services
             };
             ApplyPatientTyping(specimenId, result);
             result.SpecialReactionNotes = DescribeSpecialGrades(reactions);
+            result.ReactionPatterns = ClassifyReactionPatterns(byRun, contexts);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
@@ -1081,6 +1082,9 @@ namespace AntibodyPanels.Services
             foreach (var note in result.SpecialReactionNotes)
                 important.Add(note);
 
+            foreach (var pattern in result.ReactionPatterns)
+                important.Add(pattern.Explanation);
+
             if (result.PatientPhenotypeUnreliable)
                 important.Add("Patient phenotype cannot be interpreted for alloantibody exclusion because recent transfusion or another configured limitation was noted.");
 
@@ -1182,6 +1186,20 @@ namespace AntibodyPanels.Services
                 }
             }
             return SelectedCellRecommender.Recommend(result, tested, inventory);
+        }
+
+        private static List<ReactionPatternNote> ClassifyReactionPatterns(
+            Dictionary<int, List<Reaction>> byRun,
+            Dictionary<int, RunContext> contexts)
+        {
+            var observations = new List<PatternCellObservation>();
+            foreach (var (runId, rxns) in byRun)
+            {
+                contexts.TryGetValue(runId, out var ctx);
+                foreach (var rxn in rxns)
+                    observations.Add(ReactionPatternClassifier.Observe(rxn, ctx));
+            }
+            return ReactionPatternClassifier.Classify(observations);
         }
 
         private static List<string> DescribeSpecialGrades(IEnumerable<Reaction> reactions)

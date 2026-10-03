@@ -43,6 +43,13 @@ namespace AntibodyPanels.Services
                     sb.AppendLine("  " + note);
                 sb.AppendLine();
             }
+            if (result.ReactionPatterns.Count > 0)
+            {
+                sb.AppendLine("Reaction patterns (evidence only):");
+                foreach (var pattern in result.ReactionPatterns)
+                    sb.AppendLine("  " + pattern.Explanation);
+                sb.AppendLine();
+            }
             foreach (var exp in result.CandidateExplanations.Count > 0
                          ? result.CandidateExplanations
                          : Build(result))

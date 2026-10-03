@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 15 — panel lot compare).
+Last updated: 2026-10-03 (iteration 16 — cold/warm/panreactive pattern evidence).
 
 ## Capability matrix
 
@@ -26,14 +26,14 @@ Last updated: 2026-10-03 (iteration 15 — panel lot compare).
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
-| Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Lab setting ExtraPhases adds columns; stored as JSON; RT suppressed by prewarm; compare grid shows extras | Solid-phase defaults |
+| Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra phases stored as JSON; Gel/Solid/PEG count as IAT-like in pattern labels | Lab default ExtraPhases list |
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Missing | Phase scores computed but not shown | Pattern classifiers later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | Cold, warm/IAT, mixed-phase, panreactive sentences; Gel/Solid as IAT | HTLA / HFA / LFA later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
-| UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | Solid-phase defaults |
+| UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
@@ -246,9 +246,24 @@ changes. Missing types stay NT, not invented negatives.
 
 **Not in this tick:** solid-phase defaults, authenticated APIs.
 
+## Iteration 16 (this change)
+
+**Deficiency:** Phase scores existed, but a sheet that was all IS 2+ / AHG 0
+looked like ordinary negative AHG rule-outs. Gel and Solid reactivity had no
+IAT-like meaning in the narrative.
+
+**Bounded improvement:** Classify cold (IS/RT+ AHG/IAT−), warm (IAT+ IS/RT−),
+mixed-phase, and panreactive patterns when at least three evaluated cells
+match. Gel, Solid, and PEG count as IAT-like. Prewarm still ignores IS/RT.
+Sentences appear on Explain, Summary, and suggestions. Nothing is
+auto-confirmed.
+
+**Not in this tick:** HTLA / HFA / LFA models, ExtraPhases lab default list,
+authenticated APIs.
+
 ## Likely next tick
 
-Solid-phase defaults, or pattern classifiers (cold/warm/HTLA).
+HTLA / high-prevalence pattern notes, or a lab default ExtraPhases list.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 
