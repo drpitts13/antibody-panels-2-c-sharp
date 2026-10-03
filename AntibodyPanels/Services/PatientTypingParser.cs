@@ -9,13 +9,14 @@ namespace AntibodyPanels.Services
     public sealed class PatientTyping
     {
         public Dictionary<string, string> Antigens { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, string> PredictedAntigens { get; } = new(StringComparer.Ordinal);
         public List<string> HistoricalAntibodies { get; } = new();
         public bool PhenotypeUnreliable { get; set; }
         public string UnreliableReason { get; set; } = string.Empty;
     }
 
     /// <summary>
-    /// Parses free-text phenotype / history into reviewable evidence.
+    /// Parses free-text phenotype / genotype / history into reviewable evidence.
     /// Does not change suspected or ruled-out lists by itself.
     /// </summary>
     public static class PatientTypingParser
@@ -40,18 +41,28 @@ namespace AntibodyPanels.Services
             @"\b(Fy|Jk|Kp|Js|Lu|Le)\s*\(\s*a\s*([+\-−–])\s*(?:[,/]?\s*b\s*([+\-−–]))?\s*\)",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        private static readonly Regex AlleleToken = new(
+            @"\b(RHCE|RHD|FY|JK|KEL|GYPA|GYPB)\s*\*\s*([A-Za-z0-9.]+)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex AllelePair = new(
+            @"\b(RHCE|RHD|FY|JK|KEL|GYPA|GYPB)\s*\*\s*([A-Za-z0-9.]+)\s*/\s*(?:\1\s*\*\s*)?([A-Za-z0-9.]+)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         private static readonly string[] TransfusionHints =
         {
             "transfus", "recent rbc", "received units", "donor cells in circulation",
             "phenotype unreliable"
         };
 
-        public static PatientTyping Parse(string? phenotype, string? previousAntibodies, string? notes)
+        public static PatientTyping Parse(string? phenotype, string? previousAntibodies, string? notes,
+            string? genotype = null)
         {
             var typing = new PatientTyping();
-            ApplyWeiner(phenotype, typing);
-            ApplySystemPairs(phenotype, typing);
-            ApplyLooseAntigens(phenotype, typing);
+            ApplyWeiner(phenotype, typing.Antigens);
+            ApplySystemPairs(phenotype, typing.Antigens);
+            ApplyLooseAntigens(phenotype, typing.Antigens);
+            ApplyGenotype(genotype, typing.PredictedAntigens);
             typing.HistoricalAntibodies.AddRange(ParseHistorical(previousAntibodies));
             if (LooksRecentlyTransfused(phenotype) || LooksRecentlyTransfused(notes))
             {
@@ -108,6 +119,48 @@ namespace AntibodyPanels.Services
                 }
             }
 
+            foreach (var (ag, val) in typing.PredictedAntigens.OrderBy(x => x.Key, StringComparer.Ordinal))
+            {
+                typing.Antigens.TryGetValue(ag, out var serology);
+                if (serology == val && !typing.PhenotypeUnreliable)
+                    continue;
+
+                var antibody = $"anti-{ag}";
+                var conflict = serology != null && serology != val;
+                string explanation;
+                if (conflict && typing.PhenotypeUnreliable)
+                {
+                    explanation =
+                        $"Serologic typing is {ag}{serology}, but that phenotype is uninterpretable after transfusion or a configured limitation. " +
+                        $"The recorded genotype predicts {ag}{val}. Use the molecular prediction as reviewable evidence for allo{antibody}, not a diagnosis.";
+                }
+                else if (conflict)
+                {
+                    explanation =
+                        $"Serologic typing is {ag}{serology} but the recorded genotype predicts {ag}{val}. " +
+                        "Review for mistype, variant antigen, or donor cells. This is evidence, not a diagnosis.";
+                }
+                else if (val == "+")
+                {
+                    explanation =
+                        $"The recorded genotype predicts {ag}+. Molecular predictions remain usable after transfusion and argue against allo{antibody} unless a variant or incomplete genotype is present.";
+                }
+                else
+                {
+                    explanation =
+                        $"The recorded genotype predicts {ag}-, which is consistent with allo{antibody}. This is predicted phenotype evidence, not a serologic type or a diagnosis.";
+                }
+
+                list.Add(new PatientTypingConsideration
+                {
+                    Antibody = antibody,
+                    Antigen = ag,
+                    Kind = PatientTypingKind.Predicted,
+                    PatientValue = val,
+                    Explanation = explanation,
+                });
+            }
+
             foreach (var antibody in typing.HistoricalAntibodies)
             {
                 list.Add(new PatientTypingConsideration
@@ -133,7 +186,180 @@ namespace AntibodyPanels.Services
             return TransfusionHints.Any(h => lower.Contains(h));
         }
 
-        private static void ApplyWeiner(string? phenotype, PatientTyping typing)
+        private static void ApplyGenotype(string? genotype, Dictionary<string, string> predicted)
+        {
+            if (string.IsNullOrWhiteSpace(genotype)) return;
+            ApplyWeiner(genotype, predicted);
+            ApplySystemPairs(genotype, predicted);
+            ApplyLooseAntigens(genotype, predicted);
+            ApplyAlleles(genotype, predicted);
+        }
+
+        private static void ApplyAlleles(string? genotype, Dictionary<string, string> predicted)
+        {
+            if (string.IsNullOrWhiteSpace(genotype)) return;
+            var rhce = new List<string>();
+            var rhdExpress = new List<bool>();
+            var fy = new List<string>();
+            var jk = new List<string>();
+            var kel = new List<string>();
+            var gypa = new List<string>();
+            var gypb = new List<string>();
+
+            void AddAllele(string system, string allele)
+            {
+                switch (system.ToUpperInvariant())
+                {
+                    case "RHCE":
+                        var hap = NormalizeRhce(allele);
+                        if (hap != null) rhce.Add(hap);
+                        break;
+                    case "RHD":
+                        rhdExpress.Add(!IsNullAllele(allele));
+                        break;
+                    case "FY":
+                        var fyCode = NormalizeFyJk(allele, "A", "B");
+                        if (fyCode != null) fy.Add(fyCode);
+                        break;
+                    case "JK":
+                        var jkCode = NormalizeFyJk(allele, "A", "B");
+                        if (jkCode != null) jk.Add(jkCode);
+                        break;
+                    case "KEL":
+                        var kelCode = NormalizeKel(allele);
+                        if (kelCode != null) kel.Add(kelCode);
+                        break;
+                    case "GYPA":
+                        var mnsMn = NormalizeGypa(allele);
+                        if (mnsMn != null) gypa.Add(mnsMn);
+                        break;
+                    case "GYPB":
+                        var mnsSs = NormalizeGypb(allele);
+                        if (mnsSs != null) gypb.Add(mnsSs);
+                        break;
+                }
+            }
+
+            foreach (Match m in AllelePair.Matches(genotype))
+            {
+                AddAllele(m.Groups[1].Value, m.Groups[2].Value);
+                AddAllele(m.Groups[1].Value, m.Groups[3].Value);
+            }
+
+            foreach (Match m in AlleleToken.Matches(genotype))
+                AddAllele(m.Groups[1].Value, m.Groups[2].Value);
+
+            if (rhce.Count >= 2)
+            {
+                SetIfAbsent(predicted, "C", rhce.Any(h => h[0] == 'C') ? "+" : "-");
+                SetIfAbsent(predicted, "c", rhce.Any(h => h[0] == 'c') ? "+" : "-");
+                SetIfAbsent(predicted, "E", rhce.Any(h => h[1] == 'E') ? "+" : "-");
+                SetIfAbsent(predicted, "e", rhce.Any(h => h[1] == 'e') ? "+" : "-");
+            }
+            else if (rhce.Count == 1)
+            {
+                var h = rhce[0];
+                if (h[0] == 'C') SetIfAbsent(predicted, "C", "+");
+                if (h[0] == 'c') SetIfAbsent(predicted, "c", "+");
+                if (h[1] == 'E') SetIfAbsent(predicted, "E", "+");
+                if (h[1] == 'e') SetIfAbsent(predicted, "e", "+");
+            }
+
+            if (rhdExpress.Count > 0)
+                SetIfAbsent(predicted, "D", rhdExpress.Any(x => x) ? "+" : "-");
+
+            ApplyPair(predicted, fy, "Fya", "Fyb", "a", "b");
+            ApplyPair(predicted, jk, "Jka", "Jkb", "a", "b");
+
+            if (kel.Count > 0)
+            {
+                SetIfAbsent(predicted, "K", kel.Contains("K") ? "+" : "-");
+                SetIfAbsent(predicted, "k", kel.Contains("k") ? "+" : "-");
+            }
+
+            if (gypa.Count > 0)
+            {
+                SetIfAbsent(predicted, "M", gypa.Contains("M") ? "+" : "-");
+                SetIfAbsent(predicted, "N", gypa.Contains("N") ? "+" : "-");
+            }
+
+            if (gypb.Count > 0)
+            {
+                SetIfAbsent(predicted, "S", gypb.Contains("S") ? "+" : "-");
+                SetIfAbsent(predicted, "s", gypb.Contains("s") ? "+" : "-");
+            }
+        }
+
+        private static void ApplyPair(Dictionary<string, string> predicted, List<string> alleles,
+            string aName, string bName, string aCode, string bCode)
+        {
+            if (alleles.Count == 0) return;
+            SetIfAbsent(predicted, aName, alleles.Contains(aCode) ? "+" : "-");
+            SetIfAbsent(predicted, bName, alleles.Contains(bCode) ? "+" : "-");
+        }
+
+        private static string? NormalizeRhce(string allele)
+        {
+            var core = allele.Split('.')[0];
+            if (core is "01" or "1") return "ce";
+            if (core is "02" or "2") return "Ce";
+            if (core is "03" or "3") return "cE";
+            if (core is "04" or "4") return "CE";
+            if (core.Equals("ce", StringComparison.OrdinalIgnoreCase)) return "ce";
+            if (core.Equals("CE", StringComparison.Ordinal)) return "CE";
+            if (core.Length == 2 && core[0] == 'C' && (core[1] == 'e' || core[1] == 'E'))
+                return core[1] == 'E' ? "CE" : "Ce";
+            if (core.Length == 2 && core[0] == 'c' && (core[1] == 'e' || core[1] == 'E'))
+                return core[1] == 'E' ? "cE" : "ce";
+            return null;
+        }
+
+        private static bool IsNullAllele(string allele)
+        {
+            var upper = allele.ToUpperInvariant();
+            return upper.Contains('N') ||
+                   upper.Contains("DEL") ||
+                   upper.Contains("NULL") ||
+                   upper is "NEGATIVE" or "NEG";
+        }
+
+        private static string? NormalizeFyJk(string allele, string aLetter, string bLetter)
+        {
+            var upper = allele.ToUpperInvariant();
+            var core = upper.Split('.')[0];
+            var isNull = core.Contains('N');
+            if (core.StartsWith("01", StringComparison.Ordinal) || core == "1" || core == aLetter)
+                return isNull ? "aN" : "a";
+            if (core.StartsWith("02", StringComparison.Ordinal) || core == "2" || core == bLetter)
+                return isNull ? "bN" : "b";
+            return null;
+        }
+
+        private static string? NormalizeKel(string allele)
+        {
+            var core = allele.Split('.')[0];
+            if (core is "01" or "1" or "K") return "K";
+            if (core is "02" or "2" or "k" or "KEL2") return "k";
+            return null;
+        }
+
+        private static string? NormalizeGypa(string allele)
+        {
+            var core = allele.Split('.')[0];
+            if (core.Equals("M", StringComparison.OrdinalIgnoreCase) || core is "01" or "1") return "M";
+            if (core.Equals("N", StringComparison.OrdinalIgnoreCase) || core is "02" or "2") return "N";
+            return null;
+        }
+
+        private static string? NormalizeGypb(string allele)
+        {
+            var core = allele.Split('.')[0];
+            if (core == "S" || core is "03" or "3") return "S";
+            if (core == "s" || core is "04" or "4") return "s";
+            return null;
+        }
+
+        private static void ApplyWeiner(string? phenotype, Dictionary<string, string> antigens)
         {
             if (string.IsNullOrWhiteSpace(phenotype)) return;
             var compact = phenotype.Replace(" ", "", StringComparison.Ordinal);
@@ -149,7 +375,7 @@ namespace AntibodyPanels.Services
                 }
             }
             if (bestProfile != null)
-                ApplyLooseAntigens(bestProfile, typing);
+                ApplyLooseAntigens(bestProfile, antigens);
         }
 
         private static bool ContainsWeiner(string compact, string code)
@@ -158,7 +384,7 @@ namespace AntibodyPanels.Services
             return idx >= 0;
         }
 
-        private static void ApplySystemPairs(string? phenotype, PatientTyping typing)
+        private static void ApplySystemPairs(string? phenotype, Dictionary<string, string> antigens)
         {
             if (string.IsNullOrWhiteSpace(phenotype)) return;
             foreach (Match m in SystemPair.Matches(phenotype))
@@ -173,13 +399,13 @@ namespace AntibodyPanels.Services
                     "le" => "Le",
                     _ => m.Groups[1].Value
                 };
-                SetIfKnown(typing, prefix + "a", NormalizeSign(m.Groups[2].Value));
+                SetIfKnown(antigens, prefix + "a", NormalizeSign(m.Groups[2].Value));
                 if (m.Groups[3].Success)
-                    SetIfKnown(typing, prefix + "b", NormalizeSign(m.Groups[3].Value));
+                    SetIfKnown(antigens, prefix + "b", NormalizeSign(m.Groups[3].Value));
             }
         }
 
-        private static void ApplyLooseAntigens(string? phenotype, PatientTyping typing)
+        private static void ApplyLooseAntigens(string? phenotype, Dictionary<string, string> antigens)
         {
             if (string.IsNullOrWhiteSpace(phenotype)) return;
             var names = AntigenConstants.AllKnownAntigens
@@ -198,11 +424,11 @@ namespace AntibodyPanels.Services
                     {
                         var spaced = Regex.Match(phenotype, $@"(?<![A-Za-z]){Regex.Escape(name)}\s+([+\-−–])");
                         if (!spaced.Success) continue;
-                        SetIfKnown(typing, name, NormalizeSign(spaced.Groups[1].Value));
+                        SetIfKnown(antigens, name, NormalizeSign(spaced.Groups[1].Value));
                         continue;
                     }
                 }
-                SetIfKnown(typing, name, NormalizeSign(match.Groups[1].Value));
+                SetIfKnown(antigens, name, NormalizeSign(match.Groups[1].Value));
             }
         }
 
@@ -227,17 +453,26 @@ namespace AntibodyPanels.Services
             }
         }
 
-        private static void SetIfKnown(PatientTyping typing, string antigen, string value)
+        private static void SetIfKnown(Dictionary<string, string> antigens, string antigen, string value)
+        {
+            var resolved = ResolveAntigen(antigen);
+            if (resolved == null) return;
+            antigens[resolved] = value;
+        }
+
+        private static void SetIfAbsent(Dictionary<string, string> antigens, string antigen, string value)
+        {
+            var resolved = ResolveAntigen(antigen);
+            if (resolved == null || antigens.ContainsKey(resolved)) return;
+            antigens[resolved] = value;
+        }
+
+        private static string? ResolveAntigen(string antigen)
         {
             var resolved = AntigenConstants.AllKnownAntigens
                 .FirstOrDefault(a => string.Equals(a, antigen, StringComparison.Ordinal));
-            if (resolved == null)
-            {
-                resolved = AntigenConstants.AllKnownAntigens
-                    .FirstOrDefault(a => string.Equals(a, antigen, StringComparison.OrdinalIgnoreCase));
-            }
-            if (resolved == null) return;
-            typing.Antigens[resolved] = value;
+            return resolved ?? AntigenConstants.AllKnownAntigens
+                .FirstOrDefault(a => string.Equals(a, antigen, StringComparison.OrdinalIgnoreCase));
         }
 
         private static string NormalizeSign(string raw)
@@ -249,9 +484,10 @@ namespace AntibodyPanels.Services
         private static int KindOrder(PatientTypingKind kind) => kind switch
         {
             PatientTypingKind.Against => 0,
-            PatientTypingKind.Uninterpretable => 1,
-            PatientTypingKind.Historical => 2,
-            _ => 3
+            PatientTypingKind.Predicted => 1,
+            PatientTypingKind.Uninterpretable => 2,
+            PatientTypingKind.Historical => 3,
+            _ => 4
         };
     }
 }

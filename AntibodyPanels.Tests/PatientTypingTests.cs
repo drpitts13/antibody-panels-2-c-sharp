@@ -121,4 +121,95 @@ public class PatientTypingTests
         Assert.Contains(result.PatientTypingConsiderations,
             c => c.Antibody == "anti-K" && c.Kind == PatientTypingKind.Historical);
     }
+
+    [Fact]
+    public void Parse_RhceCeAndFy02Pair_PredictsRbcPhenotype()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null,
+            "RHCE*ce/ce; FY*02/FY*02; KEL*02/KEL*02; RHD*01N.01");
+        Assert.Equal("-", typing.PredictedAntigens["C"]);
+        Assert.Equal("+", typing.PredictedAntigens["c"]);
+        Assert.Equal("-", typing.PredictedAntigens["E"]);
+        Assert.Equal("+", typing.PredictedAntigens["e"]);
+        Assert.Equal("-", typing.PredictedAntigens["Fya"]);
+        Assert.Equal("+", typing.PredictedAntigens["Fyb"]);
+        Assert.Equal("-", typing.PredictedAntigens["K"]);
+        Assert.Equal("+", typing.PredictedAntigens["k"]);
+        Assert.Equal("-", typing.PredictedAntigens["D"]);
+        Assert.Empty(typing.Antigens);
+    }
+
+    [Fact]
+    public void Parse_SingleRhceHaplotype_DoesNotInventAntitheticalNegatives()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "RHCE*ce");
+        Assert.Equal("+", typing.PredictedAntigens["c"]);
+        Assert.Equal("+", typing.PredictedAntigens["e"]);
+        Assert.False(typing.PredictedAntigens.ContainsKey("C"));
+        Assert.False(typing.PredictedAntigens.ContainsKey("E"));
+    }
+
+    [Fact]
+    public void Evaluate_TransfusedPhenotype_GenotypeStillPredicted()
+    {
+        var typing = PatientTypingParser.Parse("E+", null, "Recently transfused 2 RBC units",
+            "RHCE*ce/ce");
+        Assert.True(typing.PhenotypeUnreliable);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-E" && c.Kind == PatientTypingKind.Uninterpretable);
+        var predicted = ev.Single(c => c.Antibody == "anti-E" && c.Kind == PatientTypingKind.Predicted);
+        Assert.Equal("-", predicted.PatientValue);
+        Assert.Contains("genotype predicts E-", predicted.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-E" && c.Kind == PatientTypingKind.Against);
+    }
+
+    [Fact]
+    public void Evaluate_PhenotypeGenotypeConflict_LeavesBothAsEvidence()
+    {
+        var typing = PatientTypingParser.Parse("C+", null, null, "RHCE*ce/ce");
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-C" && c.Kind == PatientTypingKind.Against);
+        var predicted = ev.Single(c => c.Antibody == "anti-C" && c.Kind == PatientTypingKind.Predicted);
+        Assert.Equal("-", predicted.PatientValue);
+        Assert.Contains("Serologic typing is C+", predicted.Explanation);
+        Assert.Contains("predicts C-", predicted.Explanation);
+    }
+
+    [Fact]
+    public void Analyzer_TransfusedPlusGenotype_DoesNotAutoRemoveSuspect()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("PHENO-GT", "serum", null, notes: "recently transfused",
+            phenotype: "E+", previousAntibodies: null, datResult: null, genotype: "RHCE*ce/ce");
+        var stored = iso.Db.GetSpecimen("PHENO-GT");
+        Assert.Equal("RHCE*ce/ce", stored!.Genotype);
+
+        var panelId = iso.Db.AddPanel("P", "L", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel("PHENO-GT", panelId);
+        var cells = iso.Db.GetPanelCells(panelId);
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "E", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "e", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "E", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "e", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "E", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "e", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "E", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "e", "+");
+        iso.Db.SaveReaction("PHENO-GT", panelId, "1", "0", "0", "3+", "NT");
+        iso.Db.SaveReaction("PHENO-GT", panelId, "2", "0", "0", "3+", "NT");
+        iso.Db.SaveReaction("PHENO-GT", panelId, "3", "0", "0", "0", "2+");
+        iso.Db.SaveReaction("PHENO-GT", panelId, "4", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("PHENO-GT", updateDb: false);
+        Assert.False(result.RuledOut.ContainsKey("anti-E"),
+            "Genotype/phenotype evidence must not auto-rule-out anti-E.");
+        Assert.True(result.PatientPhenotypeUnreliable);
+        Assert.Contains(result.PatientTypingConsiderations,
+            c => c.Antibody == "anti-E" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "-");
+        Assert.DoesNotContain(result.PatientTypingConsiderations,
+            c => c.Antibody == "anti-E" && c.Kind == PatientTypingKind.Against);
+        var exp = result.CandidateExplanations
+            .First(e => e.Antibody == "anti-E");
+        Assert.Contains("genotype predicts", exp.PhenotypeNote, StringComparison.OrdinalIgnoreCase);
+    }
 }

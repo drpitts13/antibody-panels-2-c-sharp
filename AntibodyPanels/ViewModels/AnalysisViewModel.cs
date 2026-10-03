@@ -692,9 +692,7 @@ namespace AntibodyPanels.ViewModels
 
             if (r.PatientTypingConsiderations.Count > 0)
             {
-                sb.AppendLine(r.PatientPhenotypeUnreliable
-                    ? "PATIENT TYPING (cannot interpret — recent transfusion or configured limitation):"
-                    : "PATIENT TYPING (evidence only, not a diagnosis):");
+                sb.AppendLine(PatientTypingHeader(r));
                 foreach (var c in r.PatientTypingConsiderations)
                     sb.AppendLine($"  [{c.Kind}] {c.Explanation}");
                 sb.AppendLine();
@@ -762,6 +760,17 @@ namespace AntibodyPanels.ViewModels
             }
 
             SummaryText = sb.ToString();
+        }
+
+        private static string PatientTypingHeader(AnalysisResult r)
+        {
+            var hasPredicted = r.PatientTypingConsiderations
+                .Any(c => c.Kind == PatientTypingKind.Predicted);
+            if (r.PatientPhenotypeUnreliable && hasPredicted)
+                return "PATIENT TYPING (serology uninterpretable after transfusion; genotype remains reviewable evidence, not a diagnosis):";
+            if (r.PatientPhenotypeUnreliable)
+                return "PATIENT TYPING (cannot interpret — recent transfusion or configured limitation):";
+            return "PATIENT TYPING (evidence only, not a diagnosis):";
         }
     }
 

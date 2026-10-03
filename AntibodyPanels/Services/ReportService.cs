@@ -64,6 +64,8 @@ namespace AntibodyPanels.Services
             sb.AppendLine($"Last Analyzed:   {s.LastAnalyzedAt ?? "Never"}");
             if (!string.IsNullOrWhiteSpace(s.Phenotype))
                 sb.AppendLine($"Phenotype:       {s.Phenotype}");
+            if (!string.IsNullOrWhiteSpace(s.Genotype))
+                sb.AppendLine($"Genotype:        {s.Genotype}");
             if (!string.IsNullOrWhiteSpace(s.PreviousAntibodies))
                 sb.AppendLine($"Previous Abs:    {s.PreviousAntibodies}");
             if (!string.IsNullOrWhiteSpace(s.DatResult))
@@ -181,6 +183,7 @@ namespace AntibodyPanels.Services
             sb.AppendLine(AnalysisTraceLine(specimenId));
             sb.AppendLine($"Accession: {s.AccessionNumber,-16} Type: {s.Type,-10} Date: {DateTime.Now:yyyy-MM-dd}");
             sb.AppendLine($"Phenotype: {s.Phenotype ?? "N/A"}");
+            sb.AppendLine($"Genotype: {s.Genotype ?? "N/A"}");
             sb.AppendLine($"Previous antibodies: {s.PreviousAntibodies ?? "N/A"}");
             sb.AppendLine($"DAT: {s.DatResult ?? "NT"}");
             if (!string.IsNullOrWhiteSpace(s.Notes))

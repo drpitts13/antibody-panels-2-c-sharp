@@ -15,6 +15,7 @@ namespace AntibodyPanels.Models
 
         public string? Notes { get; set; }
         public string? Phenotype { get; set; }
+        public string? Genotype { get; set; }
         public string? PreviousAntibodies { get; set; }
         public string? DatResult { get; set; }
 
@@ -52,7 +53,7 @@ namespace AntibodyPanels.Models
             (LastAnalyzedAt == null || string.Compare(ReactionsUpdatedAt, LastAnalyzedAt) > 0);
 
         public bool MatchesFilter(string? query) =>
-            TextFilter.Matches(query, AccessionNumber, Type, Phenotype, PreviousAntibodies,
+            TextFilter.Matches(query, AccessionNumber, Type, Phenotype, Genotype, PreviousAntibodies,
                 Notes, FinalAntibodies, DatResult, ExpirationDate);
     }
 }

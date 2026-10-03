@@ -14,6 +14,7 @@ namespace AntibodyPanels.Views.Dialogs
         public bool ItemIsActive => ActiveCheck.IsChecked == true;
         public string? Notes => string.IsNullOrWhiteSpace(NotesBox.Text) ? null : NotesBox.Text.Trim();
         public string? Phenotype => string.IsNullOrWhiteSpace(PhenotypeBox.Text) ? null : PhenotypeBox.Text.Trim();
+        public string? Genotype => string.IsNullOrWhiteSpace(GenotypeBox.Text) ? null : GenotypeBox.Text.Trim();
         public string? PreviousAntibodies => string.IsNullOrWhiteSpace(PreviousAbsBox.Text) ? null : PreviousAbsBox.Text.Trim();
         public string? DatResult => DatBox.SelectedItem?.ToString();
 
@@ -55,6 +56,7 @@ namespace AntibodyPanels.Views.Dialogs
 
                 ActiveCheck.IsChecked = existing.IsActive;
                 PhenotypeBox.Text = existing.Phenotype ?? "";
+                GenotypeBox.Text = existing.Genotype ?? "";
                 PreviousAbsBox.Text = existing.PreviousAntibodies ?? "";
                 NotesBox.Text = existing.Notes ?? "";
 

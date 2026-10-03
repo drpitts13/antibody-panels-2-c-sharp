@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 17 — HTLA, high-prevalence, and LFA pattern notes).
+Last updated: 2026-10-03 (iteration 18 — structured patient genotype fields).
 
 ## Capability matrix
 
@@ -32,7 +32,7 @@ Last updated: 2026-10-03 (iteration 17 — HTLA, high-prevalence, and LFA patter
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | Cold/warm/mixed/panreactive plus HTLA, AC-based HFA vs auto, and LFA | Stronger HTLA titration later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
-| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
+| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Phenotype text plus specimen genotype (alleles or predicted marks); transfusion still blinds serology only | Allele catalog / variant risk notes later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
@@ -276,9 +276,24 @@ low-frequency / extra antibody / mistype. Still evidence, not a diagnosis.
 **Not in this tick:** ExtraPhases lab default list, titration workflow,
 authenticated APIs.
 
+## Iteration 18 (this change)
+
+**Deficiency:** Genotype lived only as free-text phenotype. After
+transfusion the entire type was uninterpretable, so a recorded *RHCE*ce/ce*
+or *FY*02/FY*02* result could not argue for or against an alloantibody.
+
+**Bounded improvement:** Specimen `genotype` is stored and parsed into
+predicted antigens (ISBT-style *RHCE* / *RHD* / *FY* / *JK* / *KEL* pairs,
+or the same Weiner/Fy(a−b+) marks). Serology still becomes
+uninterpretable after transfusion; genotype remains Predicted evidence.
+Conflicts are explained. Nothing is auto-ruled-out or auto-confirmed.
+
+**Not in this tick:** ExtraPhases lab default list, variant-allele risk
+catalog, authenticated APIs.
+
 ## Likely next tick
 
-Lab default ExtraPhases list, or structured genotype fields.
+Lab default ExtraPhases list / solid-phase defaults.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

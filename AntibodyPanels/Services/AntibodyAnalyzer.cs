@@ -1094,6 +1094,13 @@ namespace AntibodyPanels.Services
                     critical.Add($"WARNING: {c.Antibody} is suspected, but patient typing argues against it. {c.Explanation}");
             }
 
+            foreach (var c in result.PatientTypingConsiderations.Where(x =>
+                         x.Kind == PatientTypingKind.Predicted && x.PatientValue == "+"))
+            {
+                if (result.Suspected.ContainsKey(c.Antibody))
+                    critical.Add($"WARNING: {c.Antibody} is suspected, but the recorded genotype predicts a positive type. {c.Explanation}");
+            }
+
             foreach (var c in result.PatientTypingConsiderations.Where(x => x.Kind == PatientTypingKind.Historical))
             {
                 if (!result.Suspected.ContainsKey(c.Antibody))
@@ -1158,7 +1165,7 @@ namespace AntibodyPanels.Services
             var specimen = _db.GetSpecimen(specimenId);
             if (specimen == null) return;
             var typing = PatientTypingParser.Parse(
-                specimen.Phenotype, specimen.PreviousAntibodies, specimen.Notes);
+                specimen.Phenotype, specimen.PreviousAntibodies, specimen.Notes, specimen.Genotype);
             result.PatientPhenotypeUnreliable = typing.PhenotypeUnreliable;
             result.PatientTypingConsiderations = PatientTypingParser.Evaluate(typing);
         }

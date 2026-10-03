@@ -86,6 +86,10 @@
                         <Run Text="{Binding SelectedSpecimen.Phenotype, TargetNullValue=N/A}"/>
                     </TextBlock>
                     <TextBlock TextWrapping="Wrap" Margin="0,0,0,2">
+                        <Run FontWeight="SemiBold" Text="Genotype: "/>
+                        <Run Text="{Binding SelectedSpecimen.Genotype, TargetNullValue=N/A}"/>
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,2">
                         <Run FontWeight="SemiBold" Text="Previous Abs: "/>
                         <Run Text="{Binding SelectedSpecimen.PreviousAntibodies, TargetNullValue=N/A}"/>
                     </TextBlock>

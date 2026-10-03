@@ -12,10 +12,11 @@ public class LabUxFeatureTests
     {
         using var iso = new IsolatedDatabase();
         iso.Db.AddSpecimen("CLIN-001", "serum", "2030-01-01", true,
-            "Warm auto workup", "R1r, K-", "anti-E", "1+");
+            "Warm auto workup", "R1r, K-", "anti-E", "1+", genotype: "RHCE*Ce/ce");
         var s = iso.Db.GetSpecimen("CLIN-001");
         Assert.Equal("Warm auto workup", s!.Notes);
         Assert.Equal("R1r, K-", s.Phenotype);
+        Assert.Equal("RHCE*Ce/ce", s.Genotype);
         Assert.Equal("anti-E", s.PreviousAntibodies);
         Assert.Equal("1+", s.DatResult);
     }
@@ -25,10 +26,12 @@ public class LabUxFeatureTests
     {
         using var iso = new IsolatedDatabase();
         iso.Db.AddSpecimen("CLIN-002", "plasma", null);
-        iso.Db.UpdateSpecimen("CLIN-002", "plasma", null, true, "note", "rr", "anti-K", "Negative");
+        iso.Db.UpdateSpecimen("CLIN-002", "plasma", null, true, "note", "rr", "anti-K", "Negative",
+            "RHD*01N.01; RHCE*ce/ce");
         var s = iso.Db.GetSpecimen("CLIN-002")!;
         Assert.Equal("note", s.Notes);
         Assert.Equal("rr", s.Phenotype);
+        Assert.Equal("RHD*01N.01; RHCE*ce/ce", s.Genotype);
         Assert.Equal("anti-K", s.PreviousAntibodies);
         Assert.Equal("Negative", s.DatResult);
     }

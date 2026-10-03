@@ -214,6 +214,8 @@ namespace AntibodyPanels.Data
                 ExecNonQuery("ALTER TABLE specimens ADD COLUMN previous_antibodies TEXT");
             if (!cols.Contains("dat_result"))
                 ExecNonQuery("ALTER TABLE specimens ADD COLUMN dat_result TEXT");
+            if (!cols.Contains("genotype"))
+                ExecNonQuery("ALTER TABLE specimens ADD COLUMN genotype TEXT");
         }
 
         private void MigrateSpecimenFinalCall()
@@ -432,7 +434,7 @@ namespace AntibodyPanels.Data
 
         public void AddSpecimen(string accessionNumber, string type = "serum", string? expirationDate = null, bool? isActive = null,
             string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null,
-            string? createdDate = null)
+            string? createdDate = null, string? genotype = null)
         {
             var today = DateTime.Now.ToString("yyyy-MM-dd");
             var created = string.IsNullOrWhiteSpace(createdDate) ? today : createdDate.Trim();
@@ -440,8 +442,8 @@ namespace AntibodyPanels.Data
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 INSERT INTO specimens (accession_number, type, expiration_date, created_date, is_active,
-                    notes, phenotype, previous_antibodies, dat_result)
-                VALUES ($acc, $type, $exp, $created, $active, $notes, $pheno, $prev, $dat)";
+                    notes, phenotype, previous_antibodies, dat_result, genotype)
+                VALUES ($acc, $type, $exp, $created, $active, $notes, $pheno, $prev, $dat, $geno)";
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.Parameters.AddWithValue("$type", type);
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
@@ -451,6 +453,7 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$pheno", (object?)phenotype ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$prev", (object?)previousAntibodies ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$dat", (object?)datResult ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$geno", (object?)genotype ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
 
@@ -484,13 +487,15 @@ namespace AntibodyPanels.Data
         }
 
         public void UpdateSpecimen(string accessionNumber, string type, string? expirationDate, bool isActive = true,
-            string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null)
+            string? notes = null, string? phenotype = null, string? previousAntibodies = null, string? datResult = null,
+            string? genotype = null)
         {
             EnsureSpecimenUnlocked(accessionNumber);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 UPDATE specimens SET type = $type, expiration_date = $exp, is_active = $active,
-                    notes = $notes, phenotype = $pheno, previous_antibodies = $prev, dat_result = $dat
+                    notes = $notes, phenotype = $pheno, previous_antibodies = $prev, dat_result = $dat,
+                    genotype = $geno
                 WHERE accession_number = $acc";
             cmd.Parameters.AddWithValue("$type", type);
             cmd.Parameters.AddWithValue("$exp", (object?)expirationDate ?? DBNull.Value);
@@ -499,6 +504,7 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$pheno", (object?)phenotype ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$prev", (object?)previousAntibodies ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$dat", (object?)datResult ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$geno", (object?)genotype ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$acc", accessionNumber);
             cmd.ExecuteNonQuery();
         }
@@ -1967,6 +1973,7 @@ namespace AntibodyPanels.Data
             IsActive = SafeGetInt(r, "is_active", 1) != 0,
             Notes = SafeGetString(r, "notes"),
             Phenotype = SafeGetString(r, "phenotype"),
+            Genotype = SafeGetString(r, "genotype"),
             PreviousAntibodies = SafeGetString(r, "previous_antibodies"),
             DatResult = SafeGetString(r, "dat_result"),
             FinalAntibodies = SafeGetString(r, "final_antibodies"),
