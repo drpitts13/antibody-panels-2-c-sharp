@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 16 — cold/warm/panreactive pattern evidence).
+Last updated: 2026-10-03 (iteration 17 — HTLA, high-prevalence, and LFA pattern notes).
 
 ## Capability matrix
 
@@ -30,7 +30,7 @@ Last updated: 2026-10-03 (iteration 16 — cold/warm/panreactive pattern evidenc
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | Cold, warm/IAT, mixed-phase, panreactive sentences; Gel/Solid as IAT | HTLA / HFA / LFA later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | Cold/warm/mixed/panreactive plus HTLA, AC-based HFA vs auto, and LFA | Stronger HTLA titration later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
@@ -261,9 +261,24 @@ auto-confirmed.
 **Not in this tick:** HTLA / HFA / LFA models, ExtraPhases lab default list,
 authenticated APIs.
 
+## Iteration 17 (this change)
+
+**Deficiency:** Weak pan-AHG (w+/1+) looked like an ordinary warm pattern.
+Panagglutination did not use the autocontrol to separate autoantibody from
+high-prevalence alloantibody, and a single unexplained reactive cell had no
+low-frequency note.
+
+**Bounded improvement:** Weak IAT without IS/RT (4+ cells) is labeled HTLA-like.
+Panreactive plus a nonreactive AC favors high-prevalence; a reactive AC favors
+autoantibody. One or two reactive cells among six or more is labeled
+low-frequency / extra antibody / mistype. Still evidence, not a diagnosis.
+
+**Not in this tick:** ExtraPhases lab default list, titration workflow,
+authenticated APIs.
+
 ## Likely next tick
 
-HTLA / high-prevalence pattern notes, or a lab default ExtraPhases list.
+Lab default ExtraPhases list, or structured genotype fields.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

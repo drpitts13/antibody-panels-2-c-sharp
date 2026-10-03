@@ -72,6 +72,65 @@ public class ReactionPatternTests
     }
 
     [Fact]
+    public void WeakIatOnMostCells_IsHtlaPattern()
+    {
+        var cells = Enumerable.Range(1, 8)
+            .Select(i => ReactionPatternClassifier.Observe(Rxn(i.ToString(), "0", "w+")))
+            .ToList();
+        var notes = ReactionPatternClassifier.Classify(cells);
+        Assert.Contains(notes, n => n.Kind == ReactionPatternClassifier.Htla && n.MatchingCells == 8);
+        Assert.Contains("HTLA", notes.First(n => n.Kind == ReactionPatternClassifier.Htla).Explanation);
+        Assert.Contains(notes, n => n.Kind == ReactionPatternClassifier.Warm);
+    }
+
+    [Fact]
+    public void StrongAhg_IsNotHtla()
+    {
+        var cells = Enumerable.Range(1, 6)
+            .Select(i => ReactionPatternClassifier.Observe(Rxn(i.ToString(), "0", "3+")))
+            .ToList();
+        Assert.DoesNotContain(ReactionPatternClassifier.Classify(cells),
+            n => n.Kind == ReactionPatternClassifier.Htla);
+    }
+
+    [Fact]
+    public void PanreactiveWithNegativeAc_FavorsHighPrevalence()
+    {
+        var cells = Enumerable.Range(1, 6)
+            .Select(i => ReactionPatternClassifier.Observe(Rxn(i.ToString(), "0", "2+")))
+            .Append(ReactionPatternClassifier.Observe(Rxn("AC", "0", "0")))
+            .ToList();
+        var notes = ReactionPatternClassifier.Classify(cells);
+        Assert.Contains(notes, n => n.Kind == ReactionPatternClassifier.HighPrevalence);
+        Assert.Contains("high-prevalence", notes.First(n => n.Kind == ReactionPatternClassifier.HighPrevalence).Explanation);
+        Assert.DoesNotContain(notes, n => n.Kind == ReactionPatternClassifier.Autoantibody);
+    }
+
+    [Fact]
+    public void PanreactiveWithPositiveAc_FavorsAutoantibody()
+    {
+        var cells = Enumerable.Range(1, 6)
+            .Select(i => ReactionPatternClassifier.Observe(Rxn(i.ToString(), "0", "2+")))
+            .Append(ReactionPatternClassifier.Observe(Rxn("AC", "0", "2+")))
+            .ToList();
+        var notes = ReactionPatternClassifier.Classify(cells);
+        Assert.Contains(notes, n => n.Kind == ReactionPatternClassifier.Autoantibody);
+        Assert.Contains("autoantibody", notes.First(n => n.Kind == ReactionPatternClassifier.Autoantibody).Explanation);
+    }
+
+    [Fact]
+    public void SingleReactiveCell_IsLowFrequencyPattern()
+    {
+        var cells = Enumerable.Range(1, 8)
+            .Select(i => ReactionPatternClassifier.Observe(Rxn(i.ToString(), "0", i == 3 ? "2+" : "0")))
+            .ToList();
+        var notes = ReactionPatternClassifier.Classify(cells);
+        var lfa = Assert.Single(notes, n => n.Kind == ReactionPatternClassifier.LowFrequency);
+        Assert.Equal(1, lfa.MatchingCells);
+        Assert.Contains("low-frequency", lfa.Explanation);
+    }
+
+    [Fact]
     public void Analyzer_SurfacesColdPatternOnSuggestions()
     {
         using var iso = new IsolatedDatabase();
