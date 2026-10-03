@@ -17,6 +17,10 @@ namespace AntibodyPanels.Data
 
         public string DbPath { get; }
 
+        public string ArtifactDirectory =>
+            Path.Combine(Path.GetDirectoryName(DbPath) ?? ".",
+                Path.GetFileNameWithoutExtension(DbPath) + "-artifacts");
+
         public DatabaseService(string? dbPath = null)
         {
             DbPath = dbPath ?? DefaultDbPath();
@@ -277,6 +281,10 @@ namespace AntibodyPanels.Data
                 ExecNonQuery("ALTER TABLE panels ADD COLUMN imported_at TEXT");
             if (!panelCols.Contains("special_notes"))
                 ExecNonQuery("ALTER TABLE panels ADD COLUMN special_notes TEXT");
+            if (!panelCols.Contains("source_sha256"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN source_sha256 TEXT");
+            if (!panelCols.Contains("source_artifact_path"))
+                ExecNonQuery("ALTER TABLE panels ADD COLUMN source_artifact_path TEXT");
 
             var cellCols = GetColumnNames("panel_cells");
             if (!cellCols.Contains("donor_id"))
@@ -695,16 +703,17 @@ namespace AntibodyPanels.Data
             int numCells, string? expirationDate, bool includeAc, int startCell = 1, bool? isActive = null,
             string? catalogNumber = null, string? productLine = null, bool enzymeTreated = false,
             string? sourceUrl = null, string? sourceFormat = null, string? importedAt = null,
-            string? specialNotes = null)
+            string? specialNotes = null, string? sourceSha256 = null, string? sourceArtifactPath = null)
         {
             var today = DateTime.Now.ToString("yyyy-MM-dd");
             bool active = isActive ?? (expirationDate == null || string.Compare(expirationDate, today) >= 0);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 INSERT INTO panels (name, lot_number, vendor, num_cells, expiration_date, include_ac, start_cell, is_active,
-                    catalog_number, product_line, enzyme_treated, source_url, source_format, imported_at, special_notes)
+                    catalog_number, product_line, enzyme_treated, source_url, source_format, imported_at, special_notes,
+                    source_sha256, source_artifact_path)
                 VALUES ($name, $lot, $vendor, $num, $exp, $ac, $sc, $active,
-                    $cat, $pline, $enz, $url, $fmt, $imp, $notes);
+                    $cat, $pline, $enz, $url, $fmt, $imp, $notes, $sha, $art);
                 SELECT last_insert_rowid();";
             cmd.Parameters.AddWithValue("$name", name);
             cmd.Parameters.AddWithValue("$lot", (object?)lotNumber ?? DBNull.Value);
@@ -721,6 +730,8 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$fmt", (object?)sourceFormat ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$imp", (object?)importedAt ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$notes", (object?)specialNotes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$sha", (object?)sourceSha256 ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$art", (object?)sourceArtifactPath ?? DBNull.Value);
             var panelId = Convert.ToInt32(cmd.ExecuteScalar());
 
             for (int i = startCell; i < startCell + numCells; i++)
@@ -816,12 +827,13 @@ namespace AntibodyPanels.Data
 
         public void SetPanelVendorMetadata(int panelId, string? catalogNumber, string? productLine,
             bool enzymeTreated, string? sourceUrl, string? sourceFormat, string? importedAt,
-            string? specialNotes)
+            string? specialNotes, string? sourceSha256 = null, string? sourceArtifactPath = null)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 UPDATE panels SET catalog_number=$cat, product_line=$pline, enzyme_treated=$enz,
-                    source_url=$url, source_format=$fmt, imported_at=$imp, special_notes=$notes
+                    source_url=$url, source_format=$fmt, imported_at=$imp, special_notes=$notes,
+                    source_sha256=$sha, source_artifact_path=$art
                 WHERE panel_id=$id";
             cmd.Parameters.AddWithValue("$cat", (object?)catalogNumber ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$pline", (object?)productLine ?? DBNull.Value);
@@ -830,8 +842,33 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$fmt", (object?)sourceFormat ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$imp", (object?)importedAt ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$notes", (object?)specialNotes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$sha", (object?)sourceSha256 ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$art", (object?)sourceArtifactPath ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$id", panelId);
             cmd.ExecuteNonQuery();
+        }
+
+        public Panel? FindPriorVendorPanel(string? vendor, string? productLine, string? excludeLot)
+        {
+            if (string.IsNullOrWhiteSpace(vendor)) return null;
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT * FROM panels
+                WHERE vendor = $vendor
+                  AND ($pline IS NULL OR product_line IS NULL OR product_line = $pline)
+                  AND ($lot IS NULL OR lot_number IS NULL OR lot_number != $lot)
+                ORDER BY
+                    CASE WHEN $pline IS NOT NULL AND product_line = $pline THEN 0 ELSE 1 END,
+                    imported_at DESC,
+                    panel_id DESC
+                LIMIT 1";
+            cmd.Parameters.AddWithValue("$vendor", vendor.Trim());
+            cmd.Parameters.AddWithValue("$pline",
+                string.IsNullOrWhiteSpace(productLine) ? DBNull.Value : productLine.Trim());
+            cmd.Parameters.AddWithValue("$lot",
+                string.IsNullOrWhiteSpace(excludeLot) ? DBNull.Value : excludeLot.Trim());
+            using var r = cmd.ExecuteReader();
+            return r.Read() ? ReadPanel(r) : null;
         }
 
         public void SetPanelActive(int panelId, bool active)
@@ -841,6 +878,8 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$active", active ? 1 : 0);
             cmd.Parameters.AddWithValue("$id", panelId);
             cmd.ExecuteNonQuery();
+            AppendAudit(active ? "activate_panel" : "deactivate_panel", "panel", panelId.ToString(),
+                null, afterJson: JsonSerializer.Serialize(new { active }));
         }
 
         public void DeletePanel(int panelId)
@@ -1942,6 +1981,8 @@ namespace AntibodyPanels.Data
             SourceUrl = SafeGetString(r, "source_url"),
             SourceFormat = SafeGetString(r, "source_format"),
             ImportedAt = SafeGetString(r, "imported_at"),
+            SourceSha256 = SafeGetString(r, "source_sha256"),
+            SourceArtifactPath = SafeGetString(r, "source_artifact_path"),
             SpecialNotes = SafeGetString(r, "special_notes"),
         };
 

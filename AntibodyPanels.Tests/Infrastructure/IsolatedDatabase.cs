@@ -23,7 +23,14 @@ public sealed class IsolatedDatabase : IDisposable
 
     public void Dispose()
     {
+        var artifacts = Db.ArtifactDirectory;
         Db.Dispose();
         try { File.Delete(DbPath); } catch { /* best effort cleanup */ }
+        try
+        {
+            if (Directory.Exists(artifacts))
+                Directory.Delete(artifacts, recursive: true);
+        }
+        catch { /* best effort cleanup */ }
     }
 }

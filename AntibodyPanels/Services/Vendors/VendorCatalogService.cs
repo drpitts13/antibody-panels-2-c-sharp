@@ -52,14 +52,21 @@ namespace AntibodyPanels.Services.Vendors
             var parsed = source.Parse(stream, lot.LotNumber + "." + lot.SourceFormat, lot);
             parsed.SourceUrl ??= lot.DownloadUrl;
             parsed.SourceFormat = lot.SourceFormat;
+            parsed.SourceBytes = bytes;
+            parsed.SourceFileName = lot.LotNumber + "." + lot.SourceFormat;
             return parsed;
         }
 
         public VendorParseResult ImportFile(string vendorId, string filePath)
         {
             var source = GetSource(vendorId);
-            using var stream = File.OpenRead(filePath);
-            return source.Parse(stream, Path.GetFileName(filePath), null);
+            var bytes = File.ReadAllBytes(filePath);
+            using var stream = new MemoryStream(bytes, writable: false);
+            var parsed = source.Parse(stream, Path.GetFileName(filePath), null);
+            parsed.SourceBytes = bytes;
+            parsed.SourceFileName = Path.GetFileName(filePath);
+            parsed.SourceUrl ??= filePath;
+            return parsed;
         }
 
         public void Dispose() => _http.Dispose();

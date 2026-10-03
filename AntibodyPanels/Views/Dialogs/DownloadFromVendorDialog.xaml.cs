@@ -148,9 +148,13 @@ namespace AntibodyPanels.Views.Dialogs
                 replace = true;
             }
 
-            ImportedPanelId = _importer.Persist(parsed, replace);
+            var outcome = _importer.Import(parsed, replace);
+            ImportedPanelId = outcome.PanelId;
             ImportedPanelName = parsed.Name;
-            StatusText.Text = $"Imported '{parsed.Name}' ({parsed.Cells.Count} cells).";
+            var reviewDlg = new ImportReviewDialog(outcome.Review) { Owner = this };
+            if (reviewDlg.ShowDialog() == true && reviewDlg.ActivateRequested)
+                _db.SetPanelActive(outcome.PanelId, true);
+            StatusText.Text = $"Imported '{parsed.Name}' ({parsed.Cells.Count} cells). {outcome.Review.Explanation}";
             DialogResult = true;
         }
     }

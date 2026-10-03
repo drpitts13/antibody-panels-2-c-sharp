@@ -91,6 +91,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand SaveCellsCommand { get; }
         public ICommand CancelEditCommand { get; }
         public ICommand RefreshCommand { get; }
+        public ICommand ActivateCommand { get; }
 
         public PanelsViewModel(DatabaseService db, MainViewModel main)
         {
@@ -110,6 +111,8 @@ namespace AntibodyPanels.ViewModels
             SaveCellsCommand = new RelayCommand(SaveAllCells, () => IsEditingAntigens);
             CancelEditCommand = new RelayCommand(CancelEdit, () => IsEditingAntigens);
             RefreshCommand = new RelayCommand(Refresh);
+            ActivateCommand = new RelayCommand(ActivatePanel,
+                () => SelectedPanel != null && !SelectedPanel.IsActive && !IsEditingAntigens);
             Refresh();
         }
 
@@ -237,6 +240,24 @@ namespace AntibodyPanels.ViewModels
             NotifyPanelsChanged();
         }
 
+        private void ActivatePanel()
+        {
+            if (SelectedPanel == null || SelectedPanel.IsActive) return;
+            var hash = string.IsNullOrWhiteSpace(SelectedPanel.SourceSha256)
+                ? "no source hash"
+                : SelectedPanel.SourceSha256;
+            if (MessageBox.Show(
+                    $"Activate '{SelectedPanel.Name}' (lot {SelectedPanel.LotNumber ?? "—"}) for analysis?\n\n" +
+                    $"Source SHA-256: {hash}\n\n" +
+                    "Activate only after reviewing the antigram. This is decision support, not a diagnosis.",
+                    "Activate imported panel",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            _db.SetPanelActive(SelectedPanel.PanelId, true);
+            _main.SetStatus($"Activated panel '{SelectedPanel.Name}'.");
+            NotifyPanelsChanged();
+        }
+
         private void CopyPanel()
         {
             if (SelectedPanel == null) return;
@@ -272,9 +293,14 @@ namespace AntibodyPanels.ViewModels
                 Owner = Application.Current?.MainWindow
             };
             if (dlg.ShowDialog() != true || dlg.ImportedPanelId is not int id) return;
+            ShowInactive = true;
             NotifyPanelsChanged();
-            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == id);
-            _main.SetStatus($"Imported vendor panel '{dlg.ImportedPanelName}'.");
+            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == id)
+                            ?? _allPanels.FirstOrDefault(p => p.PanelId == id);
+            var stored = _db.GetPanel(id);
+            _main.SetStatus(stored is { IsActive: true }
+                ? $"Imported and activated vendor panel '{dlg.ImportedPanelName}'."
+                : $"Imported vendor panel '{dlg.ImportedPanelName}' (inactive — review before use).");
         }
 
         private void ImportCsv()

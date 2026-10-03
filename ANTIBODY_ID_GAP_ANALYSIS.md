@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 5 — dedicated Explain Analysis per-candidate narrative).
+Last updated: 2026-10-03 (iteration 6 — import review-before-activation with retained artifact).
 
 ## Capability matrix
 
@@ -21,9 +21,9 @@ Last updated: 2026-10-03 (iteration 5 — dedicated Explain Analysis per-candida
 | Import | Vendor APIs / authenticated portals | Missing | Public HTML + file import only. Do not bypass auth, CAPTCHA, licensing, or terms | Secrets storage only if a vendor authorizes access |
 | Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-` | Persist NT / unknown / zygosity |
 | Common model | Homozygous / heterozygous / negative / unknown / NT | Partial | Import NT / missing columns stay untyped; zygosity still inferred from typed antitheticals | Persist explicit homozygous state later |
-| Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | Staging + review before activation |
-| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` no longer coerced to `-`; unknown antigens listed on analysis | Schema-vs-prior-lot and review-before-activation |
-| Import traceability | Original artifact retained | Missing | `SourceUrl` / `SourceFormat` / `ImportedAt` only | Store hash + artifact |
+| Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | Impossible-value checks later |
+| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` not coerced to `-`; vendor import compares antigen schema vs prior lot | Impossible values; schema-vs-prior-lot on lab CSV |
+| Import traceability | Original artifact retained | Partial | Vendor import stores SHA-256 + file beside the database | Lab CSV artifact; artifact viewer |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, N, Enter | — |
 | Reaction entry | RT, PEG, gel, solid phase, enzyme-as-phase, w+, MF, hemolysis | Missing | Enzyme is a treated **run**, not a phase column | Configurable phases later |
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Broader grades/phases; never-imported specificities |
@@ -34,8 +34,8 @@ Last updated: 2026-10-03 (iteration 5 — dedicated Explain Analysis per-candida
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell column; rule-out slashes; run-vs-run compare | Antigen grouping, dosage toggle, filter/sort, panel compare |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots | Import artifact + rule-version detail |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Rule-out, untyped, selected-cell, phenotype, and Explain narrative tests | Expand case library |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged | Rule-version detail; artifact viewer |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Rule-out, untyped, selected-cell, phenotype, Explain, and import-review tests | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -108,8 +108,23 @@ auto-confirmed.
 **Not in this tick:** import review-before-activation, genotype columns,
 XLSX/portals, broader reaction grades/phases.
 
+## Iteration 6 (this change)
+
+**Deficiency:** Vendor lots became active as soon as parse succeeded. The
+original file was not retained, and a new lot that dropped or added an
+antigen column was not compared to the previous lot from that vendor.
+
+**Bounded improvement:** Vendor imports stay inactive. SHA-256 of the source
+bytes is stored and the file is copied beside the database. The review
+sentence names added/removed antigens versus the prior lot. A qualified user
+must activate the panel before it enters inventory.
+
+**Not in this tick:** lab-CSV artifact retention, XLSX/portals, broader
+reaction grades/phases, structured genotype fields.
+
 ## Likely next tick
 
-Import review-before-activation with retained original artifact, or stop
-remaining silent assumptions around panel schema vs prior lot. Broader
-grades/phases (`w+`, MF, hemolysis; RT/PEG/gel) remain later.
+Lab CSV import artifact + schema compare, or broader grades/phases (`w+`,
+MF, hemolysis; RT/PEG/gel as configured phases). Authenticated vendor
+portals stay later and must not bypass auth, CAPTCHA, licensing, or terms.
+

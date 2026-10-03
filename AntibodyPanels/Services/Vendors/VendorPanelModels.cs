@@ -45,6 +45,8 @@ namespace AntibodyPanels.Services.Vendors
         public bool EnzymeTreated { get; set; }
         public string? SourceUrl { get; set; }
         public string SourceFormat { get; set; } = "pdf";
+        public byte[]? SourceBytes { get; set; }
+        public string? SourceFileName { get; set; }
         public string? SpecialNotes { get; set; }
         public List<PanelCell> Cells { get; } = new();
         public List<string> AntigenOrder { get; } = new();

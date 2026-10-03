@@ -19,6 +19,8 @@ namespace AntibodyPanels.Models
         public string? SourceUrl { get; set; }
         public string? SourceFormat { get; set; }
         public string? ImportedAt { get; set; }
+        public string? SourceSha256 { get; set; }
+        public string? SourceArtifactPath { get; set; }
         public string? SpecialNotes { get; set; }
 
         public List<PanelCell> Cells { get; set; } = new();

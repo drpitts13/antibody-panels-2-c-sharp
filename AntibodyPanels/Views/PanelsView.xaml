@@ -45,6 +45,8 @@
                         ToolTip="Add a non-standard antigen from the warehouse catalog to this panel only"/>
                 <Button Content="Remove antigen…" Command="{Binding RemoveExtraAntigenCommand}" Width="120" Margin="0,0,4,4"
                         ToolTip="Remove a non-standard antigen column from this panel"/>
+                <Button Content="Activate" Command="{Binding ActivateCommand}" Width="70" Margin="0,0,4,4"
+                        ToolTip="Activate an imported panel after reviewing the antigram and source hash"/>
                 <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,8,4"/>
                 <CheckBox Content="Show Inactive" IsChecked="{Binding ShowInactive}"
                           IsEnabled="{Binding IsEditingAntigens, Converter={x:Static views:InverseBoolConverter.Instance}}"
