@@ -218,7 +218,7 @@
             <TextBlock Grid.Row="1" Margin="0,4,0,2" Foreground="#546E7A" FontSize="11"
                        TextWrapping="Wrap">
                 <Run Text="{Binding EntryProgressText, Mode=OneWay}"/>
-                <Run Text="  Grades load when you pick a specimen, panel, or run. Keys: 0–4 = grade, W = w+, M = MF, H = hemolysis, N = NT, Enter = next phase. Extra phases (RT, PEG, Gel) are configured in Lab Preferences. Colors: incomplete blue, w+/1+ yellow, 2+ orange, 3+/4+/H red, MF purple. Pink CC = invalid when AHG is 0. Extra-phase reactivity and w+/MF/H cannot rule out."/>
+                <Run Text="  Grades load when you pick a specimen, panel, or run. Keys: 0–4 = grade, W = w+, M = MF, H = hemolysis, N = NT, Enter = next phase. Extra phases (RT, PEG, Gel) are configured in Lab Preferences. Compare runs includes those extra columns. Colors: incomplete blue, w+/1+ yellow, 2+ orange, 3+/4+/H red, MF purple. Pink CC = invalid when AHG is 0. Extra-phase reactivity and w+/MF/H cannot rule out."/>
             </TextBlock>
             <DataGrid x:Name="CompareGrid" Grid.Row="2" Margin="0,4,0,0"
                       ItemsSource="{Binding CompareRows}"
@@ -232,6 +232,7 @@
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding AnyChanged}" Value="True">
                                 <Setter Property="Background" Value="#FFF8E1"/>
+                                <Setter Property="ToolTip" Value="{Binding Explanation}"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

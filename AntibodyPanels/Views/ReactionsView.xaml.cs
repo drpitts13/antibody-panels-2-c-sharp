@@ -46,6 +46,7 @@ namespace AntibodyPanels.Views
         private readonly Dictionary<string, DataGridColumn> _antigenColumns = new();
         private readonly List<string> _dynamicAntigenNames = new();
         private readonly List<DataGridColumn> _extraPhaseColumns = new();
+        private readonly List<DataGridColumn> _compareExtraColumns = new();
         private ReactionsViewModel? _vm;
 
         public ReactionsView()
@@ -55,7 +56,10 @@ namespace AntibodyPanels.Views
             AppSettings.Changed += (_, _) =>
             {
                 if (_columnsInjected)
+                {
                     RebuildExtraPhaseColumns();
+                    RebuildCompareExtraColumns();
+                }
             };
         }
 
@@ -83,6 +87,8 @@ namespace AntibodyPanels.Views
             else if (e.PropertyName == nameof(ReactionsViewModel.AntigenDisplayOrder) ||
                      e.PropertyName == nameof(ReactionsViewModel.ExtraAntigens))
                 RebuildAntigenColumns();
+            else if (e.PropertyName == nameof(ReactionsViewModel.CompareExtraPhases))
+                RebuildCompareExtraColumns();
         }
 
         private void ApplyRuledOutToHeaders()
@@ -120,6 +126,7 @@ namespace AntibodyPanels.Views
             EnsureRuledOutColumn();
 
             ApplyGradeStylesToPhaseColumns();
+            RebuildCompareExtraColumns();
             ApplyCompareGradeStyles();
             ApplyRuledOutToHeaders();
             ApplyDestroyedToHeaders();
@@ -251,6 +258,42 @@ namespace AntibodyPanels.Views
                 };
                 ReactionsGrid.Columns.Insert(insertAt++, col);
                 _extraPhaseColumns.Add(col);
+            }
+        }
+
+        private void RebuildCompareExtraColumns()
+        {
+            if (!_columnsInjected) return;
+            foreach (var col in _compareExtraColumns)
+                CompareGrid.Columns.Remove(col);
+            _compareExtraColumns.Clear();
+
+            var phases = _vm?.CompareExtraPhases
+                ?? ExtraPhaseParser.Parse(AppSettings.Current.ExtraPhases);
+            if (phases.Count == 0) return;
+
+            var ccCol = CompareGrid.Columns.FirstOrDefault(c => (c.Header as string) == "This CC");
+            var insertAt = ccCol != null ? CompareGrid.Columns.IndexOf(ccCol) : CompareGrid.Columns.Count;
+            foreach (var phase in phases)
+            {
+                var left = new DataGridTextColumn
+                {
+                    Header = "This " + phase,
+                    Width = 78,
+                    Binding = new Binding($"LeftExtra[{phase}]"),
+                    CellStyle = CreateGradeCellStyle($"LeftExtra[{phase}]")
+                };
+                var right = new DataGridTextColumn
+                {
+                    Header = "Other " + phase,
+                    Width = 78,
+                    Binding = new Binding($"RightExtra[{phase}]"),
+                    CellStyle = CreateGradeCellStyle($"RightExtra[{phase}]")
+                };
+                CompareGrid.Columns.Insert(insertAt++, left);
+                CompareGrid.Columns.Insert(insertAt++, right);
+                _compareExtraColumns.Add(left);
+                _compareExtraColumns.Add(right);
             }
         }
 

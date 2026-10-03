@@ -116,6 +116,8 @@ namespace AntibodyPanels.ViewModels
         public Visibility ComparePanelVisibility =>
             CompareMode ? Visibility.Visible : Visibility.Collapsed;
 
+        public IReadOnlyList<string> CompareExtraPhases { get; private set; } = Array.Empty<string>();
+
         private PanelRun? _compareRun;
         public PanelRun? CompareRun
         {
@@ -128,6 +130,14 @@ namespace AntibodyPanels.ViewModels
         }
 
         public ObservableCollection<PanelRun> CompareRunChoices { get; } = new();
+
+        private void ResetCompareRows()
+        {
+            CompareRows.Clear();
+            if (CompareExtraPhases.Count == 0) return;
+            CompareExtraPhases = Array.Empty<string>();
+            OnPropertyChanged(nameof(CompareExtraPhases));
+        }
 
         public bool HideRuledOutAntigenColumns
         {
@@ -387,29 +397,30 @@ namespace AntibodyPanels.ViewModels
 
         private void RebuildCompareRows()
         {
-            CompareRows.Clear();
+            ResetCompareRows();
             if (!CompareMode || SelectedRun == null || CompareRun == null || Rows.Count == 0)
                 return;
 
             var other = _db.GetReactions(CompareRun.RunId).ToDictionary(r => r.CellNumber);
+            var extras = ExtraPhaseParser.Parse(AppSettings.Current.ExtraPhases);
             foreach (var row in Rows)
             {
                 other.TryGetValue(row.CellNumber, out var rxn);
-                CompareRows.Add(new CompareReactionRow
-                {
-                    CellNumber = row.CellNumber,
-                    LeftIS = row.IS,
-                    LeftC37 = row.C37,
-                    LeftAHG = row.AHG,
-                    LeftCC = row.CC,
-                    RightIS = rxn?.IS ?? "NT",
-                    RightC37 = rxn?.C37 ?? "NT",
-                    RightAHG = rxn?.AHG ?? "NT",
-                    RightCC = rxn?.CC ?? "NT",
-                    LeftLabel = SelectedRun.DisplayLabel,
-                    RightLabel = CompareRun.DisplayLabel,
-                });
+                CompareRows.Add(CompareReactionRow.Build(
+                    row.CellNumber,
+                    row.IS, row.C37, row.AHG, row.CC,
+                    rxn?.IS ?? "NT", rxn?.C37 ?? "NT", rxn?.AHG ?? "NT", rxn?.CC ?? "NT",
+                    row.ExtraPhaseValues,
+                    rxn?.ExtraPhases,
+                    extras,
+                    SelectedRun.DisplayLabel,
+                    CompareRun.DisplayLabel));
             }
+            CompareExtraPhases = CompareRows
+                .SelectMany(r => r.ExtraPhaseNames)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            OnPropertyChanged(nameof(CompareExtraPhases));
         }
 
         private void UpdateTreatmentBanner()
@@ -555,7 +566,7 @@ namespace AntibodyPanels.ViewModels
             if (SelectedSpecimen == null || SelectedRun == null)
             {
                 Rows.Clear();
-                CompareRows.Clear();
+                ResetCompareRows();
                 RefreshEntryProgress();
                 MarkGradesClean();
                 return;
@@ -692,7 +703,7 @@ namespace AntibodyPanels.ViewModels
             _db.DeleteReactions(SelectedRun.RunId);
             SaveStatusMessage = string.Empty;
             Rows.Clear();
-            CompareRows.Clear();
+            ResetCompareRows();
             RefreshRuledOutAntigens();
             RefreshEntryProgress();
             MarkGradesClean();
@@ -970,9 +981,106 @@ namespace AntibodyPanels.ViewModels
         public string RightC37 { get; set; } = "NT";
         public string RightAHG { get; set; } = "NT";
         public string RightCC { get; set; } = "NT";
+        public List<string> ExtraPhaseNames { get; } = new();
+        public Dictionary<string, string> LeftExtra { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, string> RightExtra { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-        public bool AhgChanged => LeftAHG != RightAHG;
-        public bool AnyChanged =>
-            LeftIS != RightIS || LeftC37 != RightC37 || LeftAHG != RightAHG || LeftCC != RightCC;
+        public bool AhgChanged => !SameGrade(LeftAHG, RightAHG);
+        public bool AnyChanged => Diffs().Count > 0;
+        public string Explanation
+        {
+            get
+            {
+                var diffs = Diffs();
+                if (diffs.Count == 0)
+                    return $"Cell {CellNumber} matches on all compared phases.";
+                return $"Cell {CellNumber} differs: {string.Join("; ", diffs)}.";
+            }
+        }
+
+        public string GetLeftExtra(string phase) => GradeOrNt(LeftExtra, phase);
+        public string GetRightExtra(string phase) => GradeOrNt(RightExtra, phase);
+        public bool ExtraChanged(string phase) => !SameGrade(GetLeftExtra(phase), GetRightExtra(phase));
+
+        public static CompareReactionRow Build(
+            string cellNumber,
+            string leftIS, string leftC37, string leftAHG, string leftCC,
+            string rightIS, string rightC37, string rightAHG, string rightCC,
+            IReadOnlyDictionary<string, string>? leftExtra = null,
+            IReadOnlyDictionary<string, string>? rightExtra = null,
+            IEnumerable<string>? extraPhases = null,
+            string? leftLabel = null,
+            string? rightLabel = null)
+        {
+            var row = new CompareReactionRow
+            {
+                CellNumber = cellNumber,
+                LeftIS = leftIS ?? "NT",
+                LeftC37 = leftC37 ?? "NT",
+                LeftAHG = leftAHG ?? "NT",
+                LeftCC = leftCC ?? "NT",
+                RightIS = rightIS ?? "NT",
+                RightC37 = rightC37 ?? "NT",
+                RightAHG = rightAHG ?? "NT",
+                RightCC = rightCC ?? "NT",
+                LeftLabel = leftLabel ?? "",
+                RightLabel = rightLabel ?? "",
+            };
+            foreach (var name in UnionExtraPhases(extraPhases, leftExtra, rightExtra))
+            {
+                row.ExtraPhaseNames.Add(name);
+                row.LeftExtra[name] = GradeOrNt(leftExtra, name);
+                row.RightExtra[name] = GradeOrNt(rightExtra, name);
+            }
+            return row;
+        }
+
+        private List<string> Diffs()
+        {
+            var diffs = new List<string>();
+            AddDiff(diffs, "IS", LeftIS, RightIS);
+            AddDiff(diffs, "37°C", LeftC37, RightC37);
+            AddDiff(diffs, "AHG", LeftAHG, RightAHG);
+            foreach (var phase in ExtraPhaseNames)
+                AddDiff(diffs, phase, GetLeftExtra(phase), GetRightExtra(phase));
+            AddDiff(diffs, "CC", LeftCC, RightCC);
+            return diffs;
+        }
+
+        private static void AddDiff(List<string> diffs, string phase, string left, string right)
+        {
+            if (SameGrade(left, right)) return;
+            diffs.Add($"{phase} (this {left} vs other {right})");
+        }
+
+        private static bool SameGrade(string? left, string? right) =>
+            string.Equals(string.IsNullOrWhiteSpace(left) ? "NT" : left,
+                string.IsNullOrWhiteSpace(right) ? "NT" : right,
+                StringComparison.OrdinalIgnoreCase);
+
+        private static string GradeOrNt(IReadOnlyDictionary<string, string>? extras, string phase)
+        {
+            if (extras != null && extras.TryGetValue(phase, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value;
+            return "NT";
+        }
+
+        private static List<string> UnionExtraPhases(
+            IEnumerable<string>? configured,
+            IReadOnlyDictionary<string, string>? leftExtra,
+            IReadOnlyDictionary<string, string>? rightExtra)
+        {
+            var names = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var name in (configured ?? Array.Empty<string>())
+                .Concat(leftExtra?.Keys ?? Array.Empty<string>())
+                .Concat(rightExtra?.Keys ?? Array.Empty<string>()))
+            {
+                if (string.IsNullOrWhiteSpace(name) || ExtraPhaseParser.IsReserved(name)) continue;
+                if (!seen.Add(name)) continue;
+                names.Add(name.Trim());
+            }
+            return names;
+        }
     }
 }

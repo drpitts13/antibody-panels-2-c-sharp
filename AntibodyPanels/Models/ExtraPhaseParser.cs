@@ -15,6 +15,9 @@ namespace AntibodyPanels.Models
 
         public static readonly IReadOnlyList<string> Suggested = new[] { "RT", "PEG", "Gel", "Solid" };
 
+        public static bool IsReserved(string? name) =>
+            !string.IsNullOrWhiteSpace(name) && Reserved.Contains(name.Trim());
+
         public static IReadOnlyList<string> Parse(string? configured)
         {
             if (string.IsNullOrWhiteSpace(configured))
