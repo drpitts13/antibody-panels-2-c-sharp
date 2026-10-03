@@ -1,10 +1,13 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using AntibodyPanels.Models;
+using AntibodyPanels.Services;
 using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels.Views
@@ -42,12 +45,18 @@ namespace AntibodyPanels.Views
         private readonly Dictionary<string, AntigenColumnHeader> _antigenHeaders = new();
         private readonly Dictionary<string, DataGridColumn> _antigenColumns = new();
         private readonly List<string> _dynamicAntigenNames = new();
+        private readonly List<DataGridColumn> _extraPhaseColumns = new();
         private ReactionsViewModel? _vm;
 
         public ReactionsView()
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
+            AppSettings.Changed += (_, _) =>
+            {
+                if (_columnsInjected)
+                    RebuildExtraPhaseColumns();
+            };
         }
 
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -107,6 +116,7 @@ namespace AntibodyPanels.Views
             _columnsInjected = true;
 
             RebuildAntigenColumns();
+            RebuildExtraPhaseColumns();
             EnsureRuledOutColumn();
 
             ApplyGradeStylesToPhaseColumns();
@@ -207,6 +217,40 @@ namespace AntibodyPanels.Views
                 else if (header == "37°C") col.CellStyle = CreateGradeCellStyle("C37");
                 else if (header == "AHG") col.CellStyle = CreateGradeCellStyle("AHG");
                 else if (header == "CC") col.CellStyle = CreateGradeCellStyle("CC", ccColumn: true);
+                else if (header != null && ExtraPhaseParser.Parse(AppSettings.Current.ExtraPhases)
+                             .Any(p => string.Equals(p, header, StringComparison.OrdinalIgnoreCase)))
+                    col.CellStyle = CreateGradeCellStyle($"Extra[{header}].Value");
+            }
+        }
+
+        private void RebuildExtraPhaseColumns()
+        {
+            if (!_columnsInjected) return;
+            foreach (var col in _extraPhaseColumns)
+                ReactionsGrid.Columns.Remove(col);
+            _extraPhaseColumns.Clear();
+
+            var phases = ExtraPhaseParser.Parse(AppSettings.Current.ExtraPhases);
+            if (phases.Count == 0) return;
+
+            var ahg = ReactionsGrid.Columns.FirstOrDefault(c => (c.Header as string) == "AHG");
+            var insertAt = ahg != null ? ReactionsGrid.Columns.IndexOf(ahg) + 1 : ReactionsGrid.Columns.Count;
+            foreach (var phase in phases)
+            {
+                var col = new DataGridComboBoxColumn
+                {
+                    Header = phase,
+                    Width = 90,
+                    ItemsSource = ReactionsViewModel.ReactionValues,
+                    SelectedItemBinding = new Binding($"Extra[{phase}].Value")
+                    {
+                        Mode = BindingMode.TwoWay,
+                        UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
+                    },
+                    CellStyle = CreateGradeCellStyle($"Extra[{phase}].Value")
+                };
+                ReactionsGrid.Columns.Insert(insertAt++, col);
+                _extraPhaseColumns.Add(col);
             }
         }
 
@@ -265,7 +309,10 @@ namespace AntibodyPanels.Views
         {
             if (ReactionsGrid.CurrentItem is not ReactionRow row) return;
             var header = ReactionsGrid.CurrentColumn?.Header as string;
-            if (header is not ("IS" or "37°C" or "AHG" or "CC")) return;
+            var extra = ExtraPhaseParser.Parse(AppSettings.Current.ExtraPhases);
+            if (header is not ("IS" or "37°C" or "AHG" or "CC")
+                && !extra.Any(p => string.Equals(p, header, StringComparison.OrdinalIgnoreCase)))
+                return;
 
             string? grade = e.Key switch
             {
@@ -304,6 +351,10 @@ namespace AntibodyPanels.Views
                 case "37°C": row.C37 = grade; break;
                 case "AHG": row.AHG = grade; break;
                 case "CC": row.CC = grade; break;
+                default:
+                    if (row.Extra.TryGetValue(header, out var extra))
+                        extra.Value = grade;
+                    break;
             }
         }
 
@@ -313,11 +364,14 @@ namespace AntibodyPanels.Views
             var item = ReactionsGrid.CurrentItem;
             if (current == null || item == null) return;
 
-            string[] order = { "IS", "37°C", "AHG", "CC" };
-            int idx = System.Array.IndexOf(order, current.Header as string);
+            var extras = ExtraPhaseParser.Parse(AppSettings.Current.ExtraPhases);
+            var order = new List<string> { "IS", "37°C", "AHG" };
+            order.AddRange(extras);
+            order.Add("CC");
+            int idx = order.IndexOf(current.Header as string ?? "");
             if (idx < 0) return;
 
-            if (idx < order.Length - 1)
+            if (idx < order.Count - 1)
             {
                 var next = FindColumn(order[idx + 1]);
                 if (next != null)

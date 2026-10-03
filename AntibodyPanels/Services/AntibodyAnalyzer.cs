@@ -683,7 +683,7 @@ namespace AntibodyPanels.Services
         {
             var result = new Dictionary<string, Dictionary<string, double>>();
             // CC is a check-cell control, not an antibody reactivity phase
-            var phases = new[] { "IS", "C37", "AHG" };
+            var phases = ExtraPhaseParser.AllInterpretableNames(AppSettings.Current.ExtraPhases);
 
             foreach (var phase in phases)
             {
@@ -1191,14 +1191,29 @@ namespace AntibodyPanels.Services
             {
                 if (string.Equals(rxn.CellNumber, "AC", StringComparison.OrdinalIgnoreCase))
                     continue;
-                foreach (var (phase, val) in new[] { ("IS", rxn.IS), ("37°C", rxn.C37), ("AHG", rxn.AHG) })
+                var phases = new List<(string Phase, string Value)>
+                {
+                    ("IS", rxn.IS), ("37°C", rxn.C37), ("AHG", rxn.AHG)
+                };
+                foreach (var (phase, val) in rxn.ExtraPhases)
+                    phases.Add((phase, val));
+                foreach (var (phase, val) in phases)
                 {
                     var canon = ReactionGrade.Normalize(val);
-                    if (canon is not (ReactionGrade.Weak or ReactionGrade.MixedField or ReactionGrade.Hemolysis))
-                        continue;
-                    notes.Add(
-                        $"Cell {rxn.CellNumber} {phase} is {ReactionGrade.Describe(canon)}; " +
-                        "treat as reactive evidence, not a rule-out.");
+                    if (canon is ReactionGrade.Weak or ReactionGrade.MixedField or ReactionGrade.Hemolysis)
+                    {
+                        notes.Add(
+                            $"Cell {rxn.CellNumber} {phase} is {ReactionGrade.Describe(canon)}; " +
+                            "treat as reactive evidence, not a rule-out.");
+                    }
+                    else if (phase is not ("IS" or "37°C" or "AHG")
+                             && ReactionGrade.IsPositive(val)
+                             && !ReactionGrade.IsPositive(rxn.AHG))
+                    {
+                        notes.Add(
+                            $"Cell {rxn.CellNumber} {phase} is {ReactionGrade.Describe(val)} while AHG is {ReactionGrade.Describe(rxn.AHG)}; " +
+                            "treat as phase-specific reactivity, not a rule-out.");
+                    }
                 }
             }
             return notes;

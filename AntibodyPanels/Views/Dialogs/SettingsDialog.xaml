@@ -23,6 +23,7 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
+                <RowDefinition Height="36"/>
             </Grid.RowDefinitions>
 
             <Label Content="Lab name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -73,6 +74,11 @@
             <CheckBox x:Name="HideRuledOutCheck" Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
                       Content="Hide ruled-out antigen columns on the Reactions tab"
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
+
+            <Label Content="Extra phases:" Grid.Row="13" VerticalAlignment="Center"
+                   ToolTip="Optional extra reaction columns, comma-separated (RT, PEG, Gel, Solid). Leave blank for IS / 37°C / AHG / CC only."/>
+            <TextBox x:Name="ExtraPhasesBox" Grid.Row="13" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"
+                     ToolTip="Example: RT, PEG, Gel"/>
         </Grid>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

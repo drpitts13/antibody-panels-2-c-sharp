@@ -624,7 +624,7 @@ namespace AntibodyPanels.ViewModels
             {
                 foreach (var row in Rows)
                     _db.SaveReaction(SelectedRun.RunId, row.CellNumber,
-                        row.IS, row.C37, row.AHG, row.CC);
+                        row.IS, row.C37, row.AHG, row.CC, row.ExtraPhaseValues);
                 entered = Rows.Count(r => r.HasEnteredGrade);
                 MarkGradesClean();
                 return true;
@@ -706,7 +706,7 @@ namespace AntibodyPanels.ViewModels
             if (dlg.ShowDialog() != true) return;
 
             var sourceRun = SelectedRun;
-            var inGridGrades = Rows.Select(r => (r.CellNumber, r.IS, r.C37, r.AHG, r.CC)).ToList();
+            var inGridGrades = Rows.Select(r => (r.CellNumber, r.IS, r.C37, r.AHG, r.CC, r.ExtraPhaseValues)).ToList();
 
             try
             {
@@ -721,7 +721,7 @@ namespace AntibodyPanels.ViewModels
                     if (inGridGrades.Count > 0)
                     {
                         foreach (var g in inGridGrades)
-                            _db.SaveReaction(runId, g.CellNumber, g.IS, g.C37, g.AHG, g.CC);
+                            _db.SaveReaction(runId, g.CellNumber, g.IS, g.C37, g.AHG, g.CC, g.ExtraPhaseValues);
                         copied = inGridGrades.Count;
                     }
                     else if (sourceRun != null)
@@ -804,8 +804,14 @@ namespace AntibodyPanels.ViewModels
         /// True when all interpretable phases are non-reactive.
         /// CC is a check-cell control, not a reactivity phase.
         /// </summary>
+        public Dictionary<string, BindableGrade> Extra { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public IReadOnlyDictionary<string, string> ExtraPhaseValues =>
+            Extra.ToDictionary(kv => kv.Key, kv => kv.Value.Value, StringComparer.OrdinalIgnoreCase);
+
         public bool IsNegative =>
-            ReactionGrade.IsNegative(AHG) && ReactionGrade.IsAbsent(IS) && ReactionGrade.IsAbsent(C37);
+            ReactionGrade.IsNegative(AHG) && ReactionGrade.IsAbsent(IS) && ReactionGrade.IsAbsent(C37)
+            && Extra.Values.All(g => ReactionGrade.IsAbsent(g.Value));
 
         /// <summary>
         /// Antigen names on this row whose + boxes should show a rule-out slash.
@@ -836,7 +842,8 @@ namespace AntibodyPanels.ViewModels
         public bool HasRuleout => SlashedAntigens.Count > 0;
 
         public bool HasEnteredGrade =>
-            IsGradeEntered(IS) || IsGradeEntered(C37) || IsGradeEntered(AHG);
+            IsGradeEntered(IS) || IsGradeEntered(C37) || IsGradeEntered(AHG)
+            || Extra.Values.Any(g => IsGradeEntered(g.Value));
 
         public bool IsIncomplete => !HasEnteredGrade;
 
@@ -856,13 +863,20 @@ namespace AntibodyPanels.ViewModels
         public bool FillRemainingNegatives()
         {
             var filled = FillNegativeDefaults(IS, C37, AHG, CC);
-            if (filled.IS == IS && filled.C37 == C37 && filled.AHG == AHG && filled.CC == CC)
-                return false;
+            var changed = filled.IS != IS || filled.C37 != C37 || filled.AHG != AHG || filled.CC != CC;
             IS = filled.IS;
             C37 = filled.C37;
             AHG = filled.AHG;
             CC = filled.CC;
-            return true;
+            foreach (var grade in Extra.Values)
+            {
+                if (!IsGradeEntered(grade.Value))
+                {
+                    grade.Value = "0";
+                    changed = true;
+                }
+            }
+            return changed;
         }
 
         public bool IsCcInvalid =>
@@ -880,6 +894,20 @@ namespace AntibodyPanels.ViewModels
             _C37 = existing?.C37 ?? "NT";
             _AHG = existing?.AHG ?? "NT";
             _CC  = existing?.CC  ?? "NT";
+            foreach (var phase in ExtraPhaseParser.Parse(AppSettings.Current.ExtraPhases))
+            {
+                var stored = "NT";
+                existing?.ExtraPhases.TryGetValue(phase, out stored);
+                Extra[phase] = new BindableGrade(stored ?? "NT", NotifyRuleout);
+            }
+            if (existing != null)
+            {
+                foreach (var (phase, value) in existing.ExtraPhases)
+                {
+                    if (Extra.ContainsKey(phase)) continue;
+                    Extra[phase] = new BindableGrade(value, NotifyRuleout);
+                }
+            }
         }
 
         private void NotifyRuleout()
@@ -905,6 +933,28 @@ namespace AntibodyPanels.ViewModels
             return ReactionsViewModel.RuleAllowsHeterozygous(antigen, _rules);
         }
 
+    }
+
+    public class BindableGrade : BaseViewModel
+    {
+        private string _value;
+        private readonly Action? _changed;
+
+        public BindableGrade(string value, Action? changed = null)
+        {
+            _value = value;
+            _changed = changed;
+        }
+
+        public string Value
+        {
+            get => _value;
+            set
+            {
+                if (SetField(ref _value, value))
+                    _changed?.Invoke();
+            }
+        }
     }
 
     public class CompareReactionRow

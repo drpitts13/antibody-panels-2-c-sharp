@@ -38,6 +38,7 @@ namespace AntibodyPanels.Data
             MigratePanelAntigenOrder();
             MigrateVendorPanelMetadata();
             MigrateAuditAndSnapshots();
+            MigrateReactionExtraPhases();
             DeactivateExpiredSpecimens();
             DeactivateExpiredPanels();
         }
@@ -323,6 +324,13 @@ namespace AntibodyPanels.Data
                     acs_json TEXT,
                     FOREIGN KEY (specimen_id) REFERENCES specimens(accession_number) ON DELETE CASCADE
                 )");
+        }
+
+        private void MigrateReactionExtraPhases()
+        {
+            var cols = GetColumnNames("reactions");
+            if (!cols.Contains("extra_phases"))
+                ExecNonQuery("ALTER TABLE reactions ADD COLUMN extra_phases TEXT");
         }
 
         private void DeactivateExpiredSpecimens()
@@ -1476,7 +1484,8 @@ namespace AntibodyPanels.Data
         {
             var source = GetReactions(sourceRunId);
             foreach (var rxn in source)
-                SaveReaction(targetRunId, rxn.CellNumber, rxn.IS, rxn.C37, rxn.AHG, rxn.CC);
+                SaveReaction(targetRunId, rxn.CellNumber, rxn.IS, rxn.C37, rxn.AHG, rxn.CC,
+                    rxn.ExtraPhases);
             return source.Count;
         }
 
@@ -1484,21 +1493,23 @@ namespace AntibodyPanels.Data
 
         /// <summary>Primary overload: saves a reaction for a specific run.</summary>
         public void SaveReaction(int runId, string cellNumber,
-            string is_, string c37, string ahg, string cc)
+            string is_, string c37, string ahg, string cc,
+            IReadOnlyDictionary<string, string>? extraPhases = null)
         {
             // Need specimen_id to call TouchSpecimenReactionsUpdated
             var run = GetPanelRun(runId);
             if (run != null) EnsureSpecimenUnlocked(run.SpecimenId);
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
-                INSERT OR REPLACE INTO reactions (run_id, cell_number, ""IS"", C37, AHG, CC)
-                VALUES ($rid, $cn, $is, $c37, $ahg, $cc)";
+                INSERT OR REPLACE INTO reactions (run_id, cell_number, ""IS"", C37, AHG, CC, extra_phases)
+                VALUES ($rid, $cn, $is, $c37, $ahg, $cc, $extra)";
             cmd.Parameters.AddWithValue("$rid", runId);
             cmd.Parameters.AddWithValue("$cn", cellNumber);
             cmd.Parameters.AddWithValue("$is", is_);
             cmd.Parameters.AddWithValue("$c37", c37);
             cmd.Parameters.AddWithValue("$ahg", ahg);
             cmd.Parameters.AddWithValue("$cc", cc);
+            cmd.Parameters.AddWithValue("$extra", ExtraPhaseParser.Serialize(extraPhases));
             cmd.ExecuteNonQuery();
             if (run != null)
             {
@@ -1534,7 +1545,7 @@ namespace AntibodyPanels.Data
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 SELECT rxn.reaction_id, rxn.run_id, rxn.cell_number,
-                       rxn.""IS"", rxn.C37, rxn.AHG, rxn.CC,
+                       rxn.""IS"", rxn.C37, rxn.AHG, rxn.CC, rxn.extra_phases,
                        pr.specimen_id, pr.panel_id, pr.cell_treatment, pr.serum_treatment
                 FROM reactions rxn
                 JOIN panel_runs pr ON rxn.run_id = pr.run_id
@@ -1572,7 +1583,7 @@ namespace AntibodyPanels.Data
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 SELECT rxn.reaction_id, rxn.run_id, rxn.cell_number,
-                       rxn.""IS"", rxn.C37, rxn.AHG, rxn.CC,
+                       rxn.""IS"", rxn.C37, rxn.AHG, rxn.CC, rxn.extra_phases,
                        pr.specimen_id, pr.panel_id, pr.cell_treatment, pr.serum_treatment
                 FROM reactions rxn
                 JOIN panel_runs pr ON rxn.run_id = pr.run_id
@@ -2043,6 +2054,7 @@ namespace AntibodyPanels.Data
                 C37 = SafeGetString(r, "C37") ?? "NT",
                 AHG = SafeGetString(r, "AHG") ?? "NT",
                 CC = SafeGetString(r, "CC") ?? "NT",
+                ExtraPhases = ExtraPhaseParser.Deserialize(SafeGetString(r, "extra_phases")),
                 SpecimenId = SafeGetString(r, "specimen_id") ?? string.Empty,
                 PanelId = SafeGetInt(r, "panel_id"),
             };

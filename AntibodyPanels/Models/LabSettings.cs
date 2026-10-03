@@ -27,6 +27,11 @@ namespace AntibodyPanels.Models
         public bool WorklistShowExpiring { get; set; } = true;
         public bool WorklistShowExpired { get; set; } = true;
         public bool IntendedUseAcknowledged { get; set; }
+        /// <summary>
+        /// Comma-separated extra reaction phases (e.g. RT, PEG, Gel). Empty keeps
+        /// the classic IS / 37°C / AHG / CC grid.
+        /// </summary>
+        public string ExtraPhases { get; set; } = "";
 
         public string IdentificationRuleLabel =>
             $"{IdentificationCellCount} + {IdentificationCellCount}";
@@ -55,6 +60,7 @@ namespace AntibodyPanels.Models
                 Array.IndexOf(new[] { "serum", "plasma", "eluate" }, DefaultSpecimenType) < 0)
                 DefaultSpecimenType = "serum";
             DefaultIdentifiedBy = NormalizeInitials(DefaultIdentifiedBy);
+            ExtraPhases = ExtraPhaseParser.NormalizeList(ExtraPhases);
         }
 
         public static string NormalizeInitials(string? initials)
@@ -96,7 +102,8 @@ namespace AntibodyPanels.Models
             ProbabilityThreshold,
             IdentificationCellCount,
             AcsRuleoutCount,
-            DefaultMinRuleoutCount
+            DefaultMinRuleoutCount,
+            ExtraPhases
         };
 
         public string IsolatedWorklistLabel =>

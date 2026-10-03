@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 8 — w+, MF, and hemolysis are reactive grades).
+Last updated: 2026-10-03 (iteration 9 — configurable extra reaction phases).
 
 ## Capability matrix
 
@@ -26,7 +26,7 @@ Last updated: 2026-10-03 (iteration 8 — w+, MF, and hemolysis are reactive gra
 | Import traceability | Original artifact retained | Partial | Vendor and lab CSV store SHA-256 + file beside the database | Artifact viewer |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
-| Reaction entry | RT, PEG, gel, solid phase as phases | Missing | Enzyme is a treated **run**, not a phase column | Configurable phases later |
+| Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Lab setting ExtraPhases adds columns; stored as JSON; RT suppressed by prewarm | Solid-phase defaults; compare-grid extra columns |
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
@@ -36,7 +36,7 @@ Last updated: 2026-10-03 (iteration 8 — w+, MF, and hemolysis are reactive gra
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell column; rule-out slashes; run-vs-run compare | Antigen grouping, dosage toggle, filter/sort, panel compare |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged | Rule-version detail; artifact viewer |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade intermediate cases (w+/MF/H do not rule out) | Expand case library |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade and extra-phase intermediate cases | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -150,9 +150,22 @@ and produce a reviewable sentence. RT/PEG/gel remain later as extra phases.
 
 **Not in this tick:** configurable extra phases, artifact viewer, XLSX/portals.
 
+## Iteration 9 (this change)
+
+**Deficiency:** Labs that record RT, PEG, or gel reactivity had no column.
+Those results were either omitted or stuffed into AHG, so a room-temp-only
+pattern could look like a valid AHG-negative rule-out.
+
+**Bounded improvement:** Lab Preferences accepts extra phase names. Grades
+are stored as JSON on the reaction. Extra-phase reactivity counts as
+positive evidence and cannot support rule-out. Prewarm still suppresses RT
+with IS. Classic IS / 37°C / AHG / CC is unchanged when the setting is blank.
+
+**Not in this tick:** artifact viewer, XLSX/portals, compare-grid extra columns.
+
 ## Likely next tick
 
-Configurable extra phases (RT, PEG, gel, solid phase), or an artifact viewer
-on panel details. Authenticated vendor portals stay later and must not bypass
-auth, CAPTCHA, licensing, or terms.
+Artifact viewer on panel details, or XLSX/XML/JSON panel adapters.
+Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
+licensing, or terms.
 

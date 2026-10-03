@@ -84,8 +84,13 @@ namespace AntibodyPanels.Services
         /// Returns true when the given reaction phase is interpretable for
         /// antibody identification in this run (e.g. IS is suppressed by prewarm).
         /// </summary>
-        public bool IsPhaseInterpretable(string phase) =>
-            !_nonInterpretablePhases.Contains(phase);
+        public bool IsPhaseInterpretable(string phase)
+        {
+            if (string.Equals(phase, "RT", StringComparison.OrdinalIgnoreCase)
+                && _nonInterpretablePhases.Contains("IS"))
+                return false;
+            return !_nonInterpretablePhases.Contains(phase);
+        }
 
         /// <summary>
         /// Returns the reaction value for a phase, substituting "NT" when the
@@ -94,13 +99,10 @@ namespace AntibodyPanels.Services
         public string GetInterpretedPhaseValue(Reaction rxn, string phase)
         {
             if (!IsPhaseInterpretable(phase)) return "NT";
-            return phase switch
-            {
-                "IS"  => rxn.IS,
-                "C37" => rxn.C37,
-                "AHG" => rxn.AHG,
-                _     => "NT",
-            };
+            if (phase is "IS") return rxn.IS;
+            if (phase is "C37") return rxn.C37;
+            if (phase is "AHG") return rxn.AHG;
+            return rxn.ExtraPhases.TryGetValue(phase, out var extra) ? extra : "NT";
         }
 
         // ── Rule-out gating ───────────────────────────────────────────────────
@@ -152,36 +154,29 @@ namespace AntibodyPanels.Services
         /// </summary>
         public bool IsNegative(Reaction rxn)
         {
-            var ahg = GetInterpretedPhaseValue(rxn, "AHG");
-            var isVal = GetInterpretedPhaseValue(rxn, "IS");
-            var c37 = GetInterpretedPhaseValue(rxn, "C37");
-            return ReactionGrade.IsNegative(ahg)
-                && ReactionGrade.IsAbsent(isVal)
-                && ReactionGrade.IsAbsent(c37);
+            if (!ReactionGrade.IsNegative(GetInterpretedPhaseValue(rxn, "AHG")))
+                return false;
+            return InterpretablePhaseNames(rxn)
+                .Where(ph => ph != "AHG")
+                .All(ph => ReactionGrade.IsAbsent(GetInterpretedPhaseValue(rxn, ph)));
         }
 
         /// <summary>
         /// Checks whether a reaction is positive under this run's interpretable phases.
         /// </summary>
-        public bool IsPositive(Reaction rxn)
-        {
-            return IsReactionStrong(GetInterpretedPhaseValue(rxn, "IS"))
-                || IsReactionStrong(GetInterpretedPhaseValue(rxn, "C37"))
-                || IsReactionStrong(GetInterpretedPhaseValue(rxn, "AHG"));
-        }
+        public bool IsPositive(Reaction rxn) =>
+            InterpretablePhaseNames(rxn).Any(ph =>
+                IsReactionStrong(GetInterpretedPhaseValue(rxn, ph)));
 
         /// <summary>
         /// Returns the strongest (phase, value) pair restricted to interpretable phases.
         /// </summary>
         public (string phase, string value) GetStrongestPhase(Reaction rxn)
         {
-            var candidates = new[] { "IS", "C37", "AHG" }
-                .Where(IsPhaseInterpretable)
-                .Select(ph => (ph, val: GetInterpretedPhaseValue(rxn, ph)));
-
             string bestPhase = "", bestVal = ReactionGrade.Negative;
-            foreach (var (ph, val) in candidates)
+            foreach (var ph in InterpretablePhaseNames(rxn))
             {
+                var val = GetInterpretedPhaseValue(rxn, ph);
                 if (ReactionGrade.IsAbsent(val)) continue;
                 if (ReactionToNumeric(val) > ReactionToNumeric(bestVal))
                 {
@@ -190,6 +185,20 @@ namespace AntibodyPanels.Services
                 }
             }
             return (bestPhase, bestVal);
+        }
+
+        private IEnumerable<string> InterpretablePhaseNames(Reaction rxn)
+        {
+            foreach (var phase in ExtraPhaseParser.CorePhases)
+            {
+                if (IsPhaseInterpretable(phase))
+                    yield return phase;
+            }
+            foreach (var phase in rxn.ExtraPhases.Keys)
+            {
+                if (IsPhaseInterpretable(phase))
+                    yield return phase;
+            }
         }
 
         private static bool IsReactionStrong(string v) => ReactionGrade.IsPositive(v);
