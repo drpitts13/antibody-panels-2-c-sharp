@@ -20,6 +20,7 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<Panel> Panels { get; } = new();
         public ObservableCollection<PanelRun> Runs { get; } = new();
         public ObservableCollection<ReactionRow> Rows { get; } = new();
+        public ObservableCollection<ReactionRow> VisibleRows { get; } = new();
         public ObservableCollection<CompareReactionRow> CompareRows { get; } = new();
 
         private bool _gradesDirty;
@@ -221,7 +222,81 @@ namespace AntibodyPanels.ViewModels
         public IReadOnlyList<string> AntigenDisplayOrder
         {
             get => _antigenDisplayOrder;
-            private set => SetField(ref _antigenDisplayOrder, value);
+            private set
+            {
+                if (!SetField(ref _antigenDisplayOrder, value)) return;
+                FilterAntigenChoices = new[] { AntigramRowFilter.AllCells }.Concat(_antigenDisplayOrder).ToList();
+                if (AntigramRowFilter.IsSpecificAntigen(FilterAntigen)
+                    && !_antigenDisplayOrder.Contains(FilterAntigen))
+                    FilterAntigen = AntigramRowFilter.AllCells;
+                else
+                    ApplyVisibleRows();
+            }
+        }
+
+        private IReadOnlyList<string> _filterAntigenChoices = new[] { AntigramRowFilter.AllCells };
+        public IReadOnlyList<string> FilterAntigenChoices
+        {
+            get => _filterAntigenChoices;
+            private set => SetField(ref _filterAntigenChoices, value);
+        }
+
+        public IReadOnlyList<string> FilterZygosityChoices => AntigenConstants.PositiveZygosityOptions;
+        public IReadOnlyList<string> FilterSortChoices => AntigramRowFilter.SortOptions;
+
+        private string _filterAntigen = AntigramRowFilter.AllCells;
+        public string FilterAntigen
+        {
+            get => _filterAntigen;
+            set
+            {
+                if (SetField(ref _filterAntigen, value ?? AntigramRowFilter.AllCells))
+                {
+                    OnPropertyChanged(nameof(FilterAntigenIsSpecific));
+                    ApplyVisibleRows();
+                }
+            }
+        }
+
+        public bool FilterAntigenIsSpecific => AntigramRowFilter.IsSpecificAntigen(FilterAntigen);
+
+        private string _filterZygosity = AntigenConstants.ZygosityBoth;
+        public string FilterZygosity
+        {
+            get => _filterZygosity;
+            set
+            {
+                if (SetField(ref _filterZygosity, value ?? AntigenConstants.ZygosityBoth))
+                    ApplyVisibleRows();
+            }
+        }
+
+        private string _filterSort = AntigramRowFilter.SortCellNumber;
+        public string FilterSort
+        {
+            get => _filterSort;
+            set
+            {
+                if (SetField(ref _filterSort, value ?? AntigramRowFilter.SortCellNumber))
+                    ApplyVisibleRows();
+            }
+        }
+
+        public string FilterExplanation { get; private set; } = "Showing all cells, sorted by cell number.";
+
+        private void ApplyVisibleRows()
+        {
+            var source = Rows.Select(r => new AntigramFilterRow(r.CellNumber, r.AntigenValues, r.IsReactive)).ToList();
+            var ordered = AntigramRowFilter.Apply(source, FilterAntigen, FilterZygosity, FilterSort);
+            var byCell = Rows.ToDictionary(r => r.CellNumber, StringComparer.OrdinalIgnoreCase);
+            VisibleRows.Clear();
+            foreach (var item in ordered)
+            {
+                if (byCell.TryGetValue(item.CellNumber, out var row))
+                    VisibleRows.Add(row);
+            }
+            FilterExplanation = AntigramRowFilter.Explain(ordered, Rows.Count, FilterAntigen, FilterZygosity, FilterSort);
+            OnPropertyChanged(nameof(FilterExplanation));
         }
 
         private string _saveStatusMessage = string.Empty;
@@ -266,6 +341,9 @@ namespace AntibodyPanels.ViewModels
         private void OnGradeEdited()
         {
             RefreshEntryProgress();
+            if (FilterSort == AntigramRowFilter.SortReactiveFirst
+                || FilterSort == AntigramRowFilter.SortAntigenFirst)
+                ApplyVisibleRows();
             if (_gradesDirty) return;
             _gradesDirty = true;
             OnPropertyChanged(nameof(HasUnsavedGrades));
@@ -584,6 +662,7 @@ namespace AntibodyPanels.ViewModels
             {
                 Rows.Clear();
                 ResetCompareRows();
+                ApplyVisibleRows();
                 RefreshEntryProgress();
                 MarkGradesClean();
                 return;
@@ -617,6 +696,7 @@ namespace AntibodyPanels.ViewModels
             UpdateTreatmentBanner();
             RefreshRuledOutAntigens();
             RebuildCompareRows();
+            ApplyVisibleRows();
             RefreshEntryProgress();
             MarkGradesClean();
             _main.SetStatus(
@@ -701,6 +781,7 @@ namespace AntibodyPanels.ViewModels
                     changed++;
             }
             RebuildCompareRows();
+            ApplyVisibleRows();
             RefreshEntryProgress();
             if (changed == 0)
             {
@@ -721,6 +802,7 @@ namespace AntibodyPanels.ViewModels
             SaveStatusMessage = string.Empty;
             Rows.Clear();
             ResetCompareRows();
+            ApplyVisibleRows();
             RefreshRuledOutAntigens();
             RefreshEntryProgress();
             MarkGradesClean();
@@ -846,6 +928,10 @@ namespace AntibodyPanels.ViewModels
         public bool IsNegative =>
             ReactionGrade.IsNegative(AHG) && ReactionGrade.IsAbsent(IS) && ReactionGrade.IsAbsent(C37)
             && Extra.Values.All(g => ReactionGrade.IsAbsent(g.Value));
+
+        public bool IsReactive =>
+            ReactionGrade.IsPositive(IS) || ReactionGrade.IsPositive(C37) || ReactionGrade.IsPositive(AHG)
+            || Extra.Values.Any(g => ReactionGrade.IsPositive(g.Value));
 
         /// <summary>
         /// Antigen names on this row whose + boxes should show a rule-out slash.

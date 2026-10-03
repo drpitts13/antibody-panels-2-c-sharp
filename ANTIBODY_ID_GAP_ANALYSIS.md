@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 13 — antigram grouping and dosage marks).
+Last updated: 2026-10-03 (iteration 14 — antigram filter and sort).
 
 ## Capability matrix
 
@@ -33,7 +33,7 @@ Last updated: 2026-10-03 (iteration 13 — antigram grouping and dosage marks).
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Missing | Phase scores computed but not shown | Pattern classifiers later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
-| UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage groups by system and marks ++ / +/? | Filter/sort, panel compare |
+| UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort visible rows | Panel compare |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
@@ -219,9 +219,22 @@ order and plain +/−. Rule-out is unchanged.
 **Not in this tick:** filter/sort, panel compare, solid-phase defaults,
 authenticated APIs.
 
+## Iteration 14 (this change)
+
+**Deficiency:** The reaction antigram always showed every cell in vial order.
+A reviewer looking for homozygous E+ or reactive cells had to scan the whole
+sheet, and there was no way to hide Ag− rows without losing them from save.
+
+**Bounded improvement:** Filter the visible grid by antigen and zygosity, and
+sort by cell number, reactive first, or selected-antigen first. Autocontrol
+stays visible. Hidden cells remain in the working set for save, compare, and
+analysis. A sentence states how many cells match.
+
+**Not in this tick:** panel compare, solid-phase defaults, authenticated APIs.
+
 ## Likely next tick
 
-Filter/sort on the antigram, panel compare, or solid-phase defaults.
+Panel compare, or solid-phase defaults.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

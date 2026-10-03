@@ -153,6 +153,35 @@
             </StackPanel>
         </Border>
 
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="170"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Label Content="Filter:" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding FilterAntigenChoices}"
+                      SelectedItem="{Binding FilterAntigen}"
+                      VerticalAlignment="Center"
+                      ToolTip="Show only cells positive for this antigen. Autocontrol stays visible. Hidden cells are still saved and analyzed."/>
+            <ComboBox Grid.Column="3" ItemsSource="{Binding FilterZygosityChoices}"
+                      SelectedItem="{Binding FilterZygosity}"
+                      IsEnabled="{Binding FilterAntigenIsSpecific}"
+                      VerticalAlignment="Center"
+                      ToolTip="When an antigen is selected, limit to homozygous or heterozygous expression"/>
+            <ComboBox Grid.Column="5" ItemsSource="{Binding FilterSortChoices}"
+                      SelectedItem="{Binding FilterSort}"
+                      VerticalAlignment="Center"
+                      ToolTip="Reorder the visible rows. Does not change stored cell numbers."/>
+            <TextBlock Grid.Column="6" Margin="12,0,0,0" VerticalAlignment="Center"
+                       Foreground="#546E7A" TextWrapping="Wrap"
+                       Text="{Binding FilterExplanation}"/>
+        </Grid>
+
         <!-- Reaction DataGrid — antigen columns injected in code-behind -->
         <Grid>
             <Grid.RowDefinitions>
@@ -161,7 +190,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
         <DataGrid x:Name="ReactionsGrid"
-                  ItemsSource="{Binding Rows}"
+                  ItemsSource="{Binding VisibleRows}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False" CanUserDeleteRows="False"
                   GridLinesVisibility="All" HeadersVisibility="Column"
