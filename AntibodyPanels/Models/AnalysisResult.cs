@@ -20,6 +20,7 @@ namespace AntibodyPanels.Models
         public List<SelectedCellRecommendation> SelectedCellRecommendations { get; set; } = new();
         public List<PatientTypingConsideration> PatientTypingConsiderations { get; set; } = new();
         public bool PatientPhenotypeUnreliable { get; set; }
+        public List<CandidateExplanation> CandidateExplanations { get; set; } = new();
 
         // ── Special-panel inference outputs ───────────────────────────────────
 
@@ -231,6 +232,22 @@ namespace AntibodyPanels.Models
         Against,
         Uninterpretable,
         Historical
+    }
+
+    public class CandidateExplanation
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Narrative { get; set; } = string.Empty;
+        public string RuleoutCriteria { get; set; } = string.Empty;
+        public List<string> RuleoutCells { get; set; } = new();
+        public List<string> SupportingCells { get; set; } = new();
+        public List<string> ConflictingCells { get; set; } = new();
+        public string DosageNote { get; set; } = string.Empty;
+        public string PhaseNote { get; set; } = string.Empty;
+        public string PhenotypeNote { get; set; } = string.Empty;
+        public string AdditionalTesting { get; set; } = string.Empty;
+        public string IdentificationNote { get; set; } = string.Empty;
     }
 
     public class PatientTypingConsideration

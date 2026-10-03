@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 4 — patient phenotype evidence with transfusion limits).
+Last updated: 2026-10-03 (iteration 5 — dedicated Explain Analysis per-candidate narrative).
 
 ## Capability matrix
 
@@ -26,16 +26,16 @@ Last updated: 2026-10-03 (iteration 4 — patient phenotype evidence with transf
 | Import traceability | Original artifact retained | Missing | `SourceUrl` / `SourceFormat` / `ImportedAt` only | Store hash + artifact |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, N, Enter | — |
 | Reaction entry | RT, PEG, gel, solid phase, enzyme-as-phase, w+, MF, hemolysis | Missing | Enzyme is a treated **run**, not a phase column | Configurable phases later |
-| Analysis | Transparent candidate evidence | Partial | Supporting/conflicting cells for **suspected** antibodies only | Per-candidate narrative |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Broader grades/phases; never-imported specificities |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Missing | Phase scores computed but not shown | Pattern classifiers later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell column; rule-out slashes; run-vs-run compare | Antigen grouping, dosage toggle, filter/sort, panel compare |
-| UI | Explain Analysis panel | Partial | Ruled Out + Summary now show reviewable rule-out sentences | Dedicated Explain panel |
+| UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots | Import artifact + rule-version detail |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Rule-out, untyped, selected-cell, and phenotype intermediate tests | Expand case library |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Rule-out, untyped, selected-cell, phenotype, and Explain narrative tests | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -92,7 +92,24 @@ Notes mentioning transfusion make phenotype evidence uninterpretable.
 **Not in this tick:** structured genotype columns, per-candidate narrative for
 non-suspected antibodies, XLSX/portals.
 
+## Iteration 5 (this change)
+
+**Deficiency:** Supporting and conflicting cells existed only for antibodies
+that already crossed the suspected threshold. Ruled-out, in-progress, and
+historical specificities had no assembled narrative a reviewer could read
+in one place.
+
+**Bounded improvement:** `AnalysisExplainer` builds a per-candidate explanation
+from existing rule-out evaluations, suspected evidence, dosage, phase scores,
+patient typing, and selected-cell recommendations. The Analysis Explain tab,
+Summary, suggestions, and clinical report show that text. Nothing is
+auto-confirmed.
+
+**Not in this tick:** import review-before-activation, genotype columns,
+XLSX/portals, broader reaction grades/phases.
+
 ## Likely next tick
 
-Per-candidate evidence (supporting / conflicting / additional testing) for
-antibodies that are not yet “suspected,” or a dedicated Explain Analysis panel.
+Import review-before-activation with retained original artifact, or stop
+remaining silent assumptions around panel schema vs prior lot. Broader
+grades/phases (`w+`, MF, hemolysis; RT/PEG/gel) remain later.

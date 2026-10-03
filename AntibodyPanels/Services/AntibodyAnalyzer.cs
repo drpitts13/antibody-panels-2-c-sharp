@@ -78,6 +78,7 @@ namespace AntibodyPanels.Services
             };
             ApplyPatientTyping(specimenId, result);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
+            result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
 
             if (updateDb)
@@ -1071,6 +1072,11 @@ namespace AntibodyPanels.Services
                 important.Add($"Pattern suggests multiple antibodies ({string.Join(", ", top2)}). " +
                     "Consider adsorption/elution studies.");
             }
+
+            if (result.CandidateExplanations.Count > 0)
+                informational.Add(
+                    $"Explain Analysis lists {result.CandidateExplanations.Count} candidate(s) with rule-out, " +
+                    "supporting, conflicting, phenotype, and additional-testing evidence.");
 
             if (result.PatientPhenotypeUnreliable)
                 important.Add("Patient phenotype cannot be interpreted for alloantibody exclusion because recent transfusion or another configured limitation was noted.");

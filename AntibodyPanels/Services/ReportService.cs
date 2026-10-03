@@ -289,6 +289,13 @@ namespace AntibodyPanels.Services
                 sb.AppendLine("Ruled out:");
                 sb.AppendLine("  " + string.Join(", ", analysis.RuledOut.Keys.OrderBy(x => x)));
             }
+            if (analysis.CandidateExplanations.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("Explain Analysis (decision support, not a diagnosis):");
+                foreach (var exp in analysis.CandidateExplanations.Take(8))
+                    sb.AppendLine("  " + exp.Narrative);
+            }
             if (analysis.Suggestions.Count > 0)
             {
                 sb.AppendLine();

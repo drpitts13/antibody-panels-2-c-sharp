@@ -30,6 +30,7 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<DosageRow> DosageRows { get; } = new();
         public ObservableCollection<SelectedCellRow> SelectedCellRows { get; } = new();
         public ObservableCollection<PatientTypingRow> PatientTypingRows { get; } = new();
+        public ObservableCollection<CandidateExplanationRow> ExplanationRows { get; } = new();
         public ObservableCollection<string> SuggestionItems { get; } = new();
 
         private AnalysisResult? _lastResult;
@@ -124,6 +125,21 @@ namespace AntibodyPanels.ViewModels
                     LoadRuleoutDetails();
             }
         }
+
+        private CandidateExplanationRow? _selectedExplanation;
+        public CandidateExplanationRow? SelectedExplanation
+        {
+            get => _selectedExplanation;
+            set
+            {
+                if (SetField(ref _selectedExplanation, value))
+                    OnPropertyChanged(nameof(ExplainNarrative));
+            }
+        }
+
+        public string ExplainNarrative =>
+            SelectedExplanation?.Narrative
+            ?? "Select a candidate to review rule-out, supporting, conflicting, phenotype, and additional-testing evidence.";
 
         public bool HasSuggestions => SuggestionItems.Count > 0;
 
@@ -248,14 +264,18 @@ namespace AntibodyPanels.ViewModels
             DosageRows.Clear();
             SelectedCellRows.Clear();
             PatientTypingRows.Clear();
+            ExplanationRows.Clear();
             SuggestionItems.Clear();
             OnPropertyChanged(nameof(HasSuggestions));
             SummaryText = string.Empty;
             _lastResult = null;
             _selectedSuspected = null;
             _selectedRuleout = null;
+            _selectedExplanation = null;
             OnPropertyChanged(nameof(SelectedSuspected));
             OnPropertyChanged(nameof(SelectedRuleout));
+            OnPropertyChanged(nameof(SelectedExplanation));
+            OnPropertyChanged(nameof(ExplainNarrative));
         }
 
         private void PopulateFromResult(AnalysisResult result)
@@ -375,6 +395,17 @@ namespace AntibodyPanels.ViewModels
                     PatientValue = string.IsNullOrEmpty(c.PatientValue) ? "" : c.Antigen + c.PatientValue,
                     Explanation = c.Explanation,
                 });
+
+            foreach (var exp in result.CandidateExplanations)
+                ExplanationRows.Add(new CandidateExplanationRow
+                {
+                    Antibody = exp.Antibody,
+                    Status = exp.Status,
+                    Supporting = exp.SupportingCells.Count.ToString(),
+                    Conflicting = exp.ConflictingCells.Count.ToString(),
+                    Narrative = exp.Narrative,
+                });
+            SelectedExplanation = ExplanationRows.FirstOrDefault();
 
             foreach (var s in result.Suggestions)
                 SuggestionItems.Add(s);
@@ -577,6 +608,16 @@ namespace AntibodyPanels.ViewModels
             var sb = new StringBuilder();
             sb.AppendLine($"=== Analysis Results: {r.SpecimenId} ===");
             sb.AppendLine();
+            if (r.CandidateExplanations.Count > 0)
+            {
+                sb.AppendLine("EXPLAIN ANALYSIS (evidence only):");
+                var first = r.CandidateExplanations.FirstOrDefault(e => e.Status.StartsWith("Suspected"))
+                            ?? r.CandidateExplanations[0];
+                sb.AppendLine($"  {first.Narrative}");
+                if (r.CandidateExplanations.Count > 1)
+                    sb.AppendLine($"  …and {r.CandidateExplanations.Count - 1} more candidate(s) on the Explain tab.");
+                sb.AppendLine();
+            }
 
             if (r.Acs.IsEligible)
             {
@@ -847,6 +888,15 @@ namespace AntibodyPanels.ViewModels
             CC = c.CC,
             Strongest = $"{c.StrongestPhase} {c.StrongestValue}".Trim(),
         };
+    }
+
+    public class CandidateExplanationRow
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Supporting { get; set; } = string.Empty;
+        public string Conflicting { get; set; } = string.Empty;
+        public string Narrative { get; set; } = string.Empty;
     }
 
     public class PatientTypingRow
