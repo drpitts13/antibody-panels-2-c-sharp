@@ -7,17 +7,17 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 10 — import artifact viewer with hash verification).
+Last updated: 2026-10-03 (iteration 11 — XLSX/XML/JSON panel adapters).
 
 ## Capability matrix
 
 | Area | Capability | Status | Current evidence | Next action |
 |---|---|---|---|---|
 | Gap file | Living capability matrix | Present | This file | Update every iteration |
-| Import | Provider adapter framework | Partial | `IVendorPanelSource` + Bio-Rad/Ortho/Quotient public catalogs; Immucor/Grifols/Medion file-only | XLSX/XML/JSON adapters later |
+| Import | Provider adapter framework | Partial | `IVendorPanelSource` + Bio-Rad/Ortho/Quotient public catalogs; Immucor/Grifols/Medion file-only | Authenticated portals only with vendor permission |
 | Import | CSV | Present | Lab CSV + vendor CSV parser; lab import now reviews before activation | — |
 | Import | PDF | Partial | PdfPig positional grid; layout-fragile | Harden after schema work |
-| Import | XLSX / XML / JSON panels | Missing | Settings/snapshots only | Later tick |
+| Import | XLSX / XML / JSON panels | Present | JSON/XML structured schema; first-sheet XLSX via zip/shared strings; same inactive+artifact review | Multi-sheet XLSX later |
 | Import | Vendor APIs / authenticated portals | Missing | Public HTML + file import only. Do not bypass auth, CAPTCHA, licensing, or terms | Secrets storage only if a vendor authorizes access |
 | Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-` | Persist NT / unknown / zygosity |
 | Common model | Homozygous / heterozygous / negative / unknown / NT | Partial | Import NT / missing columns stay untyped; zygosity still inferred from typed antitheticals | Persist explicit homozygous state later |
@@ -176,9 +176,23 @@ auto-activated.
 
 **Not in this tick:** XLSX/XML/JSON adapters, compare-grid extra columns.
 
+## Iteration 11 (this change)
+
+**Deficiency:** Labs and vendors could import PDF or CSV only. Spreadsheet
+exports and structured panel files were rejected or misread as CSV.
+
+**Bounded improvement:** Vendor and lab import accept JSON, XML, and first-sheet
+XLSX. JSON/XML carry lot, catalog, and per-cell antigens without inventing
+types for omitted antigens. XLSX uses the same grid rules as CSV (Cell column
+plus recognized antigen headers). Imports stay inactive with a retained
+artifact. No new packages; no authenticated vendor portals.
+
+**Not in this tick:** multi-sheet workbooks, antigram grouping / dosage toggle,
+compare-grid extra columns, authenticated APIs.
+
 ## Likely next tick
 
-XLSX/XML/JSON panel adapters, or antigram grouping / dosage toggle.
+Antigram grouping / dosage toggle, or compare-grid extra columns.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

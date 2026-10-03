@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using AntibodyPanels.Models;
+using AntibodyPanels.Services;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
@@ -41,7 +42,27 @@ namespace AntibodyPanels.Services.Vendors
             var name = fileNameHint ?? listing?.LotNumber ?? "vendor-panel";
             if (LooksLikePdf(bytes, name))
                 return ParsePdf(bytes, vendor, name, listing);
+            if (LooksLikeJson(bytes, name))
+                return StructuredPanelParser.ParseJson(bytes, vendor, name, listing);
+            if (LooksLikeXml(bytes, name))
+                return StructuredPanelParser.ParseXml(bytes, vendor, name, listing);
+            if (LooksLikeXlsx(bytes, name))
+                return ParseXlsx(bytes, vendor, name, listing);
             return ParseCsv(bytes, vendor, name, listing);
+        }
+
+        public static VendorParseResult ParseXlsx(byte[] bytes, string vendor, string fileName,
+            VendorLotListing? listing)
+        {
+            try
+            {
+                var rows = XlsxGridReader.ReadFirstSheet(bytes);
+                return ParseGrid(rows, vendor, fileName, listing, fileName);
+            }
+            catch (Exception ex)
+            {
+                return Fail(vendor, listing, fileName, "Could not read XLSX: " + ex.Message);
+            }
         }
 
         public static VendorParseResult ParseCsv(byte[] bytes, string vendor, string fileName,
@@ -56,9 +77,15 @@ namespace AntibodyPanels.Services.Vendors
                 if (string.IsNullOrWhiteSpace(line)) continue;
                 rows.Add(SplitCsvLine(line));
             }
+            return ParseGrid(rows, vendor, fileName, listing, text);
+        }
+
+        public static VendorParseResult ParseGrid(IReadOnlyList<string[]> rows, string vendor,
+            string fileName, VendorLotListing? listing, string? text = null)
+        {
             if (rows.Count < 2)
             {
-                return Fail(vendor, listing, fileName, "CSV has no data rows.");
+                return Fail(vendor, listing, fileName, "Grid has no data rows.");
             }
 
             var header = rows[0];
@@ -79,7 +106,7 @@ namespace AntibodyPanels.Services.Vendors
             if (antigenCols.Count == 0)
                 return Fail(vendor, listing, fileName, "CSV has no recognized antigen columns.");
 
-            var result = SeedResult(vendor, listing, fileName, text);
+            var result = SeedResult(vendor, listing, fileName, text ?? fileName);
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int r = 1; r < rows.Count; r++)
             {
@@ -240,14 +267,41 @@ namespace AntibodyPanels.Services.Vendors
             return string.Join(" ", parts);
         }
 
-        private static string GuessFormat(string fileName) =>
-            fileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase) ? "csv" : "pdf";
+        private static string GuessFormat(string fileName)
+        {
+            if (fileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return "csv";
+            if (fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return "json";
+            if (fileName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) return "xml";
+            if (fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) return "xlsx";
+            return "pdf";
+        }
 
         private static bool LooksLikePdf(byte[] bytes, string fileName)
         {
             if (fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) return true;
             return bytes.Length >= 5 && bytes[0] == (byte)'%' && bytes[1] == (byte)'P'
                 && bytes[2] == (byte)'D' && bytes[3] == (byte)'F';
+        }
+
+        private static bool LooksLikeJson(byte[] bytes, string fileName)
+        {
+            if (fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) return true;
+            var text = DecodeText(bytes).TrimStart();
+            return text.StartsWith("{") || text.StartsWith("[");
+        }
+
+        private static bool LooksLikeXml(byte[] bytes, string fileName)
+        {
+            if (fileName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) return true;
+            var text = DecodeText(bytes).TrimStart();
+            return text.StartsWith("<") && !LooksLikePdf(bytes, fileName);
+        }
+
+        private static bool LooksLikeXlsx(byte[] bytes, string fileName)
+        {
+            if (fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) return true;
+            return bytes.Length >= 4 && bytes[0] == (byte)'P' && bytes[1] == (byte)'K'
+                && bytes[2] == 3 && bytes[3] == 4;
         }
 
         private static string DecodeText(byte[] bytes)

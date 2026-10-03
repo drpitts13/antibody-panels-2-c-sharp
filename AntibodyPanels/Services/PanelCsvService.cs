@@ -62,12 +62,37 @@ namespace AntibodyPanels.Services
             }
 
             var bytes = File.ReadAllBytes(filePath);
-            using var stream = new MemoryStream(bytes, writable: false);
-            result = Import(stream);
+            result = ImportBytes(bytes, Path.GetFileName(filePath));
             result.SourceBytes = bytes;
             result.SourceFileName = Path.GetFileName(filePath);
             result.SourcePath = filePath;
             return result;
+        }
+
+        public static PanelCsvImportResult ImportBytes(byte[] bytes, string fileName)
+        {
+            if (LooksLikeStructured(bytes, fileName))
+            {
+                using var stream = new MemoryStream(bytes, writable: false);
+                var parsed = Vendors.VendorAntigramParser.Parse(stream, "Lab", fileName, null);
+                return StructuredPanelParser.ToLabResult(parsed);
+            }
+
+            using var csvStream = new MemoryStream(bytes, writable: false);
+            return Import(csvStream);
+        }
+
+        private static bool LooksLikeStructured(byte[] bytes, string fileName)
+        {
+            if (fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                || fileName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                || fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (bytes.Length >= 4 && bytes[0] == (byte)'P' && bytes[1] == (byte)'K'
+                && bytes[2] == 3 && bytes[3] == 4)
+                return true;
+            var text = Encoding.UTF8.GetString(bytes).TrimStart();
+            return text.StartsWith("{") || text.StartsWith("<");
         }
 
         public static PanelCsvImportResult Import(Stream stream)

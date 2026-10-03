@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using AntibodyPanels.Data;
 using AntibodyPanels.Models;
@@ -53,7 +54,7 @@ namespace AntibodyPanels.Services
             {
                 sha = PanelImportReviewer.Hash(parsed.SourceBytes);
                 artifactPath = _artifacts.Save(parsed.SourceBytes, request.Vendor, request.LotNumber,
-                    "csv", sha);
+                    GuessFormat(parsed.SourceFileName), sha);
             }
 
             var importedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
@@ -70,7 +71,7 @@ namespace AntibodyPanels.Services
                 productLine: request.ProductLine,
                 enzymeTreated: request.EnzymeTreated,
                 sourceUrl: parsed.SourcePath,
-                sourceFormat: "csv",
+                sourceFormat: GuessFormat(parsed.SourceFileName),
                 importedAt: importedAt,
                 sourceSha256: sha,
                 sourceArtifactPath: artifactPath);
@@ -94,6 +95,12 @@ namespace AntibodyPanels.Services
             };
             review.Explanation = PanelImportReviewer.Explain(review, request.LotNumber, request.Vendor);
             return new PanelImportOutcome { PanelId = id, Review = review };
+        }
+
+        private static string GuessFormat(string? fileName)
+        {
+            var ext = Path.GetExtension(fileName ?? "").TrimStart('.').ToLowerInvariant();
+            return ext is "json" or "xml" or "xlsx" or "pdf" ? ext : "csv";
         }
 
         public static List<PanelCell> ToCells(PanelCsvImportResult parsed) =>

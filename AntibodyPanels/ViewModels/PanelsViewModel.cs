@@ -322,8 +322,8 @@ namespace AntibodyPanels.ViewModels
         {
             var open = new OpenFileDialog
             {
-                Filter = "CSV Files|*.csv|All Files|*.*",
-                Title = "Import panel from CSV"
+                Filter = "Panel files|*.csv;*.json;*.xml;*.xlsx|CSV|*.csv|JSON|*.json|XML|*.xml|Excel|*.xlsx|All Files|*.*",
+                Title = "Import panel"
             };
             if (open.ShowDialog() != true) return;
 
@@ -331,7 +331,7 @@ namespace AntibodyPanels.ViewModels
             if (!imported.Success)
             {
                 MessageBox.Show(
-                    "Could not import CSV:\n" + string.Join("\n", imported.Errors.Take(12)),
+                    "Could not import panel:\n" + string.Join("\n", imported.Errors.Take(12)),
                     "Import", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }

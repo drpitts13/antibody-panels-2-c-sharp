@@ -112,7 +112,7 @@ namespace AntibodyPanels.Views.Dialogs
             var open = new OpenFileDialog
             {
                 Title = "Import vendor panel file",
-                Filter = "Vendor files|*.pdf;*.csv|PDF|*.pdf|CSV|*.csv|All files|*.*"
+                Filter = "Vendor files|*.pdf;*.csv;*.json;*.xml;*.xlsx|PDF|*.pdf|CSV|*.csv|JSON|*.json|XML|*.xml|Excel|*.xlsx|All files|*.*"
             };
             if (open.ShowDialog() != true) return;
             try
