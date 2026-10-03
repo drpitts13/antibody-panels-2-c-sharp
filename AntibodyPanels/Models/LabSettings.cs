@@ -9,6 +9,12 @@ namespace AntibodyPanels.Models
         public double ProbabilityThreshold { get; set; } = 0.5;
         public int IdentificationCellCount { get; set; } = 3;
         public int AcsRuleoutCount { get; set; } = 3;
+        /// <summary>
+        /// Default number of qualifying antigen-positive nonreactive cells
+        /// required to rule out an antibody when no per-antibody rule exists.
+        /// 1 preserves historical behavior.
+        /// </summary>
+        public int DefaultMinRuleoutCount { get; set; } = 1;
         public string DefaultSpecimenType { get; set; } = "serum";
         public bool ShowInactiveByDefault { get; set; }
         public bool HideRuledOutAntigenColumns { get; set; }
@@ -35,6 +41,8 @@ namespace AntibodyPanels.Models
                 IdentificationCellCount = 3;
             if (AcsRuleoutCount < 1 || AcsRuleoutCount > 5)
                 AcsRuleoutCount = 3;
+            if (DefaultMinRuleoutCount < 1 || DefaultMinRuleoutCount > 5)
+                DefaultMinRuleoutCount = 1;
             if (ExpirationWarningDays < 1) ExpirationWarningDays = 1;
             if (ExpirationWarningDays > 90) ExpirationWarningDays = 90;
             if (DefaultSpecimenDatingDays < 0) DefaultSpecimenDatingDays = 0;
@@ -87,7 +95,8 @@ namespace AntibodyPanels.Models
         {
             ProbabilityThreshold,
             IdentificationCellCount,
-            AcsRuleoutCount
+            AcsRuleoutCount,
+            DefaultMinRuleoutCount
         };
 
         public string IsolatedWorklistLabel =>

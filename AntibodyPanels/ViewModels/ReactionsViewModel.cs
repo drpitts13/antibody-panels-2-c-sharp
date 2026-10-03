@@ -448,7 +448,7 @@ namespace AntibodyPanels.ViewModels
 
             var allReactions = _db.GetAllSpecimenReactions(SelectedSpecimen.AccessionNumber);
             var rules = _db.GetAllRules();
-            var result = new HashSet<string>();
+            var observed = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             var byRun = new Dictionary<int, List<Reaction>>();
             foreach (var r in allReactions)
@@ -476,9 +476,20 @@ namespace AntibodyPanels.ViewModels
                         if (!ctx.TypesAntigen(ag)) continue;
                         if (cell.GetAntigen(ag) != "+") continue;
                         if (!ctx.CanContributeRuleout(ag, cell)) continue;
-                        if (CanRuleOutAntigen(ag, cell, rules)) result.Add(ag);
+                        if (!CanRuleOutAntigen(ag, cell, rules)) continue;
+                        observed.TryGetValue(ag, out var count);
+                        observed[ag] = count + 1;
                     }
                 }
+            }
+
+            var labDefault = AppSettings.Current.DefaultMinRuleoutCount;
+            var result = new HashSet<string>();
+            foreach (var (ag, count) in observed)
+            {
+                var required = RuleoutPolicy.ResolveRequiredCount($"anti-{ag}", rules, labDefault);
+                if (count >= required)
+                    result.Add(ag);
             }
             RuledOutAntigens = result;
         }

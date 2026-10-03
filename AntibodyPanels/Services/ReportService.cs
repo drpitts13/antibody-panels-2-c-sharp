@@ -267,7 +267,24 @@ namespace AntibodyPanels.Services
                 }
             }
             sb.AppendLine();
-            if (analysis.RuledOut.Count > 0)
+            if (analysis.RuleoutEvaluations.Count > 0)
+            {
+                var met = analysis.RuleoutEvaluations.Where(e => e.MeetsCriteria).ToList();
+                var pending = analysis.RuleoutEvaluations.Where(e => !e.MeetsCriteria).ToList();
+                if (met.Count > 0)
+                {
+                    sb.AppendLine("Ruled out (configured criteria met):");
+                    foreach (var ev in met.OrderBy(e => e.Antibody))
+                        sb.AppendLine("  " + ev.Explanation);
+                }
+                if (pending.Count > 0)
+                {
+                    sb.AppendLine("Rule-out in progress:");
+                    foreach (var ev in pending.OrderBy(e => e.Antibody))
+                        sb.AppendLine("  " + ev.Explanation);
+                }
+            }
+            else if (analysis.RuledOut.Count > 0)
             {
                 sb.AppendLine("Ruled out:");
                 sb.AppendLine("  " + string.Join(", ", analysis.RuledOut.Keys.OrderBy(x => x)));

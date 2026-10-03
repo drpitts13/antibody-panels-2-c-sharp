@@ -6,6 +6,7 @@ namespace AntibodyPanels.Models
     {
         public string SpecimenId { get; set; } = string.Empty;
         public Dictionary<string, int> RuledOut { get; set; } = new();
+        public List<RuleoutEvaluation> RuleoutEvaluations { get; set; } = new();
         public Dictionary<string, double> Suspected { get; set; } = new();
         public Dictionary<string, SuspectedStatistics> SuspectedStatistics { get; set; } = new();
         public List<PatternMatch> PatternMatches { get; set; } = new();
@@ -139,6 +140,27 @@ namespace AntibodyPanels.Models
         public int Matches { get; set; }
         public int Mismatches { get; set; }
         public double Confidence { get; set; }
+    }
+
+    /// <summary>
+    /// Per-antibody rule-out evidence: observed qualifying cells versus the
+    /// configured requirement. <see cref="MeetsCriteria"/> is analytical
+    /// evidence, not a confirmed identification.
+    /// </summary>
+    public class RuleoutEvaluation
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Antigen { get; set; } = string.Empty;
+        public int ObservedCount { get; set; }
+        public int RequiredCount { get; set; }
+        public int HomozygousCount { get; set; }
+        public int HeterozygousCount { get; set; }
+        public bool HeterozygousAllowed { get; set; }
+        public bool MeetsCriteria { get; set; }
+        public string PolicySource { get; set; } = "lab default";
+        public string Explanation { get; set; } = string.Empty;
+        public List<RuleoutDetail> Cells { get; set; } = new();
+        public List<string> ConflictingReactiveCells { get; set; } = new();
     }
 
     public class RuleoutDetail

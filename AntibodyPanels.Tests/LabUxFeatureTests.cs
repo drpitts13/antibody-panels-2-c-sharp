@@ -390,6 +390,26 @@ public class LabUxFeatureTests
         Assert.Equal(3, LabSettings.CreateDefault().AcsRuleoutCount);
     }
 
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(6, 1)]
+    [InlineData(-1, 1)]
+    [InlineData(1, 1)]
+    [InlineData(3, 3)]
+    [InlineData(5, 5)]
+    public void LabSettings_Clamp_KeepsDefaultMinRuleoutCountInRange(int input, int expected)
+    {
+        var s = new LabSettings { DefaultMinRuleoutCount = input };
+        s.Clamp();
+        Assert.Equal(expected, s.DefaultMinRuleoutCount);
+    }
+
+    [Fact]
+    public void LabSettings_Default_MinRuleoutCountIsOne()
+    {
+        Assert.Equal(1, LabSettings.CreateDefault().DefaultMinRuleoutCount);
+    }
+
     [Fact]
     public void CopyReactions_CopiesGradesToNewRun()
     {

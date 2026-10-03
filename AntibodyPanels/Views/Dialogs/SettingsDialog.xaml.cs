@@ -24,6 +24,7 @@ namespace AntibodyPanels.Views.Dialogs
             if (idCount < 1 || idCount > 3) idCount = 3;
             IdRuleBox.SelectedItem = $"{idCount} + {idCount}";
             AcsRuleoutBox.Text = s.AcsRuleoutCount.ToString();
+            DefaultRuleoutBox.Text = s.DefaultMinRuleoutCount.ToString();
             DefaultTypeBox.ItemsSource = AntigenConstants.SpecimenTypes;
             DefaultTypeBox.SelectedItem = s.DefaultSpecimenType;
             if (DefaultTypeBox.SelectedItem == null) DefaultTypeBox.SelectedIndex = 0;
@@ -51,6 +52,14 @@ namespace AntibodyPanels.Views.Dialogs
                 MessageBox.Show("ACS rule-outs must be a number between 1 and 5.",
                     "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
                 AcsRuleoutBox.Focus();
+                return;
+            }
+            if (!int.TryParse(DefaultRuleoutBox.Text.Trim(), out var defaultRuleouts) ||
+                defaultRuleouts < 1 || defaultRuleouts > 5)
+            {
+                MessageBox.Show("Default rule-outs must be a number between 1 and 5.",
+                    "Validation", MessageBoxButton.OK, MessageBoxImage.Warning);
+                DefaultRuleoutBox.Focus();
                 return;
             }
             if (!int.TryParse(DatingDaysBox.Text.Trim(), out var datingDays) || datingDays < 0 || datingDays > 14)
@@ -83,6 +92,7 @@ namespace AntibodyPanels.Views.Dialogs
             AppSettings.Current.IdentificationCellCount =
                 idRule.StartsWith("1") ? 1 : idRule.StartsWith("2") ? 2 : 3;
             AppSettings.Current.AcsRuleoutCount = acsCount;
+            AppSettings.Current.DefaultMinRuleoutCount = defaultRuleouts;
             AppSettings.Current.DefaultSpecimenType = DefaultTypeBox.SelectedItem?.ToString() ?? "serum";
             AppSettings.Current.DefaultSpecimenDatingDays = datingDays;
             AppSettings.Current.ExpirationWarningDays = days;

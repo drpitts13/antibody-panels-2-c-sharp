@@ -277,11 +277,21 @@ namespace AntibodyPanels.ViewModels
                 });
             }
 
-            var required = result.Acs.RequiredRuleoutCount > 0
-                ? result.Acs.RequiredRuleoutCount
-                : AppSettings.Current.AcsRuleoutCount;
-            foreach (var (ab, cnt) in result.RuledOut.OrderBy(x => x.Key))
-                RuleoutRows.Add(RuleoutRow.From(ab, cnt, required));
+            if (result.RuleoutEvaluations.Count > 0)
+            {
+                foreach (var ev in result.RuleoutEvaluations
+                    .OrderByDescending(e => e.MeetsCriteria)
+                    .ThenBy(e => e.Antibody))
+                    RuleoutRows.Add(RuleoutRow.From(ev));
+            }
+            else
+            {
+                var required = result.Acs.RequiredRuleoutCount > 0
+                    ? result.Acs.RequiredRuleoutCount
+                    : AppSettings.Current.AcsRuleoutCount;
+                foreach (var (ab, cnt) in result.RuledOut.OrderBy(x => x.Key))
+                    RuleoutRows.Add(RuleoutRow.From(ab, cnt, required));
+            }
 
             foreach (var pm in result.PatternMatches.Take(20))
                 PatternRows.Add(new PatternRow
@@ -576,11 +586,28 @@ namespace AntibodyPanels.ViewModels
                 sb.AppendLine();
             }
 
-            if (r.RuledOut.Count > 0)
+            var met = r.RuleoutEvaluations.Where(e => e.MeetsCriteria).OrderBy(e => e.Antibody).ToList();
+            var pending = r.RuleoutEvaluations.Where(e => !e.MeetsCriteria).OrderBy(e => e.Antibody).ToList();
+            if (met.Count > 0)
+            {
+                sb.AppendLine($"RULED OUT ({met.Count} antibodies — configured criteria met):");
+                foreach (var ev in met)
+                    sb.AppendLine($"  {ev.Explanation}");
+                sb.AppendLine();
+            }
+            else if (r.RuledOut.Count > 0)
             {
                 sb.AppendLine($"RULED OUT ({r.RuledOut.Count} antibodies):");
                 foreach (var (ab, cnt) in r.RuledOut.OrderBy(x => x.Key))
                     sb.AppendLine($"  {ab}  (x{cnt})");
+                sb.AppendLine();
+            }
+
+            if (pending.Count > 0)
+            {
+                sb.AppendLine("RULE-OUT IN PROGRESS:");
+                foreach (var ev in pending)
+                    sb.AppendLine($"  {ev.Explanation}");
                 sb.AppendLine();
             }
 
@@ -653,6 +680,22 @@ namespace AntibodyPanels.ViewModels
         public bool MeetsRequired { get; set; }
         public bool IsClinicallySignificant { get; set; }
         public string Status { get; set; } = string.Empty;
+        public string Explanation { get; set; } = string.Empty;
+
+        public static RuleoutRow From(RuleoutEvaluation evaluation)
+        {
+            var cs = IsClinicallySignificantAntibody(evaluation.Antibody);
+            return new RuleoutRow
+            {
+                Antibody = evaluation.Antibody,
+                Count = evaluation.ObservedCount,
+                Required = evaluation.RequiredCount,
+                MeetsRequired = evaluation.MeetsCriteria,
+                IsClinicallySignificant = cs,
+                Status = evaluation.MeetsCriteria ? "Ruled out" : "In progress",
+                Explanation = evaluation.Explanation,
+            };
+        }
 
         public static RuleoutRow From(string antibody, int count, int required)
         {

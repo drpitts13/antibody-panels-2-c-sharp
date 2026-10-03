@@ -34,10 +34,15 @@ namespace AntibodyPanels.Services
             var byRun = GroupByRun(reactions);
 
             var rules = _db.GetAllRules();
-            var ruledOut = CalculateRuleouts(byRun, contexts, antigens, rules, out var gatedRuleouts);
+            var observedRuleouts = CalculateRuleouts(byRun, contexts, antigens, rules, out var gatedRuleouts);
+            var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, antigens, rules);
+            var evaluations = BuildRuleoutEvaluations(
+                observedRuleouts, detailedRuleouts, rules, byRun, contexts, antigens);
+            var ruledOut = evaluations
+                .Where(e => e.MeetsCriteria)
+                .ToDictionary(e => e.Antibody, e => e.ObservedCount);
             var (suspected, suspectedStats, allScores) = CalculateProbabilities(byRun, contexts, antigens, ruledOut);
             var patterns = PatternMatching(byRun, contexts, antigens, ruledOut);
-            var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, antigens, rules);
             var suspectedEvidence = GetSuspectedAntibodyEvidence(byRun, contexts, suspected);
             var combinations = DetectAntibodyCombinations(byRun, contexts, suspected);
             var phaseProbabilities = CalculatePhaseSpecificProbabilities(byRun, contexts, antigens, ruledOut);
@@ -52,6 +57,7 @@ namespace AntibodyPanels.Services
             {
                 SpecimenId = specimenId,
                 RuledOut = ruledOut,
+                RuleoutEvaluations = evaluations,
                 Suspected = suspected,
                 SuspectedStatistics = suspectedStats,
                 PatternMatches = patterns,
@@ -63,7 +69,7 @@ namespace AntibodyPanels.Services
                 GatedRuleouts = gatedRuleouts,
                 TreatmentInferences = inferences,
                 AbsorptionConclusions = absorptionConclusions,
-                Acs = EvaluateAcs(ruledOut, allScores),
+                Acs = EvaluateAcs(observedRuleouts, allScores),
             };
             result.Suggestions = GenerateSuggestions(result);
 
@@ -279,17 +285,84 @@ namespace AntibodyPanels.Services
             return isHomozygous;
         }
 
-        private static bool RuleAllowsHeterozygous(string antigen, List<Rule> rules)
+        private static bool RuleAllowsHeterozygous(string antigen, List<Rule> rules) =>
+            RuleoutPolicy.HeterozygousAllowed(antigen, rules);
+
+        private List<RuleoutEvaluation> BuildRuleoutEvaluations(
+            Dictionary<string, int> observed,
+            Dictionary<string, List<RuleoutDetail>> detailed,
+            List<Rule> rules,
+            Dictionary<int, List<Reaction>> byRun,
+            Dictionary<int, RunContext> contexts,
+            IReadOnlyList<string> antigens)
         {
-            foreach (var rule in rules)
+            var labDefault = AppSettings.Current.DefaultMinRuleoutCount;
+            var conflicts = CollectConflictingReactiveCells(byRun, contexts, antigens);
+            var list = new List<RuleoutEvaluation>();
+
+            foreach (var (antibody, count) in observed.OrderBy(x => x.Key))
             {
-                if (!rule.HeterozygousOk) continue;
-                if (rule.ExceptionAntigen == antigen) return true;
-                if (string.IsNullOrEmpty(rule.ExceptionAntigen) &&
-                    string.Equals(rule.Antibody, $"anti-{antigen}", StringComparison.OrdinalIgnoreCase))
-                    return true;
+                var antigen = antibody.StartsWith("anti-", StringComparison.OrdinalIgnoreCase)
+                    ? antibody[5..]
+                    : antibody;
+                detailed.TryGetValue(antibody, out var cells);
+                cells ??= new List<RuleoutDetail>();
+                var rule = RuleoutPolicy.FindAntibodyRule(antibody, rules);
+                var required = RuleoutPolicy.ResolveRequiredCount(antibody, rules, labDefault);
+                conflicts.TryGetValue(antibody, out var conflicting);
+
+                var evaluation = new RuleoutEvaluation
+                {
+                    Antibody = antibody,
+                    Antigen = antigen,
+                    ObservedCount = count,
+                    RequiredCount = required,
+                    HomozygousCount = cells.Count(c => c.IsHomozygous),
+                    HeterozygousCount = cells.Count(c => !c.IsHomozygous),
+                    HeterozygousAllowed = RuleoutPolicy.HeterozygousAllowed(antigen, rules),
+                    MeetsCriteria = count >= required,
+                    PolicySource = rule != null ? "antibody rule" : "lab default",
+                    Cells = cells,
+                    ConflictingReactiveCells = conflicting ?? new List<string>(),
+                };
+                evaluation.Explanation = RuleoutPolicy.FormatExplanation(evaluation);
+                list.Add(evaluation);
             }
-            return false;
+
+            return list;
+        }
+
+        private Dictionary<string, List<string>> CollectConflictingReactiveCells(
+            Dictionary<int, List<Reaction>> byRun,
+            Dictionary<int, RunContext> contexts,
+            IReadOnlyList<string> antigens)
+        {
+            var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (runId, runReactions) in byRun)
+            {
+                if (!contexts.TryGetValue(runId, out var ctx)) continue;
+                var cellDict = _db.GetPanelCells(ctx.Run.PanelId).ToDictionary(c => c.CellNumber);
+                foreach (var rxn in runReactions)
+                {
+                    if (rxn.CellNumber == "AC") continue;
+                    if (!ctx.IsPositive(rxn)) continue;
+                    if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
+                    foreach (var ag in antigens)
+                    {
+                        if (!ctx.TypesAntigen(ag)) continue;
+                        if (cell.GetAntigen(ag) != "+") continue;
+                        var antibody = $"anti-{ag}";
+                        if (!result.TryGetValue(antibody, out var cells))
+                        {
+                            cells = new List<string>();
+                            result[antibody] = cells;
+                        }
+                        if (!cells.Contains(rxn.CellNumber))
+                            cells.Add(rxn.CellNumber);
+                    }
+                }
+            }
+            return result;
         }
 
         // ── Probabilities (Fisher's Exact Test) ───────────────────────────────
@@ -911,6 +984,9 @@ namespace AntibodyPanels.Services
                 if (result.Suspected.ContainsKey(ab))
                     critical.Add($"WARNING: {ab} is both ruled out and suspected. " +
                         "This may indicate weak antigen expression or testing issues.");
+
+            foreach (var ev in result.RuleoutEvaluations.Where(e => !e.MeetsCriteria))
+                informational.Add(ev.Explanation);
 
             foreach (var (ab, ev) in result.SuspectedEvidence)
                 if (ev.TotalConflicting > 0)
