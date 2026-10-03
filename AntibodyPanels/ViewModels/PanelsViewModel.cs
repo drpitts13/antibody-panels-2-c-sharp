@@ -337,31 +337,49 @@ namespace AntibodyPanels.ViewModels
                 NumCells = numCells,
                 StartCell = startCell,
                 IncludeAc = includeAc,
+                IsActive = false,
             });
             dlg.Title = "Import Panel — Details";
             if (dlg.ShowDialog() != true) return;
 
-            var id = _db.AddPanel(dlg.PanelName, dlg.LotNumber, dlg.Vendor,
-                dlg.NumCells, dlg.ExpirationDate, dlg.IncludeAc, dlg.StartCell, dlg.ItemIsActive,
-                dlg.CatalogNumber, dlg.ProductLine, dlg.EnzymeTreated);
-            var cells = imported.Cells.Select(c =>
+            PanelImportOutcome outcome;
+            try
             {
-                var cell = new PanelCell { CellNumber = c.CellNumber };
-                foreach (var ag in AntigenConstants.Antigens)
-                    cell.SetAntigen(ag, c.Antigens.TryGetValue(ag, out var v) ? v : "-");
-                foreach (var ag in AntigenConstants.WarehouseAntigens)
+                outcome = new LabPanelImportService(_db).Import(imported, new LabPanelImportRequest
                 {
-                    if (!c.Antigens.ContainsKey(ag)) continue;
-                    cell.SetAntigen(ag, c.Antigens[ag]);
-                }
-                return cell;
-            }).ToList();
-            _db.ReplacePanelCells(id, cells);
-            if (imported.AntigenHeaderOrder.Count > 0)
-                _db.SetPanelAntigenOrder(id, imported.AntigenHeaderOrder);
-            _main.SetStatus($"Imported panel '{dlg.PanelName}' ({cells.Count} cells).");
+                    Name = dlg.PanelName,
+                    LotNumber = dlg.LotNumber,
+                    Vendor = dlg.Vendor,
+                    ExpirationDate = dlg.ExpirationDate,
+                    CatalogNumber = dlg.CatalogNumber,
+                    ProductLine = dlg.ProductLine,
+                    EnzymeTreated = dlg.EnzymeTreated,
+                    IncludeAc = dlg.IncludeAc,
+                    NumCells = dlg.NumCells,
+                    StartCell = dlg.StartCell,
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "Import", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var reviewDlg = new Views.Dialogs.ImportReviewDialog(outcome.Review)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            if (reviewDlg.ShowDialog() == true && reviewDlg.ActivateRequested)
+                _db.SetPanelActive(outcome.PanelId, true);
+
+            ShowInactive = true;
             NotifyPanelsChanged();
-            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == id);
+            SelectedPanel = Panels.FirstOrDefault(p => p.PanelId == outcome.PanelId)
+                            ?? _allPanels.FirstOrDefault(p => p.PanelId == outcome.PanelId);
+            var stored = _db.GetPanel(outcome.PanelId);
+            _main.SetStatus(stored is { IsActive: true }
+                ? $"Imported and activated panel '{dlg.PanelName}'."
+                : $"Imported panel '{dlg.PanelName}' (inactive — review before use).");
         }
 
         private void ExportCsv()

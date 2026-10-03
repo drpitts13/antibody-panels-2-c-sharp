@@ -21,6 +21,9 @@ namespace AntibodyPanels.Services
         public List<ImportedPanelCell> Cells { get; } = new();
         public List<string> Errors { get; } = new();
         public List<string> AntigenHeaderOrder { get; } = new();
+        public byte[]? SourceBytes { get; set; }
+        public string? SourceFileName { get; set; }
+        public string? SourcePath { get; set; }
         public bool Success => Errors.Count == 0 && Cells.Count > 0;
     }
 
@@ -58,6 +61,18 @@ namespace AntibodyPanels.Services
                 return result;
             }
 
+            var bytes = File.ReadAllBytes(filePath);
+            using var stream = new MemoryStream(bytes, writable: false);
+            result = Import(stream);
+            result.SourceBytes = bytes;
+            result.SourceFileName = Path.GetFileName(filePath);
+            result.SourcePath = filePath;
+            return result;
+        }
+
+        public static PanelCsvImportResult Import(Stream stream)
+        {
+            var result = new PanelCsvImportResult();
             var config = new CsvConfiguration(CultureInfo.InvariantCulture)
             {
                 TrimOptions = TrimOptions.Trim,
@@ -65,7 +80,7 @@ namespace AntibodyPanels.Services
                 HeaderValidated = null,
             };
 
-            using var reader = new StreamReader(filePath, Encoding.UTF8);
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
             using var csv = new CsvReader(reader, config);
             if (!csv.Read() || !csv.ReadHeader() || csv.HeaderRecord == null)
             {
@@ -115,16 +130,12 @@ namespace AntibodyPanels.Services
                 foreach (var ag in AntigenConstants.Antigens)
                 {
                     if (!headerMap.TryGetValue(ag, out var idx))
-                    {
-                        imported.Antigens[ag] = "-";
                         continue;
-                    }
                     var raw = csv.GetField(idx) ?? "";
                     var normalized = NormalizeAntigen(raw);
                     if (normalized == null)
                     {
                         result.Errors.Add($"Row {rowNum} cell {cellNumber}: invalid value '{raw}' for {ag} (use + or −).");
-                        imported.Antigens[ag] = "-";
                     }
                     else
                     {

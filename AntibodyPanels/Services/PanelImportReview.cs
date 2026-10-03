@@ -13,6 +13,12 @@ namespace AntibodyPanels.Services
         public bool Changed => Added.Count > 0 || Removed.Count > 0;
     }
 
+    public sealed class PanelImportOutcome
+    {
+        public int PanelId { get; init; }
+        public PanelImportReview Review { get; init; } = new();
+    }
+
     public sealed class PanelImportReview
     {
         public int PanelId { get; set; }

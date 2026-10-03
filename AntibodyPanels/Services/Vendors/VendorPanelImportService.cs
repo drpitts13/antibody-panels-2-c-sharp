@@ -3,15 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using AntibodyPanels.Data;
 using AntibodyPanels.Models;
+using AntibodyPanels.Services;
 
 namespace AntibodyPanels.Services.Vendors
 {
-    public sealed class PanelImportOutcome
-    {
-        public int PanelId { get; init; }
-        public PanelImportReview Review { get; init; } = new();
-    }
-
     public sealed class VendorPanelImportService
     {
         private readonly DatabaseService _db;
