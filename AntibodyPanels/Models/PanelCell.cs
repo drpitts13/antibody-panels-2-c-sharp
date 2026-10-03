@@ -15,14 +15,14 @@ namespace AntibodyPanels.Models
         public Dictionary<string, string> Antigens { get; set; } = new();
 
         public string GetAntigen(string antigen) =>
-            Antigens.TryGetValue(antigen, out var v) ? v : "-";
+            Antigens.TryGetValue(antigen, out var v) && AntigenConstants.IsTypedAntigenValue(v) ? v : "-";
 
         /// <summary>
         /// True when this cell has a typed +/− value for the antigen.
-        /// Warehouse antigens are only present after they have been added to the panel.
-        /// Missing is not the same as antigen-negative.
+        /// Missing, blank, or NT is not the same as antigen-negative.
         /// </summary>
-        public bool HasTypedAntigen(string antigen) => Antigens.ContainsKey(antigen);
+        public bool HasTypedAntigen(string antigen) =>
+            Antigens.TryGetValue(antigen, out var v) && AntigenConstants.IsTypedAntigenValue(v);
 
         public void SetAntigen(string antigen, string value) =>
             Antigens[antigen] = value;

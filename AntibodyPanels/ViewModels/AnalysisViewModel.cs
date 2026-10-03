@@ -611,6 +611,14 @@ namespace AntibodyPanels.ViewModels
                 sb.AppendLine();
             }
 
+            if (r.UntypedClinicallySignificant.Count > 0)
+            {
+                sb.AppendLine("ANTIGENS NOT TESTED ON THESE PANELS:");
+                sb.AppendLine("  " + string.Join(", ", r.UntypedClinicallySignificant));
+                sb.AppendLine("  Antibodies to these antigens cannot be interpreted from the current typing.");
+                sb.AppendLine();
+            }
+
             if (r.DosageEffects.Count > 0)
             {
                 sb.AppendLine("DOSAGE EFFECTS DETECTED:");

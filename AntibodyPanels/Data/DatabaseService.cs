@@ -911,7 +911,14 @@ namespace AntibodyPanels.Data
         public void UpdatePanelCell(PanelCell cell)
         {
             foreach (var ag in AntigenConstants.Antigens)
-                UpdatePanelCellAntigen(cell.Id, ag, cell.GetAntigen(ag));
+            {
+                if (cell.Antigens.TryGetValue(ag, out var value) &&
+                    (AntigenConstants.IsTypedAntigenValue(value) ||
+                     value == AntigenConstants.AntigenNotTested))
+                    UpdatePanelCellAntigen(cell.Id, ag, value);
+                else
+                    UpdatePanelCellAntigen(cell.Id, ag, AntigenConstants.AntigenNotTested);
+            }
             foreach (var ag in AntigenConstants.WarehouseAntigens)
             {
                 if (!cell.HasTypedAntigen(ag)) continue;
@@ -978,9 +985,21 @@ namespace AntibodyPanels.Data
             {
                 if (!created.TryGetValue(imported.CellNumber, out var cell)) continue;
                 foreach (var ag in AntigenConstants.Antigens)
-                    cell.SetAntigen(ag, imported.GetAntigen(ag));
+                {
+                    if (imported.Antigens.TryGetValue(ag, out var importedVal) &&
+                        (AntigenConstants.IsTypedAntigenValue(importedVal) ||
+                         importedVal == AntigenConstants.AntigenNotTested))
+                        cell.SetAntigen(ag, importedVal);
+                    else
+                        cell.SetAntigen(ag, AntigenConstants.AntigenNotTested);
+                }
                 foreach (var ag in extrasOnImport)
-                    cell.SetAntigen(ag, imported.GetAntigen(ag));
+                {
+                    if (imported.HasTypedAntigen(ag))
+                        cell.SetAntigen(ag, imported.GetAntigen(ag));
+                    else if (imported.Antigens.TryGetValue(ag, out var extraVal))
+                        cell.SetAntigen(ag, extraVal);
+                }
                 cell.DonorId = imported.DonorId;
                 cell.RhPhenotype = imported.RhPhenotype;
                 cell.SpecialTypes = imported.SpecialTypes;
@@ -1059,6 +1078,45 @@ namespace AntibodyPanels.Data
             AntigenConstants.ResolveDisplayOrder(
                 GetPanelAntigenOrder(panelId),
                 GetPanelExtraAntigens(panelId)).ToList();
+
+        /// <summary>
+        /// Antigens this panel actually types. A saved import order is the sheet
+        /// set. Otherwise any antigen with a +/− on at least one cell is typed.
+        /// Missing / NT values are not invented as negatives.
+        /// </summary>
+        public List<string> GetPanelTypedAntigens(int panelId)
+        {
+            var extras = GetPanelExtraAntigens(panelId);
+            var order = GetPanelAntigenOrder(panelId);
+            if (order.Count > 0)
+            {
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                var typed = new List<string>();
+                foreach (var ag in order.Concat(extras))
+                {
+                    if (!AntigenConstants.IsKnown(ag) || !seen.Add(ag)) continue;
+                    typed.Add(ag);
+                }
+                return typed;
+            }
+
+            var fromCells = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var cell in GetPanelCells(panelId))
+            {
+                foreach (var ag in cell.Antigens.Keys)
+                {
+                    if (cell.HasTypedAntigen(ag))
+                        fromCells.Add(ag);
+                }
+            }
+            foreach (var extra in extras)
+                fromCells.Add(extra);
+            if (fromCells.Count == 0)
+                return AntigenConstants.GetAnalyzedAntigens(extras).ToList();
+            return AntigenConstants.GetAnalyzedAntigens(extras)
+                .Where(fromCells.Contains)
+                .ToList();
+        }
 
         public void SetPanelAntigenOrder(int panelId, IReadOnlyList<string> antigens)
         {
@@ -1902,7 +1960,11 @@ namespace AntibodyPanels.Data
             {
                 var col = AntigenMapper.GetColumn(ag);
                 var ordinal = r.GetOrdinal(col);
-                cell.Antigens[ag] = r.IsDBNull(ordinal) ? "-" : r.GetString(ordinal);
+                if (r.IsDBNull(ordinal)) continue;
+                var value = r.GetString(ordinal);
+                if (AntigenConstants.IsTypedAntigenValue(value) ||
+                    value == AntigenConstants.AntigenNotTested)
+                    cell.Antigens[ag] = value;
             }
             return cell;
         }

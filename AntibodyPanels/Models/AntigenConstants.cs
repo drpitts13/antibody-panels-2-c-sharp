@@ -189,8 +189,13 @@ namespace AntibodyPanels.Models
         public static readonly IReadOnlyList<string> DatResults =
             new[] { "NT", "Negative", "W+", "1+", "2+", "3+", "4+" };
 
+        public const string AntigenNotTested = "NT";
+
         public static readonly IReadOnlyList<string> AntigenValues =
             new[] { "+", "-" };
+
+        public static bool IsTypedAntigenValue(string? value) =>
+            value == "+" || value == "-";
 
         public const string ZygosityBoth = "Both";
         public const string ZygosityHomozygous = "Homozygous";

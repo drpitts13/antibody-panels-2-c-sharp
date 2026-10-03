@@ -101,7 +101,7 @@ namespace AntibodyPanels.Services.Vendors
                     var value = VendorAntigenAliases.NormalizeValue(raw, required);
                     if (value == null)
                     {
-                        if (required)
+                        if (required && !string.IsNullOrWhiteSpace(raw))
                             result.Errors.Add($"Cell {cell.CellNumber}: invalid value '{raw}' for {ag}.");
                         continue;
                     }
@@ -185,7 +185,7 @@ namespace AntibodyPanels.Services.Vendors
                 }
                 foreach (var ag in onPanel)
                 {
-                    if (!cell.HasTypedAntigen(ag))
+                    if (!cell.Antigens.ContainsKey(ag))
                         cell.SetAntigen(ag, "-");
                 }
                 if (leftovers.Count > 0)

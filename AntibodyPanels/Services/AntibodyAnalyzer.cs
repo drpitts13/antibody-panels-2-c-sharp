@@ -53,11 +53,16 @@ namespace AntibodyPanels.Services
             if (updateDb && _db.IsSpecimenLocked(specimenId))
                 throw new RecordLockedException(specimenId);
 
+            var untypedCs = AntigenConstants.ClinicallySignificantAntigens
+                .Where(ag => !antigens.Contains(ag))
+                .ToList();
+
             var result = new AnalysisResult
             {
                 SpecimenId = specimenId,
                 RuledOut = ruledOut,
                 RuleoutEvaluations = evaluations,
+                UntypedClinicallySignificant = untypedCs,
                 Suspected = suspected,
                 SuspectedStatistics = suspectedStats,
                 PatternMatches = patterns,
@@ -128,19 +133,36 @@ namespace AntibodyPanels.Services
         private Dictionary<int, RunContext> BuildContexts(List<PanelRun> runs)
         {
             var extrasByPanel = new Dictionary<int, List<string>>();
+            var typedByPanel = new Dictionary<int, List<string>>();
             foreach (var panelId in runs.Select(r => r.PanelId).Distinct())
+            {
                 extrasByPanel[panelId] = _db.GetPanelExtraAntigens(panelId);
+                typedByPanel[panelId] = _db.GetPanelTypedAntigens(panelId);
+            }
 
             var dict = new Dictionary<int, RunContext>();
             foreach (var run in runs)
-                dict[run.RunId] = new RunContext(run, extrasByPanel[run.PanelId]);
+                dict[run.RunId] = new RunContext(run, extrasByPanel[run.PanelId], typedByPanel[run.PanelId]);
             return dict;
         }
 
         private static IReadOnlyList<string> RelevantAntigens(Dictionary<int, RunContext> contexts)
         {
-            var extras = contexts.Values.SelectMany(c => c.ExtraAntigens);
-            return AntigenConstants.GetAnalyzedAntigens(extras);
+            var typed = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var ctx in contexts.Values)
+            {
+                foreach (var ag in ctx.TypedAntigens)
+                    typed.Add(ag);
+            }
+            if (typed.Count == 0)
+            {
+                var extras = contexts.Values.SelectMany(c => c.ExtraAntigens);
+                return AntigenConstants.GetAnalyzedAntigens(extras);
+            }
+            var extrasOnPanels = contexts.Values.SelectMany(c => c.ExtraAntigens);
+            return AntigenConstants.GetAnalyzedAntigens(extrasOnPanels)
+                .Where(typed.Contains)
+                .ToList();
         }
 
         private static Dictionary<int, List<Reaction>> GroupByRun(List<Reaction> reactions)
@@ -401,6 +423,7 @@ namespace AntibodyPanels.Services
                     {
                         if (rxn.CellNumber == "AC") continue;
                         if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
+                        if (!cell.HasTypedAntigen(ag)) continue;
                         bool agPresent = ctx.IsAntigenPresent(cell, ag);
                         bool isPos = ctx.IsPositive(rxn);
                         if (isPos && agPresent)
@@ -493,6 +516,7 @@ namespace AntibodyPanels.Services
                     {
                         if (rxn.CellNumber == "AC") continue;
                         if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
+                        if (!cell.HasTypedAntigen(ag)) continue;
                         if (!ctx.IsPositive(rxn)) continue;
                         if (ctx.IsAntigenPresent(cell, ag)) matches++; else mismatches++;
                     }
@@ -545,6 +569,7 @@ namespace AntibodyPanels.Services
                     {
                         if (rxn.CellNumber == "AC") continue;
                         if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
+                        if (!cell.HasTypedAntigen(ag)) continue;
                         bool agPresent = ctx.IsAntigenPresent(cell, ag);
                         bool isPos = ctx.IsPositive(rxn);
                         if (!isPos) continue;
@@ -678,6 +703,7 @@ namespace AntibodyPanels.Services
                         {
                             if (rxn.CellNumber == "AC") continue;
                             if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
+                            if (!cell.HasTypedAntigen(ag)) continue;
                             bool agPresent = ctx.IsAntigenPresent(cell, ag);
                             var phaseVal = ctx.GetInterpretedPhaseValue(rxn, phase);
                             bool phasePos = phaseVal != "NT" && phaseVal != "0" &&
@@ -987,6 +1013,16 @@ namespace AntibodyPanels.Services
 
             foreach (var ev in result.RuleoutEvaluations.Where(e => !e.MeetsCriteria))
                 informational.Add(ev.Explanation);
+
+            if (result.UntypedClinicallySignificant.Count > 0)
+            {
+                var shown = string.Join(", ", result.UntypedClinicallySignificant.Take(8));
+                var more = result.UntypedClinicallySignificant.Count > 8
+                    ? $" (+{result.UntypedClinicallySignificant.Count - 8} more)" : "";
+                informational.Add(
+                    $"This panel does not type {shown}{more}. Those antibodies cannot be " +
+                    "ruled out or supported from these cells because the antigen was not tested.");
+            }
 
             foreach (var (ab, ev) in result.SuspectedEvidence)
                 if (ev.TotalConflicting > 0)

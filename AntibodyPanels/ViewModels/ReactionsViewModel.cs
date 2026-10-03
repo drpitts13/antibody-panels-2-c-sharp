@@ -533,7 +533,7 @@ namespace AntibodyPanels.ViewModels
             AntigenConstants.GetAnalyzedAntigens(ExtraAntigens);
 
         private RunContext CreateRunContext(PanelRun run) =>
-            new(run, _db.GetPanelExtraAntigens(run.PanelId));
+            new(run, _db.GetPanelExtraAntigens(run.PanelId), _db.GetPanelTypedAntigens(run.PanelId));
 
         private void LoadAllSpecimens()
         {

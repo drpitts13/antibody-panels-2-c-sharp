@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 1 — visible configurable rule-out).
+Last updated: 2026-10-03 (iteration 2 — untyped import antigens are not negatives).
 
 ## Capability matrix
 
@@ -20,9 +20,9 @@ Last updated: 2026-10-03 (iteration 1 — visible configurable rule-out).
 | Import | XLSX / XML / JSON panels | Missing | Settings/snapshots only | Later tick |
 | Import | Vendor APIs / authenticated portals | Missing | Public HTML + file import only. Do not bypass auth, CAPTCHA, licensing, or terms | Secrets storage only if a vendor authorizes access |
 | Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-` | Persist NT / unknown / zygosity |
-| Common model | Homozygous / heterozygous / negative / unknown / NT | Partial | Zygosity inferred from antithetical `+`/`-` | Stop treating missing import columns as typed `-` (**next likely tick**) |
+| Common model | Homozygous / heterozygous / negative / unknown / NT | Partial | Import NT / missing columns stay untyped; zygosity still inferred from typed antitheticals | Persist explicit homozygous state later |
 | Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | Staging + review before activation |
-| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Missing | NT/`?` forced to `-` on required columns | Import review workflow |
+| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` no longer coerced to `-`; unknown antigens listed on analysis | Schema-vs-prior-lot and review-before-activation |
 | Import traceability | Original artifact retained | Missing | `SourceUrl` / `SourceFormat` / `ImportedAt` only | Store hash + artifact |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, N, Enter | — |
 | Reaction entry | RT, PEG, gel, solid phase, enzyme-as-phase, w+, MF, hemolysis | Missing | Enzyme is a treated **run**, not a phase column | Configurable phases later |
@@ -51,7 +51,22 @@ per-antibody `Rule.MinRuleoutCount`. Separate observed qualifying cells from
 **Not in this tick:** import NT semantics, selected cells, phenotype engine,
 XLSX/portals.
 
+## Iteration 2 (this change)
+
+**Deficiency:** Vendor sheets that omit an antigen column, or mark a cell NT,
+were persisted as typed `-`. That made E+ look homozygous when `e` was never
+typed, and let untested antigens enter Ag− scoring.
+
+**Bounded improvement:** Persist missing/NT as not-tested. Analysis only uses
+antigens the panel actually types. Antithetical zygosity requires a typed
+partner. Summary and suggestions list clinically significant antigens that
+were not tested.
+
+**Not in this tick:** selected cells, phenotype engine, XLSX/portals, import
+review-before-activation.
+
 ## Likely next tick
 
-Stop treating untyped / not-tested import antigens as typed `-`. That can
-silently manufacture negative typings and false rule-outs.
+Per-candidate evidence (supporting / conflicting / additional testing) for
+antibodies that are not yet “suspected,” or selected-cell recommendations
+with a “why this cell” sentence.

@@ -16,6 +16,7 @@ namespace AntibodyPanels.Models
         public Dictionary<string, Dictionary<string, double>> PhraseProbabilities { get; set; } = new();
         public List<DosageEffect> DosageEffects { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
+        public List<string> UntypedClinicallySignificant { get; set; } = new();
 
         // ── Special-panel inference outputs ───────────────────────────────────
 

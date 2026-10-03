@@ -80,6 +80,13 @@ public class VendorPanelImportTests
             Assert.DoesNotContain("Fyb", shown);
             Assert.DoesNotContain("K", shown);
             Assert.DoesNotContain("Jka", shown);
+            var storedCells = iso.Db.GetPanelCells(id);
+            Assert.False(storedCells[0].HasTypedAntigen("Fya"));
+            Assert.False(storedCells[0].HasTypedAntigen("K"));
+            var typed = iso.Db.GetPanelTypedAntigens(id);
+            Assert.DoesNotContain("Fya", typed);
+            Assert.DoesNotContain("K", typed);
+            Assert.Contains("E", typed);
         }
         finally
         {
@@ -207,7 +214,9 @@ public class VendorPanelImportTests
         Assert.Equal("s", VendorAntigenAliases.Resolve("s"));
         Assert.Equal("+", VendorAntigenAliases.NormalizeValue("+w", true));
         Assert.Equal("-", VendorAntigenAliases.NormalizeValue("0", true));
-        Assert.Null(VendorAntigenAliases.NormalizeValue("NT", required: false));
+        Assert.Equal("NT", VendorAntigenAliases.NormalizeValue("NT", required: false));
+        Assert.Equal("NT", VendorAntigenAliases.NormalizeValue("NT", required: true));
+        Assert.Equal("NT", VendorAntigenAliases.NormalizeValue("?", required: true));
     }
 
     [Fact]

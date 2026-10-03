@@ -106,16 +106,17 @@ namespace AntibodyPanels.Services.Vendors
         }
 
         /// <summary>
-        /// Returns +, -, or null when the value should stay untyped (NT / blank extra).
+        /// Returns +, -, NT, or null when the token is blank or unrecognized.
+        /// NT / ? / ND stay not-tested. They are never coerced to antigen-negative.
         /// </summary>
         public static string? NormalizeValue(string? raw, bool required)
         {
             var v = (raw ?? string.Empty).Trim();
             if (v.Length == 0)
-                return required ? "-" : null;
+                return required ? AntigenConstants.AntigenNotTested : null;
             var compact = v.Replace(" ", "", StringComparison.Ordinal).ToUpperInvariant();
             if (compact is "NT" or "N.T." or "N/T" or "?" or "ND")
-                return required ? "-" : null;
+                return AntigenConstants.AntigenNotTested;
             if (compact is "+" or "POS" or "POSITIVE" or "1" or "TRUE" or "+W" or "W+"
                 or "+S" or "S+" or "W" or "S" or "(+)" or "++")
                 return "+";

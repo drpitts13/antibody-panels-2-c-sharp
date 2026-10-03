@@ -17,8 +17,10 @@ namespace AntibodyPanels.Services
         private readonly HashSet<string> _nonInterpretablePhases;
         private readonly IReadOnlyList<string> _absorbedAntibodies;
         private readonly HashSet<string> _extraAntigens;
+        private readonly HashSet<string>? _typedAntigens;
 
-        public RunContext(PanelRun run, IEnumerable<string>? extraAntigens = null)
+        public RunContext(PanelRun run, IEnumerable<string>? extraAntigens = null,
+            IEnumerable<string>? typedAntigens = null)
         {
             Run = run;
             _nonInterpretablePhases = new HashSet<string>(
@@ -28,6 +30,9 @@ namespace AntibodyPanels.Services
             _extraAntigens = extraAntigens != null
                 ? new HashSet<string>(extraAntigens, StringComparer.Ordinal)
                 : new HashSet<string>(StringComparer.Ordinal);
+            _typedAntigens = typedAntigens != null
+                ? new HashSet<string>(typedAntigens, StringComparer.Ordinal)
+                : null;
         }
 
         /// <summary>
@@ -36,11 +41,16 @@ namespace AntibodyPanels.Services
         public IReadOnlyCollection<string> ExtraAntigens => _extraAntigens;
 
         /// <summary>
-        /// Standard antigens are always typed. Warehouse antigens are typed only
-        /// when they have been added to this panel.
+        /// Antigens this run's panel types. When no typed set is supplied,
+        /// standard antigens plus warehouse extras are assumed (manual panels).
         /// </summary>
+        public IReadOnlyCollection<string> TypedAntigens =>
+            _typedAntigens ?? (IReadOnlyCollection<string>)Array.Empty<string>();
+
         public bool TypesAntigen(string antigen) =>
-            AntigenConstants.IsStandard(antigen) || _extraAntigens.Contains(antigen);
+            _typedAntigens != null
+                ? _typedAntigens.Contains(antigen)
+                : AntigenConstants.IsStandard(antigen) || _extraAntigens.Contains(antigen);
 
         // ── Antigen queries ───────────────────────────────────────────────────
 
@@ -60,7 +70,7 @@ namespace AntibodyPanels.Services
         /// (taking cell treatment into account).
         /// </summary>
         public bool IsAntigenPresent(PanelCell cell, string antigen) =>
-            EffectiveAntigen(cell, antigen) == "+";
+            cell.HasTypedAntigen(antigen) && EffectiveAntigen(cell, antigen) == "+";
 
         /// <summary>
         /// Returns the AntigenEffect of the cell treatment on the given antigen.
