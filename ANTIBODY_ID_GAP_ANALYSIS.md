@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 2 — untyped import antigens are not negatives).
+Last updated: 2026-10-03 (iteration 3 — selected-cell recommendations with explanations).
 
 ## Capability matrix
 
@@ -30,12 +30,12 @@ Last updated: 2026-10-03 (iteration 2 — untyped import antigens are not negati
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Missing | Phase scores computed but not shown | Pattern classifiers later |
-| Analysis | Selected-cell recommendations with “why” | Missing | Suggestion text + manual Search tab | Discriminatory-cell algorithm |
+| Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Missing | Free-text phenotype on specimen/report only | Structured phenotype later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell column; rule-out slashes; run-vs-run compare | Antigen grouping, dosage toggle, filter/sort, panel compare |
 | UI | Explain Analysis panel | Partial | Ruled Out + Summary now show reviewable rule-out sentences | Dedicated Explain panel |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots | Import artifact + rule-version detail |
-| Tests | Synthetic cases with intermediate reasoning | Partial | New rule-out evaluation tests; most older tests assert final antibody | Expand case library |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Rule-out, untyped-antigen, and selected-cell intermediate tests | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -65,8 +65,22 @@ were not tested.
 **Not in this tick:** selected cells, phenotype engine, XLSX/portals, import
 review-before-activation.
 
+## Iteration 3 (this change)
+
+**Deficiency:** After remaining candidates were listed, the app only said
+“add more Ag+ cells.” It did not rank unused inventory cells or explain why
+a cell would discriminate competing antibodies.
+
+**Bounded improvement:** Score unused active-panel cells for remaining
+candidates. Prefer homozygous expression of the antigen of interest, cells
+that lack competing antigens, and cells that resolve the most competing
+pairs. Show explanations on the Selected Cells tab, Summary, and suggestions.
+
+**Not in this tick:** phenotype/genotype limits, full per-candidate narrative
+for non-suspected antibodies, XLSX/portals.
+
 ## Likely next tick
 
 Per-candidate evidence (supporting / conflicting / additional testing) for
-antibodies that are not yet “suspected,” or selected-cell recommendations
-with a “why this cell” sentence.
+antibodies that are not yet “suspected,” or structured patient phenotype
+with “cannot interpret if recently transfused.”

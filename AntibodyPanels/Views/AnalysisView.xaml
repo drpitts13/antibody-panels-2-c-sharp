@@ -332,6 +332,26 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem Header="Selected Cells">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Margin="6,6,6,4"
+                               Text="Unused inventory cells ranked by how well they discriminate remaining candidate antibodies. These are testing suggestions, not identifications."
+                               TextWrapping="Wrap" Foreground="#555" FontStyle="Italic"/>
+                    <DataGrid ItemsSource="{Binding SelectedCellRows}" IsReadOnly="True"
+                              AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Panel" Binding="{Binding PanelName}" Width="160"/>
+                            <DataGridTextColumn Header="Lot" Binding="{Binding LotNumber}" Width="90"/>
+                            <DataGridTextColumn Header="Cell" Binding="{Binding CellNumber}" Width="50"/>
+                            <DataGridTextColumn Header="Profile" Binding="{Binding Profile}" Width="120"/>
+                            <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="55"/>
+                            <DataGridTextColumn Header="Why this cell" Binding="{Binding Explanation}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
             <TabItem Header="Summary">
                 <ScrollViewer>
                     <TextBox Text="{Binding SummaryText, Mode=OneWay}"

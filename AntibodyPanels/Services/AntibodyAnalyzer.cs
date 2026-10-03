@@ -76,6 +76,7 @@ namespace AntibodyPanels.Services
                 AbsorptionConclusions = absorptionConclusions,
                 Acs = EvaluateAcs(observedRuleouts, allScores),
             };
+            result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
             result.Suggestions = GenerateSuggestions(result);
 
             if (updateDb)
@@ -1070,6 +1071,16 @@ namespace AntibodyPanels.Services
                     "Consider adsorption/elution studies.");
             }
 
+            if (result.SelectedCellRecommendations.Count > 0)
+            {
+                var names = result.SelectedCellRecommendations
+                    .Take(3)
+                    .Select(c => $"{c.PanelName} cell {c.CellNumber}");
+                important.Add(
+                    $"Selected cells {string.Join(", ", names)} may help resolve remaining candidates. " +
+                    result.SelectedCellRecommendations[0].Explanation);
+            }
+
             foreach (var de in result.DosageEffects)
                 important.Add($"{de.Antibody} shows dosage effect (homozygous avg: {de.AvgHomozygous:F2}, " +
                     $"heterozygous avg: {de.AvgHeterozygous:F2}). " +
@@ -1111,6 +1122,31 @@ namespace AntibodyPanels.Services
             }
 
             return critical.Concat(important).Concat(informational).Distinct().ToList();
+        }
+
+        private List<SelectedCellRecommendation> RecommendSelectedCells(
+            List<Reaction> reactions, AnalysisResult result)
+        {
+            var tested = reactions
+                .Where(r => r.CellNumber != "AC")
+                .Select(r => (r.PanelId, r.CellNumber))
+                .Distinct()
+                .ToList();
+            var inventory = new List<(Panel Panel, PanelCell Cell)>();
+            foreach (var panel in _db.GetActivePanels())
+            {
+                foreach (var cell in _db.GetPanelCells(panel.PanelId))
+                    inventory.Add((panel, cell));
+            }
+            if (inventory.Count == 0)
+            {
+                foreach (var panel in _db.GetAllPanels())
+                {
+                    foreach (var cell in _db.GetPanelCells(panel.PanelId))
+                        inventory.Add((panel, cell));
+                }
+            }
+            return SelectedCellRecommender.Recommend(result, tested, inventory);
         }
 
         // ── Update DB after analysis ───────────────────────────────────────────

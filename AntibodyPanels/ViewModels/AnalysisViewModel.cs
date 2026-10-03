@@ -28,6 +28,7 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<EvidenceCellRow> ConflictingCells { get; } = new();
         public ObservableCollection<RuleoutDetailRow> RuleoutDetailRows { get; } = new();
         public ObservableCollection<DosageRow> DosageRows { get; } = new();
+        public ObservableCollection<SelectedCellRow> SelectedCellRows { get; } = new();
         public ObservableCollection<string> SuggestionItems { get; } = new();
 
         private AnalysisResult? _lastResult;
@@ -244,6 +245,7 @@ namespace AntibodyPanels.ViewModels
             ConflictingCells.Clear();
             RuleoutDetailRows.Clear();
             DosageRows.Clear();
+            SelectedCellRows.Clear();
             SuggestionItems.Clear();
             OnPropertyChanged(nameof(HasSuggestions));
             SummaryText = string.Empty;
@@ -350,6 +352,17 @@ namespace AntibodyPanels.ViewModels
                     HomozygousCount = de.HomozygousCount,
                     HeterozygousCount = de.HeterozygousCount,
                     Severity = de.Severity,
+                });
+
+            foreach (var rec in result.SelectedCellRecommendations)
+                SelectedCellRows.Add(new SelectedCellRow
+                {
+                    PanelName = rec.PanelName,
+                    LotNumber = rec.LotNumber ?? "",
+                    CellNumber = rec.CellNumber,
+                    Profile = rec.AntigenProfile,
+                    Score = rec.Score.ToString(),
+                    Explanation = rec.Explanation,
                 });
 
             foreach (var s in result.Suggestions)
@@ -611,6 +624,14 @@ namespace AntibodyPanels.ViewModels
                 sb.AppendLine();
             }
 
+            if (r.SelectedCellRecommendations.Count > 0)
+            {
+                sb.AppendLine("SELECTED CELLS (analytical recommendations, not a diagnosis):");
+                foreach (var rec in r.SelectedCellRecommendations)
+                    sb.AppendLine($"  {rec.Explanation}");
+                sb.AppendLine();
+            }
+
             if (r.UntypedClinicallySignificant.Count > 0)
             {
                 sb.AppendLine("ANTIGENS NOT TESTED ON THESE PANELS:");
@@ -805,6 +826,16 @@ namespace AntibodyPanels.ViewModels
             CC = c.CC,
             Strongest = $"{c.StrongestPhase} {c.StrongestValue}".Trim(),
         };
+    }
+
+    public class SelectedCellRow
+    {
+        public string PanelName { get; set; } = string.Empty;
+        public string LotNumber { get; set; } = string.Empty;
+        public string CellNumber { get; set; } = string.Empty;
+        public string Profile { get; set; } = string.Empty;
+        public string Score { get; set; } = string.Empty;
+        public string Explanation { get; set; } = string.Empty;
     }
 
     public class RuleoutDetailRow

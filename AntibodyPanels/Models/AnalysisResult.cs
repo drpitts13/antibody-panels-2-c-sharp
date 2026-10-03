@@ -17,6 +17,7 @@ namespace AntibodyPanels.Models
         public List<DosageEffect> DosageEffects { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public List<string> UntypedClinicallySignificant { get; set; } = new();
+        public List<SelectedCellRecommendation> SelectedCellRecommendations { get; set; } = new();
 
         // ── Special-panel inference outputs ───────────────────────────────────
 
@@ -216,6 +217,22 @@ namespace AntibodyPanels.Models
         public int Ab2Only { get; set; }
         public int Neither { get; set; }
         public double CombinationScore { get; set; }
+    }
+
+    /// <summary>
+    /// An unused inventory cell that may help discriminate remaining
+    /// candidate antibodies. The score is analytical evidence, not a diagnosis.
+    /// </summary>
+    public class SelectedCellRecommendation
+    {
+        public int PanelId { get; set; }
+        public string PanelName { get; set; } = string.Empty;
+        public string? LotNumber { get; set; }
+        public string CellNumber { get; set; } = string.Empty;
+        public int Score { get; set; }
+        public string Explanation { get; set; } = string.Empty;
+        public string AntigenProfile { get; set; } = string.Empty;
+        public List<string> Distinguishes { get; set; } = new();
     }
 
     public class DosageEffect
