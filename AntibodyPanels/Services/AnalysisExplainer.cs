@@ -36,6 +36,13 @@ namespace AntibodyPanels.Services
             sb.AppendLine($"Explain Analysis — {result.SpecimenId}");
             sb.AppendLine("Decision support for a qualified professional. Not a diagnosis.");
             sb.AppendLine();
+            if (result.SpecialReactionNotes.Count > 0)
+            {
+                sb.AppendLine("Special reaction grades:");
+                foreach (var note in result.SpecialReactionNotes)
+                    sb.AppendLine("  " + note);
+                sb.AppendLine();
+            }
             foreach (var exp in result.CandidateExplanations.Count > 0
                          ? result.CandidateExplanations
                          : Build(result))

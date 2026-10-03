@@ -234,10 +234,13 @@ namespace AntibodyPanels.Views
         {
             var style = new Style(typeof(DataGridCell));
             AddGrade(style, property, "0", Color.FromRgb(255, 255, 255), Colors.Black);
+            AddGrade(style, property, "w+", Color.FromRgb(255, 253, 231), Colors.Black);
             AddGrade(style, property, "1+", Color.FromRgb(255, 249, 196), Colors.Black);
             AddGrade(style, property, "2+", Color.FromRgb(255, 183, 77), Colors.Black);
             AddGrade(style, property, "3+", Color.FromRgb(229, 57, 53), Colors.White);
             AddGrade(style, property, "4+", Color.FromRgb(183, 28, 28), Colors.White);
+            AddGrade(style, property, "MF", Color.FromRgb(225, 190, 231), Colors.Black);
+            AddGrade(style, property, "H", Color.FromRgb(136, 14, 79), Colors.White);
             AddGrade(style, property, "NT", Color.FromRgb(238, 238, 238), Color.FromRgb(97, 97, 97));
             if (ccColumn)
             {
@@ -271,6 +274,9 @@ namespace AntibodyPanels.Views
                 Key.D2 or Key.NumPad2 => "2+",
                 Key.D3 or Key.NumPad3 => "3+",
                 Key.D4 or Key.NumPad4 => "4+",
+                Key.W => "w+",
+                Key.M => "MF",
+                Key.H => "H",
                 Key.N => "NT",
                 _ => null
             };

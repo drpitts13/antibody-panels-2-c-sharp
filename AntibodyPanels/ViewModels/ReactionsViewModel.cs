@@ -804,7 +804,8 @@ namespace AntibodyPanels.ViewModels
         /// True when all interpretable phases are non-reactive.
         /// CC is a check-cell control, not a reactivity phase.
         /// </summary>
-        public bool IsNegative => AHG == "0" && IsNtOrZero(IS) && IsNtOrZero(C37);
+        public bool IsNegative =>
+            ReactionGrade.IsNegative(AHG) && ReactionGrade.IsAbsent(IS) && ReactionGrade.IsAbsent(C37);
 
         /// <summary>
         /// Antigen names on this row whose + boxes should show a rule-out slash.
@@ -848,7 +849,7 @@ namespace AntibodyPanels.ViewModels
             var nis = IsGradeEntered(isPhase) ? isPhase! : "0";
             var nc37 = IsGradeEntered(c37) ? c37! : "0";
             var nahg = IsGradeEntered(ahg) ? ahg! : "0";
-            var ncc = IsGradeEntered(cc) ? cc! : (nahg == "0" ? "2+" : "NT");
+            var ncc = IsGradeEntered(cc) ? cc! : (ReactionGrade.IsNegative(nahg) ? "2+" : "NT");
             return (nis, nc37, nahg, ncc);
         }
 
@@ -865,7 +866,7 @@ namespace AntibodyPanels.ViewModels
         }
 
         public bool IsCcInvalid =>
-            AHG == "0" && (CC == "0" || CC == "NT" || string.IsNullOrEmpty(CC));
+            ReactionGrade.IsNegative(AHG) && !ReactionGrade.IsPositive(CC);
 
         public ReactionRow(PanelCell cell, Reaction? existing, IReadOnlyList<Rule> rules, RunContext ctx,
             Action? onGradeChanged = null)
@@ -904,7 +905,6 @@ namespace AntibodyPanels.ViewModels
             return ReactionsViewModel.RuleAllowsHeterozygous(antigen, _rules);
         }
 
-        private static bool IsNtOrZero(string v) => v == "NT" || v == "0" || string.IsNullOrEmpty(v);
     }
 
     public class CompareReactionRow

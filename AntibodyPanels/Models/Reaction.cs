@@ -23,15 +23,14 @@ namespace AntibodyPanels.Models
         /// True when all interpretable phases (IS, 37°C, AHG) are non-reactive.
         /// CC is a check-cell validity control and is excluded from reactivity logic.
         /// </summary>
-        public bool IsNegative => AHG == "0" && IsNtOrZero(IS) && IsNtOrZero(C37);
+        public bool IsNegative =>
+            ReactionGrade.IsNegative(AHG) && ReactionGrade.IsAbsent(IS) && ReactionGrade.IsAbsent(C37);
 
         /// <summary>
         /// True when at least one interpretable phase (IS, 37°C, AHG) shows reactivity.
+        /// w+, MF, and hemolysis count as reactive.
         /// </summary>
         public bool IsPositive =>
-            IsReactionStrong(IS) || IsReactionStrong(C37) || IsReactionStrong(AHG);
-
-        private static bool IsNtOrZero(string v) => v == "NT" || v == "0";
-        private static bool IsReactionStrong(string v) => v != "NT" && v != "0" && !string.IsNullOrEmpty(v);
+            ReactionGrade.IsPositive(IS) || ReactionGrade.IsPositive(C37) || ReactionGrade.IsPositive(AHG);
     }
 }

@@ -21,6 +21,7 @@ namespace AntibodyPanels.Models
         public List<PatientTypingConsideration> PatientTypingConsiderations { get; set; } = new();
         public bool PatientPhenotypeUnreliable { get; set; }
         public List<CandidateExplanation> CandidateExplanations { get; set; } = new();
+        public List<string> SpecialReactionNotes { get; set; } = new();
 
         // ── Special-panel inference outputs ───────────────────────────────────
 

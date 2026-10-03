@@ -77,6 +77,7 @@ namespace AntibodyPanels.Services
                 Acs = EvaluateAcs(observedRuleouts, allScores),
             };
             ApplyPatientTyping(specimenId, result);
+            result.SpecialReactionNotes = DescribeSpecialGrades(reactions);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
@@ -709,8 +710,7 @@ namespace AntibodyPanels.Services
                             if (!cell.HasTypedAntigen(ag)) continue;
                             bool agPresent = ctx.IsAntigenPresent(cell, ag);
                             var phaseVal = ctx.GetInterpretedPhaseValue(rxn, phase);
-                            bool phasePos = phaseVal != "NT" && phaseVal != "0" &&
-                                           !string.IsNullOrEmpty(phaseVal);
+                            bool phasePos = ReactionGrade.IsPositive(phaseVal);
                             if (phasePos && agPresent) posWithAg++;
                             else if (phasePos && !agPresent) posWithoutAg++;
                             else if (!phasePos && agPresent) negWithAg++;
@@ -1078,6 +1078,9 @@ namespace AntibodyPanels.Services
                     $"Explain Analysis lists {result.CandidateExplanations.Count} candidate(s) with rule-out, " +
                     "supporting, conflicting, phenotype, and additional-testing evidence.");
 
+            foreach (var note in result.SpecialReactionNotes)
+                important.Add(note);
+
             if (result.PatientPhenotypeUnreliable)
                 important.Add("Patient phenotype cannot be interpreted for alloantibody exclusion because recent transfusion or another configured limitation was noted.");
 
@@ -1179,6 +1182,26 @@ namespace AntibodyPanels.Services
                 }
             }
             return SelectedCellRecommender.Recommend(result, tested, inventory);
+        }
+
+        private static List<string> DescribeSpecialGrades(IEnumerable<Reaction> reactions)
+        {
+            var notes = new List<string>();
+            foreach (var rxn in reactions)
+            {
+                if (string.Equals(rxn.CellNumber, "AC", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                foreach (var (phase, val) in new[] { ("IS", rxn.IS), ("37°C", rxn.C37), ("AHG", rxn.AHG) })
+                {
+                    var canon = ReactionGrade.Normalize(val);
+                    if (canon is not (ReactionGrade.Weak or ReactionGrade.MixedField or ReactionGrade.Hemolysis))
+                        continue;
+                    notes.Add(
+                        $"Cell {rxn.CellNumber} {phase} is {ReactionGrade.Describe(canon)}; " +
+                        "treat as reactive evidence, not a rule-out.");
+                }
+            }
+            return notes;
         }
 
         // ── Update DB after analysis ───────────────────────────────────────────

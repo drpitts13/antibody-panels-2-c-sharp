@@ -180,8 +180,7 @@ namespace AntibodyPanels.Models
             return result.Count > 0 ? result : expected;
         }
 
-        public static readonly IReadOnlyList<string> ReactionValues =
-            new[] { "0", "1+", "2+", "3+", "4+", "NT" };
+        public static readonly IReadOnlyList<string> ReactionValues = ReactionGrade.All;
 
         public static readonly IReadOnlyList<string> SpecimenTypes =
             new[] { "serum", "plasma", "eluate" };

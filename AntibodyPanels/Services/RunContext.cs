@@ -155,7 +155,9 @@ namespace AntibodyPanels.Services
             var ahg = GetInterpretedPhaseValue(rxn, "AHG");
             var isVal = GetInterpretedPhaseValue(rxn, "IS");
             var c37 = GetInterpretedPhaseValue(rxn, "C37");
-            return ahg == "0" && IsNtOrZero(isVal) && IsNtOrZero(c37);
+            return ReactionGrade.IsNegative(ahg)
+                && ReactionGrade.IsAbsent(isVal)
+                && ReactionGrade.IsAbsent(c37);
         }
 
         /// <summary>
@@ -177,30 +179,22 @@ namespace AntibodyPanels.Services
                 .Where(IsPhaseInterpretable)
                 .Select(ph => (ph, val: GetInterpretedPhaseValue(rxn, ph)));
 
-            string bestPhase = "", bestVal = "0";
+            string bestPhase = "", bestVal = ReactionGrade.Negative;
             foreach (var (ph, val) in candidates)
             {
-                if (val == "NT" || val == "0" || string.IsNullOrEmpty(val)) continue;
+                if (ReactionGrade.IsAbsent(val)) continue;
                 if (ReactionToNumeric(val) > ReactionToNumeric(bestVal))
                 {
-                    bestVal = val;
+                    bestVal = ReactionGrade.Normalize(val);
                     bestPhase = ph;
                 }
             }
             return (bestPhase, bestVal);
         }
 
-        private static bool IsNtOrZero(string v) =>
-            v == "NT" || v == "0" || string.IsNullOrEmpty(v);
+        private static bool IsReactionStrong(string v) => ReactionGrade.IsPositive(v);
 
-        private static bool IsReactionStrong(string v) =>
-            !IsNtOrZero(v);
-
-        internal static double ReactionToNumeric(string reaction)
-        {
-            if (string.IsNullOrEmpty(reaction) || reaction == "NT" || reaction == "0") return 0;
-            if (int.TryParse(reaction.Replace("+", ""), out int n)) return n;
-            return 0;
-        }
+        internal static double ReactionToNumeric(string reaction) =>
+            ReactionGrade.Strength(reaction);
     }
 }

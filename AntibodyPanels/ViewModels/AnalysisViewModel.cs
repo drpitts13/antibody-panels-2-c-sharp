@@ -618,6 +618,13 @@ namespace AntibodyPanels.ViewModels
                     sb.AppendLine($"  …and {r.CandidateExplanations.Count - 1} more candidate(s) on the Explain tab.");
                 sb.AppendLine();
             }
+            if (r.SpecialReactionNotes.Count > 0)
+            {
+                sb.AppendLine("SPECIAL REACTION GRADES:");
+                foreach (var note in r.SpecialReactionNotes)
+                    sb.AppendLine("  " + note);
+                sb.AppendLine();
+            }
 
             if (r.Acs.IsEligible)
             {
