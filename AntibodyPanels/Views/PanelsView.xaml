@@ -49,6 +49,8 @@
                         ToolTip="Activate an imported panel after reviewing the antigram and source hash"/>
                 <Button Content="Artifact" Command="{Binding ViewArtifactCommand}" Width="70" Margin="0,0,4,4"
                         ToolTip="Open the retained import file and verify its SHA-256"/>
+                <Button Content="Compare…" Command="{Binding CompareCommand}" Width="80" Margin="0,0,4,4"
+                        ToolTip="Compare this panel's typed antigens with another stored lot"/>
                 <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,8,4"/>
                 <CheckBox Content="Show Inactive" IsChecked="{Binding ShowInactive}"
                           IsEnabled="{Binding IsEditingAntigens, Converter={x:Static views:InverseBoolConverter.Instance}}"

@@ -93,6 +93,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand RefreshCommand { get; }
         public ICommand ActivateCommand { get; }
         public ICommand ViewArtifactCommand { get; }
+        public ICommand CompareCommand { get; }
 
         public PanelsViewModel(DatabaseService db, MainViewModel main)
         {
@@ -116,6 +117,8 @@ namespace AntibodyPanels.ViewModels
                 () => SelectedPanel != null && !SelectedPanel.IsActive && !IsEditingAntigens);
             ViewArtifactCommand = new RelayCommand(ViewArtifact,
                 () => SelectedPanel != null && SelectedPanel.HasImportArtifact && !IsEditingAntigens);
+            CompareCommand = new RelayCommand(ComparePanels,
+                () => SelectedPanel != null && !IsEditingAntigens);
             Refresh();
         }
 
@@ -259,6 +262,30 @@ namespace AntibodyPanels.ViewModels
             _db.SetPanelActive(SelectedPanel.PanelId, true);
             _main.SetStatus($"Activated panel '{SelectedPanel.Name}'.");
             NotifyPanelsChanged();
+        }
+
+        private void ComparePanels()
+        {
+            if (SelectedPanel == null) return;
+            var others = _db.GetAllPanels()
+                .Where(p => p.PanelId != SelectedPanel.PanelId)
+                .OrderBy(p => p.Name)
+                .ThenBy(p => p.LotNumber)
+                .ToList();
+            if (others.Count == 0)
+            {
+                MessageBox.Show("Store another panel to compare antigen typings.",
+                    "Compare panels", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            var prior = _db.FindPriorVendorPanel(SelectedPanel.Vendor, SelectedPanel.ProductLine,
+                SelectedPanel.LotNumber);
+            var dlg = new Views.Dialogs.PanelCompareDialog(_db, SelectedPanel, others, prior?.PanelId)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            dlg.ShowDialog();
+            _main.SetStatus($"Compared '{SelectedPanel.Name}' with another stored panel.");
         }
 
         private void ViewArtifact()
