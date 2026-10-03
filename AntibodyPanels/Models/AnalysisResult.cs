@@ -18,6 +18,8 @@ namespace AntibodyPanels.Models
         public List<string> Suggestions { get; set; } = new();
         public List<string> UntypedClinicallySignificant { get; set; } = new();
         public List<SelectedCellRecommendation> SelectedCellRecommendations { get; set; } = new();
+        public List<PatientTypingConsideration> PatientTypingConsiderations { get; set; } = new();
+        public bool PatientPhenotypeUnreliable { get; set; }
 
         // ── Special-panel inference outputs ───────────────────────────────────
 
@@ -223,6 +225,23 @@ namespace AntibodyPanels.Models
     /// An unused inventory cell that may help discriminate remaining
     /// candidate antibodies. The score is analytical evidence, not a diagnosis.
     /// </summary>
+    public enum PatientTypingKind
+    {
+        Supporting,
+        Against,
+        Uninterpretable,
+        Historical
+    }
+
+    public class PatientTypingConsideration
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Antigen { get; set; } = string.Empty;
+        public PatientTypingKind Kind { get; set; }
+        public string PatientValue { get; set; } = string.Empty;
+        public string Explanation { get; set; } = string.Empty;
+    }
+
     public class SelectedCellRecommendation
     {
         public int PanelId { get; set; }

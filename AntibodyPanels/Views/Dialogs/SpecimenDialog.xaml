@@ -41,7 +41,7 @@
             <Label Content="Phenotype:" Grid.Row="4" VerticalAlignment="Center"/>
             <TextBox x:Name="PhenotypeBox" Grid.Row="4" Grid.Column="1"
                      VerticalAlignment="Center" Margin="0,2"
-                     ToolTip="e.g. R1r, K−, Fy(a−b+)"/>
+                     ToolTip="e.g. R1r, K−, Fy(a−b+). Note recent transfusion in Notes so analysis will not use typing to exclude alloantibodies."/>
 
             <Label Content="Previous antibodies:" Grid.Row="5" VerticalAlignment="Center"/>
             <TextBox x:Name="PreviousAbsBox" Grid.Row="5" Grid.Column="1"

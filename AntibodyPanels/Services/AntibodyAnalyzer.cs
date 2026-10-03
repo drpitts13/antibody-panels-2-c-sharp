@@ -76,6 +76,7 @@ namespace AntibodyPanels.Services
                 AbsorptionConclusions = absorptionConclusions,
                 Acs = EvaluateAcs(observedRuleouts, allScores),
             };
+            ApplyPatientTyping(specimenId, result);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
             result.Suggestions = GenerateSuggestions(result);
 
@@ -1071,6 +1072,21 @@ namespace AntibodyPanels.Services
                     "Consider adsorption/elution studies.");
             }
 
+            if (result.PatientPhenotypeUnreliable)
+                important.Add("Patient phenotype cannot be interpreted for alloantibody exclusion because recent transfusion or another configured limitation was noted.");
+
+            foreach (var c in result.PatientTypingConsiderations.Where(x => x.Kind == PatientTypingKind.Against))
+            {
+                if (result.Suspected.ContainsKey(c.Antibody))
+                    critical.Add($"WARNING: {c.Antibody} is suspected, but patient typing argues against it. {c.Explanation}");
+            }
+
+            foreach (var c in result.PatientTypingConsiderations.Where(x => x.Kind == PatientTypingKind.Historical))
+            {
+                if (!result.Suspected.ContainsKey(c.Antibody))
+                    informational.Add($"{c.Explanation} Look for this specificity if the current pattern is incomplete.");
+            }
+
             if (result.SelectedCellRecommendations.Count > 0)
             {
                 var names = result.SelectedCellRecommendations
@@ -1122,6 +1138,16 @@ namespace AntibodyPanels.Services
             }
 
             return critical.Concat(important).Concat(informational).Distinct().ToList();
+        }
+
+        private void ApplyPatientTyping(string specimenId, AnalysisResult result)
+        {
+            var specimen = _db.GetSpecimen(specimenId);
+            if (specimen == null) return;
+            var typing = PatientTypingParser.Parse(
+                specimen.Phenotype, specimen.PreviousAntibodies, specimen.Notes);
+            result.PatientPhenotypeUnreliable = typing.PhenotypeUnreliable;
+            result.PatientTypingConsiderations = PatientTypingParser.Evaluate(typing);
         }
 
         private List<SelectedCellRecommendation> RecommendSelectedCells(

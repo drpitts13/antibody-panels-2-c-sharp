@@ -29,6 +29,7 @@ namespace AntibodyPanels.ViewModels
         public ObservableCollection<RuleoutDetailRow> RuleoutDetailRows { get; } = new();
         public ObservableCollection<DosageRow> DosageRows { get; } = new();
         public ObservableCollection<SelectedCellRow> SelectedCellRows { get; } = new();
+        public ObservableCollection<PatientTypingRow> PatientTypingRows { get; } = new();
         public ObservableCollection<string> SuggestionItems { get; } = new();
 
         private AnalysisResult? _lastResult;
@@ -246,6 +247,7 @@ namespace AntibodyPanels.ViewModels
             RuleoutDetailRows.Clear();
             DosageRows.Clear();
             SelectedCellRows.Clear();
+            PatientTypingRows.Clear();
             SuggestionItems.Clear();
             OnPropertyChanged(nameof(HasSuggestions));
             SummaryText = string.Empty;
@@ -363,6 +365,15 @@ namespace AntibodyPanels.ViewModels
                     Profile = rec.AntigenProfile,
                     Score = rec.Score.ToString(),
                     Explanation = rec.Explanation,
+                });
+
+            foreach (var c in result.PatientTypingConsiderations)
+                PatientTypingRows.Add(new PatientTypingRow
+                {
+                    Antibody = c.Antibody,
+                    Kind = c.Kind.ToString(),
+                    PatientValue = string.IsNullOrEmpty(c.PatientValue) ? "" : c.Antigen + c.PatientValue,
+                    Explanation = c.Explanation,
                 });
 
             foreach (var s in result.Suggestions)
@@ -624,6 +635,16 @@ namespace AntibodyPanels.ViewModels
                 sb.AppendLine();
             }
 
+            if (r.PatientTypingConsiderations.Count > 0)
+            {
+                sb.AppendLine(r.PatientPhenotypeUnreliable
+                    ? "PATIENT TYPING (cannot interpret — recent transfusion or configured limitation):"
+                    : "PATIENT TYPING (evidence only, not a diagnosis):");
+                foreach (var c in r.PatientTypingConsiderations)
+                    sb.AppendLine($"  [{c.Kind}] {c.Explanation}");
+                sb.AppendLine();
+            }
+
             if (r.SelectedCellRecommendations.Count > 0)
             {
                 sb.AppendLine("SELECTED CELLS (analytical recommendations, not a diagnosis):");
@@ -826,6 +847,14 @@ namespace AntibodyPanels.ViewModels
             CC = c.CC,
             Strongest = $"{c.StrongestPhase} {c.StrongestValue}".Trim(),
         };
+    }
+
+    public class PatientTypingRow
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Kind { get; set; } = string.Empty;
+        public string PatientValue { get; set; } = string.Empty;
+        public string Explanation { get; set; } = string.Empty;
     }
 
     public class SelectedCellRow

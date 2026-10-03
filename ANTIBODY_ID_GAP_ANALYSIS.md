@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 3 — selected-cell recommendations with explanations).
+Last updated: 2026-10-03 (iteration 4 — patient phenotype evidence with transfusion limits).
 
 ## Capability matrix
 
@@ -31,11 +31,11 @@ Last updated: 2026-10-03 (iteration 3 — selected-cell recommendations with exp
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Missing | Phase scores computed but not shown | Pattern classifiers later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
-| Analysis | Patient phenotype / genotype / transfusion limits | Missing | Free-text phenotype on specimen/report only | Structured phenotype later |
+| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell column; rule-out slashes; run-vs-run compare | Antigen grouping, dosage toggle, filter/sort, panel compare |
 | UI | Explain Analysis panel | Partial | Ruled Out + Summary now show reviewable rule-out sentences | Dedicated Explain panel |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots | Import artifact + rule-version detail |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Rule-out, untyped-antigen, and selected-cell intermediate tests | Expand case library |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Rule-out, untyped, selected-cell, and phenotype intermediate tests | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -79,8 +79,20 @@ pairs. Show explanations on the Selected Cells tab, Summary, and suggestions.
 **Not in this tick:** phenotype/genotype limits, full per-candidate narrative
 for non-suspected antibodies, XLSX/portals.
 
+## Iteration 4 (this change)
+
+**Deficiency:** Specimen phenotype and previous antibodies were display-only.
+A patient who typed E+ could still be left with silent anti-E suspicion, and
+recent transfusion was not treated as a limit on interpretation.
+
+**Bounded improvement:** Parse Weiner and antigen text into support / against /
+uninterpretable / historical considerations. Do not auto-remove candidates.
+Notes mentioning transfusion make phenotype evidence uninterpretable.
+
+**Not in this tick:** structured genotype columns, per-candidate narrative for
+non-suspected antibodies, XLSX/portals.
+
 ## Likely next tick
 
 Per-candidate evidence (supporting / conflicting / additional testing) for
-antibodies that are not yet “suspected,” or structured patient phenotype
-with “cannot interpret if recently transfused.”
+antibodies that are not yet “suspected,” or a dedicated Explain Analysis panel.

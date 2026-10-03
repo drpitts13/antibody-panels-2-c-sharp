@@ -332,6 +332,24 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem Header="Patient Typing">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Margin="6,6,6,4"
+                               Text="Patient phenotype and historical antibodies are shown as evidence for or against a candidate. Recent transfusion makes phenotype uninterpretable. This is not a diagnosis."
+                               TextWrapping="Wrap" Foreground="#555" FontStyle="Italic"/>
+                    <DataGrid ItemsSource="{Binding PatientTypingRows}" IsReadOnly="True"
+                              AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="110"/>
+                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130"/>
+                            <DataGridTextColumn Header="Patient" Binding="{Binding PatientValue}" Width="70"/>
+                            <DataGridTextColumn Header="Explanation" Binding="{Binding Explanation}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
             <TabItem Header="Selected Cells">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Margin="6,6,6,4"
