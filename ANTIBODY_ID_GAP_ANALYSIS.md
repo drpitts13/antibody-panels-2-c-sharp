@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 9 — configurable extra reaction phases).
+Last updated: 2026-10-03 (iteration 10 — import artifact viewer with hash verification).
 
 ## Capability matrix
 
@@ -23,7 +23,7 @@ Last updated: 2026-10-03 (iteration 9 — configurable extra reaction phases).
 | Common model | Homozygous / heterozygous / negative / unknown / NT | Partial | Import NT / missing columns stay untyped; zygosity still inferred from typed antitheticals | Persist explicit homozygous state later |
 | Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | Impossible-value checks later |
 | Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` not coerced to `-`; vendor and lab CSV compare antigen schema vs prior lot | Impossible-value catalog later |
-| Import traceability | Original artifact retained | Partial | Vendor and lab CSV store SHA-256 + file beside the database | Artifact viewer |
+| Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Lab setting ExtraPhases adds columns; stored as JSON; RT suppressed by prewarm | Solid-phase defaults; compare-grid extra columns |
@@ -35,8 +35,8 @@ Last updated: 2026-10-03 (iteration 9 — configurable extra reaction phases).
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell column; rule-out slashes; run-vs-run compare | Antigen grouping, dosage toggle, filter/sort, panel compare |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged | Rule-version detail; artifact viewer |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade and extra-phase intermediate cases | Expand case library |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -163,9 +163,22 @@ with IS. Classic IS / 37°C / AHG / CC is unchanged when the setting is blank.
 
 **Not in this tick:** artifact viewer, XLSX/portals, compare-grid extra columns.
 
+## Iteration 10 (this change)
+
+**Deficiency:** Vendor and lab CSV imports stored a SHA-256 and a copy of
+the source file, but the UI never showed whether that file still existed or
+still matched.
+
+**Bounded improvement:** The Panels **Artifact** button inspects the retained
+file, reports present / missing / hash-mismatch, previews CSV text, and can
+open the original. Panel details show the stored hash. Nothing is
+auto-activated.
+
+**Not in this tick:** XLSX/XML/JSON adapters, compare-grid extra columns.
+
 ## Likely next tick
 
-Artifact viewer on panel details, or XLSX/XML/JSON panel adapters.
+XLSX/XML/JSON panel adapters, or antigram grouping / dosage toggle.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

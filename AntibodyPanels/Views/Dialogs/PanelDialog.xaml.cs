@@ -38,6 +38,13 @@ namespace AntibodyPanels.Views.Dialogs
                     DateTime.TryParse(existing.ExpirationDate, out var d))
                     ExpirationPicker.SelectedDate = d;
                 ActiveCheck.IsChecked = existing.IsActive;
+                if (existing.HasImportArtifact)
+                {
+                    ArtifactHint.Visibility = Visibility.Visible;
+                    ArtifactHint.Text = string.IsNullOrWhiteSpace(existing.SourceSha256)
+                        ? "An import artifact path is stored. Use Artifact on the Panels tab to open it."
+                        : "Import SHA-256 " + existing.SourceSha256 + ". Use Artifact on the Panels tab to open and verify the file.";
+                }
             }
             else
             {

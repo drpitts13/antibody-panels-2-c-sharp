@@ -45,6 +45,9 @@ namespace AntibodyPanels.Models
             return string.Join("  ·  ", parts);
         }
 
+        public bool HasImportArtifact =>
+            !string.IsNullOrWhiteSpace(SourceArtifactPath) || !string.IsNullOrWhiteSpace(SourceSha256);
+
         public bool MatchesFilter(string? query) =>
             TextFilter.Matches(query, Name, LotNumber, Vendor, ExpirationDate, CatalogNumber, ProductLine);
     }

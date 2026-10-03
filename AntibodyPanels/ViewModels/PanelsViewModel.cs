@@ -92,6 +92,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand CancelEditCommand { get; }
         public ICommand RefreshCommand { get; }
         public ICommand ActivateCommand { get; }
+        public ICommand ViewArtifactCommand { get; }
 
         public PanelsViewModel(DatabaseService db, MainViewModel main)
         {
@@ -113,6 +114,8 @@ namespace AntibodyPanels.ViewModels
             RefreshCommand = new RelayCommand(Refresh);
             ActivateCommand = new RelayCommand(ActivatePanel,
                 () => SelectedPanel != null && !SelectedPanel.IsActive && !IsEditingAntigens);
+            ViewArtifactCommand = new RelayCommand(ViewArtifact,
+                () => SelectedPanel != null && SelectedPanel.HasImportArtifact && !IsEditingAntigens);
             Refresh();
         }
 
@@ -256,6 +259,18 @@ namespace AntibodyPanels.ViewModels
             _db.SetPanelActive(SelectedPanel.PanelId, true);
             _main.SetStatus($"Activated panel '{SelectedPanel.Name}'.");
             NotifyPanelsChanged();
+        }
+
+        private void ViewArtifact()
+        {
+            if (SelectedPanel == null) return;
+            var inspection = ImportArtifactInspector.Inspect(SelectedPanel);
+            var dlg = new Views.Dialogs.ArtifactViewerDialog(inspection)
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            dlg.ShowDialog();
+            _main.SetStatus(inspection.Explanation);
         }
 
         private void CopyPanel()
