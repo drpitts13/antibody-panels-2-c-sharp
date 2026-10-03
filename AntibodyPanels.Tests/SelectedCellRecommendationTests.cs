@@ -83,6 +83,141 @@ public class SelectedCellRecommendationTests
     }
 
     [Fact]
+    public void UnusedSelectedCellVial_RanksAboveMatchingScreeningCell()
+    {
+        var screen = new Panel { PanelId = 1, Name = "ID Panel", LotNumber = "ID" };
+        var select = new Panel { PanelId = 2, Name = "Immucor Selectogen", LotNumber = "SG" };
+        var inventory = new (Panel, PanelCell)[]
+        {
+            (screen, Cell("8", ("E", "+"), ("e", "-"), ("K", "-"), ("k", "+"))),
+            (select, Cell("3", ("E", "+"), ("e", "-"), ("K", "-"), ("k", "+"))),
+        };
+
+        Assert.True(SelectedCellRecommender.LooksLikeSelectedCellVial(select));
+        Assert.False(SelectedCellRecommender.LooksLikeSelectedCellVial(screen));
+
+        var recs = SelectedCellRecommender.Recommend(TwoCandidateResult(), Array.Empty<(int, string)>(), inventory);
+        Assert.Equal(2, recs.Count);
+        Assert.Equal("3", recs[0].CellNumber);
+        Assert.Equal(select.PanelId, recs[0].PanelId);
+        Assert.True(recs[0].Score > recs[1].Score);
+        Assert.Contains("selected-cell vial", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PatientENegative_PrefersUnusedEPositiveCell_AndDoesNotAutoIdentify()
+    {
+        var stock = new Panel { PanelId = 4, Name = "ID Panel", LotNumber = "P" };
+        var inventory = new (Panel, PanelCell)[]
+        {
+            (stock, Cell("1", ("E", "+"), ("e", "-"))),
+            (stock, Cell("2", ("E", "-"), ("e", "+"))),
+        };
+        var result = new AnalysisResult
+        {
+            Suspected = { ["anti-E"] = 0.8 },
+            SuspectedStatistics =
+            {
+                ["anti-E"] = new SuspectedStatistics
+                {
+                    PositiveAgPositiveCount = 1,
+                    NegativeAgNegativeCount = 1,
+                    IdentificationRequired = 3,
+                    MeetsIdentificationRule = false
+                }
+            },
+            PatientTypingConsiderations =
+            {
+                new PatientTypingConsideration
+                {
+                    Antibody = "anti-E",
+                    Antigen = "E",
+                    Kind = PatientTypingKind.Supporting,
+                    PatientValue = "-",
+                    Explanation = "Patient types E-."
+                }
+            }
+        };
+
+        var recs = SelectedCellRecommender.Recommend(result, Array.Empty<(int, string)>(), inventory);
+        Assert.Equal("1", recs[0].CellNumber);
+        Assert.Contains("patient types E-", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("diagnosis", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PredictedENegativeAfterTransfusion_StillBoostsEPositiveCell()
+    {
+        var stock = new Panel { PanelId = 5, Name = "0.8% Selected Cells", LotNumber = "SC" };
+        var result = new AnalysisResult
+        {
+            PatientPhenotypeUnreliable = true,
+            Suspected = { ["anti-E"] = 0.7 },
+            SuspectedStatistics =
+            {
+                ["anti-E"] = new SuspectedStatistics
+                {
+                    PositiveAgPositiveCount = 1,
+                    NegativeAgNegativeCount = 0,
+                    IdentificationRequired = 3,
+                    MeetsIdentificationRule = false
+                }
+            },
+            PatientTypingConsiderations =
+            {
+                new PatientTypingConsideration
+                {
+                    Antibody = "anti-E",
+                    Antigen = "E",
+                    Kind = PatientTypingKind.Uninterpretable,
+                    PatientValue = "+",
+                    Explanation = "Serology uninterpretable."
+                },
+                new PatientTypingConsideration
+                {
+                    Antibody = "anti-E",
+                    Antigen = "E",
+                    Kind = PatientTypingKind.Predicted,
+                    PatientValue = "-",
+                    Explanation = "Genotype predicts E-."
+                }
+            }
+        };
+
+        Assert.Equal("-", SelectedCellRecommender.PatientAntigen(result, "E"));
+        var recs = SelectedCellRecommender.Recommend(
+            result,
+            Array.Empty<(int, string)>(),
+            new[] { (stock, Cell("4", ("E", "+"), ("e", "-"))) });
+        Assert.Single(recs);
+        Assert.Contains("patient types E-", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("selected-cell vial", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PatientEPositive_DoesNotRemoveDistinguishingCell()
+    {
+        var stock = new Panel { PanelId = 6, Name = "Stock panel", LotNumber = "S" };
+        var result = TwoCandidateResult();
+        result.PatientTypingConsiderations.Add(new PatientTypingConsideration
+        {
+            Antibody = "anti-E",
+            Antigen = "E",
+            Kind = PatientTypingKind.Against,
+            PatientValue = "+",
+            Explanation = "Patient types E+."
+        });
+
+        var recs = SelectedCellRecommender.Recommend(
+            result,
+            Array.Empty<(int, string)>(),
+            new[] { (stock, Cell("3", ("E", "+"), ("e", "-"), ("K", "-"), ("k", "+"))) });
+        Assert.Single(recs);
+        Assert.Contains("distinguish", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("weaker evidence", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Analyzer_IncludesSelectedCellsForMultipleAntibodies()
     {
         using var iso = new IsolatedDatabase();

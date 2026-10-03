@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 19 — lab ExtraPhases suggested defaults).
+Last updated: 2026-10-03 (iteration 20 — selected-cell vial and phenotype ranking).
 
 ## Capability matrix
 
@@ -31,7 +31,7 @@ Last updated: 2026-10-03 (iteration 19 — lab ExtraPhases suggested defaults).
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | Cold/warm/mixed/panreactive plus HTLA, AC-based HFA vs auto, and LFA | Stronger HTLA titration later |
-| Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
+| Analysis | Selected-cell recommendations with “why” | Partial | Unused inventory ranked; selected-cell vials and patient Ag− types get a reviewable boost | Rare Ag− / expired-vial later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Phenotype text plus specimen genotype (alleles or predicted marks); transfusion still blinds serology only | Allele catalog / variant risk notes later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
@@ -306,9 +306,25 @@ IAT-like evidence, not a diagnosis.
 **Not in this tick:** Variant-allele catalog, titration workflow,
 authenticated APIs.
 
+## Iteration 20 (this change)
+
+**Deficiency:** Selected-cell suggestions treated every unused inventory cell
+the same. A leftover ID-panel cell could outrank an unused Selectogen /
+0.8% vial, and patient E− (or a post-transfusion genotype prediction)
+did not raise an E+ cell.
+
+**Bounded improvement:** Unused vials whose name looks like selected cells
+get a ranking boost and an explanation. Patient Ag− (including Predicted
+genotype after transfusion) boosts matching Ag+ cells; patient Ag+ only
+softens the score and never drops a distinguishing cell. Still
+recommendations, not a diagnosis.
+
+**Not in this tick:** HTLA titration workflow, expired-vial filtering,
+authenticated APIs.
+
 ## Likely next tick
 
-Selected-cell vial preference, or stronger HTLA titration notes.
+Stronger HTLA titration notes, or rare-antigen selected cells.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using AntibodyPanels.Models;
 
 namespace AntibodyPanels.Services
@@ -12,6 +13,10 @@ namespace AntibodyPanels.Services
     public static class SelectedCellRecommender
     {
         public const int MaxRecommendations = 5;
+
+        private static readonly Regex SelectedVialHint = new(
+            @"\bselect(?:ed)?(?:\s*cells?)?\b|selectogen|0\.8\s*%",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public static List<SelectedCellRecommendation> Recommend(
             AnalysisResult result,
@@ -124,6 +129,14 @@ namespace AntibodyPanels.Services
                 reasons.Add($"expresses {AntigenOf(present[0])} and lacks competing {string.Join(", ", absent.Select(AntigenOf))}");
             }
 
+            ApplyPatientCompatibility(cell, candidates, result, ref score, reasons);
+
+            if (LooksLikeSelectedCellVial(panel))
+            {
+                score += 2;
+                reasons.Add("comes from an unused selected-cell vial");
+            }
+
             if (score <= 0) return null;
 
             var profile = string.Join(" ", candidates
@@ -157,18 +170,79 @@ namespace AntibodyPanels.Services
             var where = string.IsNullOrWhiteSpace(panel.Name)
                 ? $"Cell {cell.CellNumber}"
                 : $"{panel.Name} cell {cell.CellNumber}";
+            var phenotype = reasons.FirstOrDefault(r => r.StartsWith("patient types", StringComparison.Ordinal));
+            var vial = reasons.FirstOrDefault(r => r.Contains("selected-cell vial", StringComparison.Ordinal));
+            var core = reasons.FirstOrDefault(r =>
+                           r.StartsWith("distinguishes", StringComparison.Ordinal) ||
+                           r.Contains("homozygous", StringComparison.Ordinal) ||
+                           r.Contains("may add", StringComparison.Ordinal) ||
+                           r.StartsWith("expresses", StringComparison.Ordinal))
+                       ?? reasons.FirstOrDefault(r =>
+                           r != phenotype && r != vial);
+
             if (distinguishes.Count > 0)
             {
                 var pairs = string.Join(" and ", distinguishes.Take(2));
-                var extra = reasons.FirstOrDefault(r => !r.StartsWith("distinguishes", StringComparison.Ordinal));
-                return extra == null
+                var extra = phenotype ?? (core != null && !core.StartsWith("distinguishes", StringComparison.Ordinal)
+                    ? core : null);
+                var sentence = extra == null
                     ? $"{where} may help distinguish {pairs}."
                     : $"{where} may help distinguish {pairs} because it {extra}.";
+                if (vial != null)
+                    sentence = sentence.TrimEnd('.') + $"; it {vial}.";
+                return sentence;
             }
 
-            if (reasons.Count == 0)
+            var parts = new List<string>();
+            if (core != null) parts.Add(core);
+            if (phenotype != null && phenotype != core) parts.Add(phenotype);
+            if (vial != null && vial != core) parts.Add(vial);
+            if (parts.Count == 0)
                 return $"{where} types remaining candidate antigens.";
-            return $"{where} is useful because it {reasons[0]}.";
+            return $"{where} is useful because it {string.Join("; it ", parts)}.";
+        }
+
+        public static bool LooksLikeSelectedCellVial(Panel panel)
+        {
+            var text = string.Join(" ", new[] { panel.Name, panel.ProductLine, panel.SpecialNotes }
+                .Where(s => !string.IsNullOrWhiteSpace(s)));
+            return !string.IsNullOrWhiteSpace(text) && SelectedVialHint.IsMatch(text);
+        }
+
+        private static void ApplyPatientCompatibility(
+            PanelCell cell, List<string> candidates, AnalysisResult result,
+            ref int score, List<string> reasons)
+        {
+            foreach (var antibody in candidates)
+            {
+                var ag = AntigenOf(antibody);
+                if (!cell.HasTypedAntigen(ag) || cell.GetAntigen(ag) != "+") continue;
+                var patient = PatientAntigen(result, ag);
+                if (patient == "-")
+                {
+                    score += 2;
+                    reasons.Add($"patient types {ag}- so an unused {ag}+ cell can support allo{antibody}");
+                }
+                else if (patient == "+")
+                {
+                    score -= 1;
+                    reasons.Add($"patient types {ag}+, so this {ag}+ cell is weaker evidence for allo{antibody}");
+                }
+            }
+        }
+
+        public static string? PatientAntigen(AnalysisResult result, string antigen)
+        {
+            var notes = result.PatientTypingConsiderations
+                .Where(c => string.Equals(c.Antigen, antigen, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var predicted = notes.FirstOrDefault(c =>
+                c.Kind == PatientTypingKind.Predicted && !string.IsNullOrEmpty(c.PatientValue));
+            if (predicted != null)
+                return predicted.PatientValue;
+            var reliable = notes.FirstOrDefault(c =>
+                c.Kind is PatientTypingKind.Supporting or PatientTypingKind.Against);
+            return string.IsNullOrEmpty(reliable?.PatientValue) ? null : reliable!.PatientValue;
         }
 
         private static bool IsHomozygous(PanelCell cell, string antigen)
