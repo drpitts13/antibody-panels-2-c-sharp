@@ -1,9 +1,10 @@
+using System;
 using System.ComponentModel;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using AntibodyPanels.Services;
 using AntibodyPanels.ViewModels;
 
 namespace AntibodyPanels.Views
@@ -74,11 +75,19 @@ namespace AntibodyPanels.Views
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            AppSettings.Changed -= OnSettingsChanged;
+            AppSettings.Changed += OnSettingsChanged;
             Attach(DataContext as ReactionRow);
             Apply();
         }
 
-        private void OnUnloaded(object sender, RoutedEventArgs e) => Detach();
+        private void OnUnloaded(object sender, RoutedEventArgs e)
+        {
+            AppSettings.Changed -= OnSettingsChanged;
+            Detach();
+        }
+
+        private void OnSettingsChanged(object? sender, EventArgs e) => Apply();
 
         private void Attach(ReactionRow? row)
         {
@@ -119,7 +128,8 @@ namespace AntibodyPanels.Views
                 return;
             }
 
-            _text.Text = _row.AntigenValues.TryGetValue(Antigen, out var value) ? value : string.Empty;
+            _text.Text = _row.DisplayAntigen(Antigen);
+            ToolTip = _row.AntigenNote(Antigen);
             _slash.Visibility = _row.SlashedAntigens.Contains(Antigen)
                 ? Visibility.Visible
                 : Visibility.Collapsed;

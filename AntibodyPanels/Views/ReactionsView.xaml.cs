@@ -19,6 +19,8 @@ namespace AntibodyPanels.Views
     public class AntigenColumnHeader : INotifyPropertyChanged
     {
         public string Antigen { get; }
+        public string System { get; }
+        public string HeaderToolTip { get; }
 
         private bool _isRuledOut;
         public bool IsRuledOut
@@ -34,7 +36,12 @@ namespace AntibodyPanels.Views
             set { _isDestroyed = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDestroyed))); }
         }
 
-        public AntigenColumnHeader(string antigen) => Antigen = antigen;
+        public AntigenColumnHeader(string antigen)
+        {
+            Antigen = antigen;
+            System = Services.AntigramDisplay.SystemOf(antigen);
+            HeaderToolTip = $"{antigen} ({System}). With Show dosage: ++ homozygous, + heterozygous, +/? partner not typed.";
+        }
         public event PropertyChangedEventHandler? PropertyChanged;
     }
 
@@ -158,13 +165,16 @@ namespace AntibodyPanels.Views
                 _antigenHeaders[ag] = header;
 
                 var cellStyle = new Style(typeof(DataGridCell));
-                var posTrigger = new DataTrigger
+                foreach (var mark in new[] { "+", "++", "+/?" })
                 {
-                    Binding = new Binding($"AntigenValues[{ag}]"),
-                    Value = "+"
-                };
-                posTrigger.Setters.Add(new Setter(BackgroundProperty, positiveBg));
-                cellStyle.Triggers.Add(posTrigger);
+                    var posTrigger = new DataTrigger
+                    {
+                        Binding = new Binding($"AntigenValues[{ag}]"),
+                        Value = mark
+                    };
+                    posTrigger.Setters.Add(new Setter(BackgroundProperty, positiveBg));
+                    cellStyle.Triggers.Add(posTrigger);
+                }
 
                 var col = new DataGridTemplateColumn
                 {

@@ -18,6 +18,11 @@ namespace AntibodyPanels.Models
         public string DefaultSpecimenType { get; set; } = "serum";
         public bool ShowInactiveByDefault { get; set; }
         public bool HideRuledOutAntigenColumns { get; set; }
+        /// <summary>
+        /// When true, the reaction antigram groups columns by blood-group system
+        /// and marks homozygous antigen-positive cells as ++. Display only.
+        /// </summary>
+        public bool ShowAntigramDosage { get; set; }
         public string DefaultIdentifiedBy { get; set; } = "";
         public int ExpirationWarningDays { get; set; } = 14;
         public int DefaultSpecimenDatingDays { get; set; } = 3;

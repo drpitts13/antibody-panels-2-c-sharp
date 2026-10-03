@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 12 — compare-grid extra-phase columns).
+Last updated: 2026-10-03 (iteration 13 — antigram grouping and dosage marks).
 
 ## Capability matrix
 
@@ -33,7 +33,7 @@ Last updated: 2026-10-03 (iteration 12 — compare-grid extra-phase columns).
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Missing | Phase scores computed but not shown | Pattern classifiers later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Ranked unused inventory cells + “why this cell” on Analysis tab | Prefer unused selected-cell vials / phenotype later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Parses Weiner/Duffy-style text + previous Abs; transfusion notes mark typing uninterpretable | Structured genotype fields later |
-| UI | Antigram freeze / slashes / run compare | Partial | Frozen cell column; rule-out slashes; run-vs-run compare includes extra phases | Antigen grouping, dosage toggle, filter/sort, panel compare |
+| UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage groups by system and marks ++ / +/? | Filter/sort, panel compare |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
@@ -204,9 +204,24 @@ Missing extra on the other run is NT. Classic phases still compare as before.
 **Not in this tick:** antigram grouping / dosage toggle, solid-phase defaults,
 authenticated APIs.
 
+## Iteration 13 (this change)
+
+**Deficiency:** The reaction antigram showed only +/−. Homozygous and
+heterozygous cells looked the same, and columns followed sheet order with no
+blood-group grouping. Dosage lived only on a later Analysis tab.
+
+**Bounded improvement:** Reactions **Show dosage** groups visible columns by
+system (Rh, Kell, Duffy, …) and marks homozygous antigen-positive cells as
+`++`, heterozygous as `+`, and `+/?` when the antithetical partner was never
+typed. Tooltips name the cell and zygosity. Off restores the panel column
+order and plain +/−. Rule-out is unchanged.
+
+**Not in this tick:** filter/sort, panel compare, solid-phase defaults,
+authenticated APIs.
+
 ## Likely next tick
 
-Antigram grouping / dosage toggle, or solid-phase defaults.
+Filter/sort on the antigram, panel compare, or solid-phase defaults.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

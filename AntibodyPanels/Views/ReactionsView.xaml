@@ -7,7 +7,8 @@
         <!-- Header template for antigen columns — binds to AntigenColumnHeader objects -->
         <DataTemplate x:Key="AntigenHeaderTemplate" DataType="{x:Type views:AntigenColumnHeader}">
             <TextBlock Text="{Binding Antigen}" FontSize="13.75" FontWeight="SemiBold"
-                       HorizontalAlignment="Center">
+                       HorizontalAlignment="Center"
+                       ToolTip="{Binding HeaderToolTip}">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
                         <Style.Triggers>
@@ -93,6 +94,9 @@
                 <CheckBox Content="Hide ruled-out" IsChecked="{Binding HideRuledOutAntigenColumns}"
                           VerticalAlignment="Center" Margin="12,0,0,0"
                           ToolTip="Hide antigen columns already ruled out for this specimen"/>
+                <CheckBox Content="Show dosage" IsChecked="{Binding ShowAntigramDosage}"
+                          VerticalAlignment="Center" Margin="12,0,0,0"
+                          ToolTip="Group columns by blood-group system and mark homozygous ++, heterozygous +, or +/? when the antithetical antigen was not typed. Display only — does not change rule-out."/>
             </StackPanel>
             <Button Grid.Column="5" Content="Load Reactions" Command="{Binding LoadCommand}"
                     Margin="4,0,4,0" Padding="8,2"/>

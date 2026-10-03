@@ -151,6 +151,19 @@ namespace AntibodyPanels.ViewModels
             }
         }
 
+        public bool ShowAntigramDosage
+        {
+            get => AppSettings.Current.ShowAntigramDosage;
+            set
+            {
+                if (AppSettings.Current.ShowAntigramDosage == value) return;
+                AppSettings.Current.ShowAntigramDosage = value;
+                SettingsService.Save();
+                RefreshExtraAntigens();
+                OnPropertyChanged();
+            }
+        }
+
         private List<Specimen> _allSpecimens = new();
         private string _specimenFilter = string.Empty;
         public string SpecimenFilter
@@ -322,6 +335,7 @@ namespace AntibodyPanels.ViewModels
         public void ApplyColumnVisibilitySettings()
         {
             OnPropertyChanged(nameof(HideRuledOutAntigenColumns));
+            OnPropertyChanged(nameof(ShowAntigramDosage));
             OnPropertyChanged(nameof(RuledOutAntigens));
         }
 
@@ -537,7 +551,10 @@ namespace AntibodyPanels.ViewModels
                 return;
             }
             ExtraAntigens = _db.GetPanelExtraAntigens(SelectedPanel.PanelId);
-            AntigenDisplayOrder = _db.GetPanelDisplayAntigens(SelectedPanel.PanelId);
+            var order = _db.GetPanelDisplayAntigens(SelectedPanel.PanelId);
+            AntigenDisplayOrder = ShowAntigramDosage
+                ? AntigramDisplay.GroupBySystem(order)
+                : order;
         }
 
         private IReadOnlyList<string> VisibleAntigens =>
@@ -782,6 +799,12 @@ namespace AntibodyPanels.ViewModels
 
         public string CellNumber { get; }
         public IReadOnlyDictionary<string, string> AntigenValues => _antigens;
+
+        public string DisplayAntigen(string antigen) =>
+            AntigramDisplay.Format(_antigens, antigen, AppSettings.Current.ShowAntigramDosage);
+
+        public string AntigenNote(string antigen) =>
+            AntigramDisplay.Explain(CellNumber, _antigens, antigen);
 
         private string _IS;
         public string IS
