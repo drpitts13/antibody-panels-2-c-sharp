@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 26 — JK/KEL/GYPB allele notes).
+Last updated: 2026-10-03 (iteration 27 — panel-editor zygosity marks).
 
 ## Capability matrix
 
@@ -20,7 +20,7 @@ Last updated: 2026-10-03 (iteration 26 — JK/KEL/GYPB allele notes).
 | Import | XLSX / XML / JSON panels | Present | JSON/XML structured schema; first-sheet XLSX via zip/shared strings; same inactive+artifact review | Multi-sheet XLSX later |
 | Import | Vendor APIs / authenticated portals | Missing | Public HTML + file import only. Do not bypass auth, CAPTCHA, licensing, or terms | Secrets storage only if a vendor authorizes access |
 | Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-`/`++`/NT | Impossible-value catalog later |
-| Common model | Homozygous / heterozygous / negative / unknown / NT | Present | Import `++` / `+/+` / HOMO persists; rule-out and search use explicit ++ or typed partner −; untyped partner is not invented | Editor still toggles +/− only |
+| Common model | Homozygous / heterozygous / negative / unknown / NT | Present | Import and panel editor persist `++` / NT; rule-out and search use explicit ++ or typed partner − | Combo/list editors later |
 | Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | Impossible-value checks later |
 | Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` not coerced to `-`; vendor and lab CSV compare antigen schema vs prior lot | Impossible-value catalog later |
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
@@ -410,9 +410,23 @@ and GYPB null / U-var add Variant notes. Nothing is auto-identified.
 **Not in this tick:** Full ISBT catalog, panel-editor zygosity marks,
 authenticated APIs.
 
+## Iteration 27 (this change)
+
+**Deficiency:** The panel antigen editor toggled only `+`/`−` and displayed
+`++` as `+`. A lab could not mark homozygous or NT without inventing a
+partner-negative, and an imported `++` was lost on the first click.
+
+**Bounded improvement:** Click cycles NT → + → ++ → − (unpaired antigens
+such as D skip ++). The editor shows and saves `++` and NT. Saved `++`
+with an untyped partner still rules out; saved NT is not treated as
+antigen-negative. Nothing is auto-identified.
+
+**Not in this tick:** Full titer grid, more ISBT alleles, authenticated
+APIs.
+
 ## Likely next tick
 
-Panel-editor zygosity marks, a full titer grid, or more ISBT alleles.
+A full titer grid, or more ISBT alleles.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

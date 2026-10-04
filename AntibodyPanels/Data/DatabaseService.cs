@@ -974,8 +974,10 @@ namespace AntibodyPanels.Data
             }
             foreach (var ag in AntigenConstants.WarehouseAntigens)
             {
-                if (!cell.HasTypedAntigen(ag)) continue;
-                UpdatePanelCellAntigen(cell.Id, ag, cell.GetTypedValue(ag)!);
+                if (cell.Antigens.TryGetValue(ag, out var extra) &&
+                    (AntigenConstants.IsTypedAntigenValue(extra) ||
+                     extra == AntigenConstants.AntigenNotTested))
+                    UpdatePanelCellAntigen(cell.Id, ag, extra);
             }
             UpdatePanelCellMetadata(cell.Id, cell.DonorId, cell.RhPhenotype, cell.SpecialTypes);
         }

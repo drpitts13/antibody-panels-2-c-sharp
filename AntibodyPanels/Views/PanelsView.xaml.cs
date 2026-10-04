@@ -13,7 +13,8 @@ namespace AntibodyPanels.Views
 {
     public partial class PanelsView : UserControl
     {
-        public static readonly string[] AntigenValues = { "+", "-" };
+        public static readonly string[] AntigenValues =
+            { "+", AntigenConstants.AntigenHomozygous, "-", AntigenConstants.AntigenNotTested };
 
         private bool _columnsInjected;
         private bool _applyingColumnOrder;
@@ -119,6 +120,10 @@ namespace AntibodyPanels.Views
             var plus = new DataTrigger { Binding = new Binding(path), Value = "+" };
             plus.Setters.Add(new Setter(BackgroundProperty, Brush("AntigenPositiveBrush")));
             style.Triggers.Add(plus);
+
+            var homo = new DataTrigger { Binding = new Binding(path), Value = AntigenConstants.AntigenHomozygous };
+            homo.Setters.Add(new Setter(BackgroundProperty, Brush("AntigenPositiveBrush")));
+            style.Triggers.Add(homo);
 
             var minus = new DataTrigger { Binding = new Binding(path), Value = "-" };
             minus.Setters.Add(new Setter(BackgroundProperty, Brush("AntigenNegativeBrush")));

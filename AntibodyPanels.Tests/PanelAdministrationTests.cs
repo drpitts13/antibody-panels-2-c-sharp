@@ -95,15 +95,86 @@ public class PanelAdministrationTests
     }
 
     [Fact]
-    public void PanelCellRow_ToggleAntigen_SwitchesPlusAndMinus()
+    public void PanelCellRow_ToggleAntigen_CyclesNtPlusHomoMinus()
     {
         var cell = new PanelCell { CellNumber = "1" };
-        cell.SetAntigen("E", "+");
         var row = new PanelCellRow(cell);
 
+        Assert.Equal("NT", row.E);
+        row.ToggleAntigen("E");
+        Assert.Equal("+", row.E);
+        row.ToggleAntigen("E");
+        Assert.Equal("++", row.E);
+        Assert.True(cell.IsExplicitlyHomozygous("E"));
+        Assert.False(cell.HasTypedAntigen("e"));
         row.ToggleAntigen("E");
         Assert.Equal("-", row.E);
         row.ToggleAntigen("E");
-        Assert.Equal("+", row.E);
+        Assert.Equal("NT", row.E);
+        Assert.False(cell.HasTypedAntigen("E"));
+    }
+
+    [Fact]
+    public void PanelCellRow_ToggleAntigen_UnpairedD_SkipsHomozygousMark()
+    {
+        var cell = new PanelCell { CellNumber = "1" };
+        var row = new PanelCellRow(cell);
+        row.ToggleAntigen("D");
+        Assert.Equal("+", row.D);
+        row.ToggleAntigen("D");
+        Assert.Equal("-", row.D);
+        Assert.False(cell.IsExplicitlyHomozygous("D"));
+        row.ToggleAntigen("D");
+        Assert.Equal("NT", row.D);
+    }
+
+    [Fact]
+    public void SavedEditorHomozygous_PersistsAndRulesOutWithoutInventingPartner()
+    {
+        using var iso = new IsolatedDatabase();
+        var panelId = iso.Db.AddPanel("Edit ++", "L", "V", 1, null, false);
+        var cell = iso.Db.GetPanelCells(panelId).Single();
+        iso.Db.UpdatePanelCellAntigen(cell.Id, "e", AntigenConstants.AntigenNotTested);
+        var row = new PanelCellRow(iso.Db.GetPanelCells(panelId).Single());
+        row.SetAntigen("E", "+");
+        row.ToggleAntigen("E");
+        Assert.Equal("++", row.E);
+        iso.Db.UpdatePanelCell(row.Cell);
+
+        var saved = iso.Db.GetPanelCells(panelId).Single();
+        Assert.Equal("++", saved.GetTypedValue("E"));
+        Assert.False(saved.HasTypedAntigen("e"));
+        Assert.True(saved.IsHomozygousFor("E"));
+
+        iso.Db.AddSpecimen("ED-E-PP", "serum", null);
+        iso.Db.LinkSpecimenPanel("ED-E-PP", panelId);
+        iso.Db.SaveReaction("ED-E-PP", panelId, saved.CellNumber, "0", "0", "0", "2+");
+        var result = iso.Analyzer.AnalyzeSpecimen("ED-E-PP", updateDb: false);
+        Assert.True(result.RuledOut.ContainsKey("anti-E"));
+        var ev = result.RuleoutEvaluations.Single(e => e.Antibody == "anti-E");
+        Assert.True(ev.MeetsCriteria);
+        Assert.Contains(ev.Cells, c => c.IsHomozygous);
+    }
+
+    [Fact]
+    public void SavedEditorNt_IsNotTypedNegativeAndDoesNotRuleOut()
+    {
+        using var iso = new IsolatedDatabase();
+        var panelId = iso.Db.AddPanel("Edit NT", "L", "V", 1, null, false);
+        var cell = iso.Db.GetPanelCells(panelId).Single();
+        var row = new PanelCellRow(cell);
+        row.SetAntigen("K", "-");
+        row.ToggleAntigen("K");
+        Assert.Equal("NT", row.K);
+        iso.Db.UpdatePanelCell(row.Cell);
+
+        var saved = iso.Db.GetPanelCells(panelId).Single();
+        Assert.False(saved.HasTypedAntigen("K"));
+        iso.Db.AddSpecimen("ED-K-NT", "serum", null);
+        iso.Db.LinkSpecimenPanel("ED-K-NT", panelId);
+        iso.Db.SaveReaction("ED-K-NT", panelId, saved.CellNumber, "0", "0", "0", "2+");
+        var result = iso.Analyzer.AnalyzeSpecimen("ED-K-NT", updateDb: false);
+        Assert.False(result.RuledOut.ContainsKey("anti-K"));
+        Assert.Contains("K", result.UntypedClinicallySignificant);
     }
 }

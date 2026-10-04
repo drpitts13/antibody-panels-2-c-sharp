@@ -216,6 +216,26 @@ namespace AntibodyPanels.Models
         public static bool IsExplicitHomozygousValue(string? value) =>
             value == AntigenHomozygous;
 
+        /// <summary>
+        /// Panel-editor cycle: NT → + → ++ → − → NT.
+        /// Antigens without an antithetical pair skip ++ (D stays +/−/NT).
+        /// </summary>
+        public static string NextEditorAntigenValue(string? current, string antigen)
+        {
+            var value = string.IsNullOrWhiteSpace(current) || current == AntigenNotTested
+                ? AntigenNotTested
+                : current.Trim();
+            var hasPair = AntitheticalPairs.ContainsKey(antigen);
+            return value switch
+            {
+                AntigenNotTested => "+",
+                "+" => hasPair ? AntigenHomozygous : "-",
+                AntigenHomozygous => "-",
+                "-" => AntigenNotTested,
+                _ => "+"
+            };
+        }
+
         public const string ZygosityBoth = "Both";
         public const string ZygosityHomozygous = "Homozygous";
         public const string ZygosityHeterozygous = "Heterozygous";

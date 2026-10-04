@@ -552,7 +552,11 @@ namespace AntibodyPanels.ViewModels
 
         public IReadOnlyDictionary<string, string> AntigenValues => Cell.Antigens;
 
-        public string GetAntigen(string ag) => Cell.GetAntigen(ag);
+        public string GetAntigen(string ag) => GetEditorValue(ag);
+
+        public string GetEditorValue(string ag) =>
+            Cell.GetTypedValue(ag) ?? AntigenConstants.AntigenNotTested;
+
         public void SetAntigen(string ag, string val)
         {
             Cell.SetAntigen(ag, val);
@@ -560,39 +564,37 @@ namespace AntibodyPanels.ViewModels
             OnPropertyChanged($"AntigenValues[{ag}]");
         }
 
-        public void ToggleAntigen(string ag)
-        {
-            SetAntigen(ag, GetAntigen(ag) == "+" ? "-" : "+");
-        }
+        public void ToggleAntigen(string ag) =>
+            SetAntigen(ag, AntigenConstants.NextEditorAntigenValue(GetEditorValue(ag), ag));
 
         // Individual antigen properties for DataGrid column bindings
-        public string D { get => Cell.GetAntigen("D"); set { Cell.SetAntigen("D", value); OnPropertyChanged(); } }
-        public string C { get => Cell.GetAntigen("C"); set { Cell.SetAntigen("C", value); OnPropertyChanged(); } }
-        public string c { get => Cell.GetAntigen("c"); set { Cell.SetAntigen("c", value); OnPropertyChanged(); } }
-        public string E { get => Cell.GetAntigen("E"); set { Cell.SetAntigen("E", value); OnPropertyChanged(); } }
-        public string e { get => Cell.GetAntigen("e"); set { Cell.SetAntigen("e", value); OnPropertyChanged(); } }
-        public string f { get => Cell.GetAntigen("f"); set { Cell.SetAntigen("f", value); OnPropertyChanged(); } }
-        public string Cw { get => Cell.GetAntigen("Cw"); set { Cell.SetAntigen("Cw", value); OnPropertyChanged(); } }
-        public string V { get => Cell.GetAntigen("V"); set { Cell.SetAntigen("V", value); OnPropertyChanged(); } }
-        public string K { get => Cell.GetAntigen("K"); set { Cell.SetAntigen("K", value); OnPropertyChanged(); } }
-        public string k { get => Cell.GetAntigen("k"); set { Cell.SetAntigen("k", value); OnPropertyChanged(); } }
-        public string Kpa { get => Cell.GetAntigen("Kpa"); set { Cell.SetAntigen("Kpa", value); OnPropertyChanged(); } }
-        public string Kpb { get => Cell.GetAntigen("Kpb"); set { Cell.SetAntigen("Kpb", value); OnPropertyChanged(); } }
-        public string Jsa { get => Cell.GetAntigen("Jsa"); set { Cell.SetAntigen("Jsa", value); OnPropertyChanged(); } }
-        public string Jsb { get => Cell.GetAntigen("Jsb"); set { Cell.SetAntigen("Jsb", value); OnPropertyChanged(); } }
-        public string Jka { get => Cell.GetAntigen("Jka"); set { Cell.SetAntigen("Jka", value); OnPropertyChanged(); } }
-        public string Jkb { get => Cell.GetAntigen("Jkb"); set { Cell.SetAntigen("Jkb", value); OnPropertyChanged(); } }
-        public string Fya { get => Cell.GetAntigen("Fya"); set { Cell.SetAntigen("Fya", value); OnPropertyChanged(); } }
-        public string Fyb { get => Cell.GetAntigen("Fyb"); set { Cell.SetAntigen("Fyb", value); OnPropertyChanged(); } }
-        public string Lea { get => Cell.GetAntigen("Lea"); set { Cell.SetAntigen("Lea", value); OnPropertyChanged(); } }
-        public string Leb { get => Cell.GetAntigen("Leb"); set { Cell.SetAntigen("Leb", value); OnPropertyChanged(); } }
-        public string M { get => Cell.GetAntigen("M"); set { Cell.SetAntigen("M", value); OnPropertyChanged(); } }
-        public string N { get => Cell.GetAntigen("N"); set { Cell.SetAntigen("N", value); OnPropertyChanged(); } }
-        public string S { get => Cell.GetAntigen("S"); set { Cell.SetAntigen("S", value); OnPropertyChanged(); } }
-        public string s { get => Cell.GetAntigen("s"); set { Cell.SetAntigen("s", value); OnPropertyChanged(); } }
-        public string Lua { get => Cell.GetAntigen("Lua"); set { Cell.SetAntigen("Lua", value); OnPropertyChanged(); } }
-        public string Lub { get => Cell.GetAntigen("Lub"); set { Cell.SetAntigen("Lub", value); OnPropertyChanged(); } }
-        public string Xga { get => Cell.GetAntigen("Xga"); set { Cell.SetAntigen("Xga", value); OnPropertyChanged(); } }
-        public string P1 { get => Cell.GetAntigen("P1"); set { Cell.SetAntigen("P1", value); OnPropertyChanged(); } }
+        public string D { get => GetEditorValue("D"); set { SetAntigen("D", value); } }
+        public string C { get => GetEditorValue("C"); set { SetAntigen("C", value); } }
+        public string c { get => GetEditorValue("c"); set { SetAntigen("c", value); } }
+        public string E { get => GetEditorValue("E"); set { SetAntigen("E", value); } }
+        public string e { get => GetEditorValue("e"); set { SetAntigen("e", value); } }
+        public string f { get => GetEditorValue("f"); set { SetAntigen("f", value); } }
+        public string Cw { get => GetEditorValue("Cw"); set { SetAntigen("Cw", value); } }
+        public string V { get => GetEditorValue("V"); set { SetAntigen("V", value); } }
+        public string K { get => GetEditorValue("K"); set { SetAntigen("K", value); } }
+        public string k { get => GetEditorValue("k"); set { SetAntigen("k", value); } }
+        public string Kpa { get => GetEditorValue("Kpa"); set { SetAntigen("Kpa", value); } }
+        public string Kpb { get => GetEditorValue("Kpb"); set { SetAntigen("Kpb", value); } }
+        public string Jsa { get => GetEditorValue("Jsa"); set { SetAntigen("Jsa", value); } }
+        public string Jsb { get => GetEditorValue("Jsb"); set { SetAntigen("Jsb", value); } }
+        public string Jka { get => GetEditorValue("Jka"); set { SetAntigen("Jka", value); } }
+        public string Jkb { get => GetEditorValue("Jkb"); set { SetAntigen("Jkb", value); } }
+        public string Fya { get => GetEditorValue("Fya"); set { SetAntigen("Fya", value); } }
+        public string Fyb { get => GetEditorValue("Fyb"); set { SetAntigen("Fyb", value); } }
+        public string Lea { get => GetEditorValue("Lea"); set { SetAntigen("Lea", value); } }
+        public string Leb { get => GetEditorValue("Leb"); set { SetAntigen("Leb", value); } }
+        public string M { get => GetEditorValue("M"); set { SetAntigen("M", value); } }
+        public string N { get => GetEditorValue("N"); set { SetAntigen("N", value); } }
+        public string S { get => GetEditorValue("S"); set { SetAntigen("S", value); } }
+        public string s { get => GetEditorValue("s"); set { SetAntigen("s", value); } }
+        public string Lua { get => GetEditorValue("Lua"); set { SetAntigen("Lua", value); } }
+        public string Lub { get => GetEditorValue("Lub"); set { SetAntigen("Lub", value); } }
+        public string Xga { get => GetEditorValue("Xga"); set { SetAntigen("Xga", value); } }
+        public string P1 { get => GetEditorValue("P1"); set { SetAntigen("P1", value); } }
     }
 }
