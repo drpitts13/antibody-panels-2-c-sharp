@@ -280,6 +280,9 @@ namespace AntibodyPanels.Models
         public string Explanation { get; set; } = string.Empty;
         public string AntigenProfile { get; set; } = string.Empty;
         public List<string> Distinguishes { get; set; } = new();
+        public bool IsExpired { get; set; }
+        public bool IsExpiringSoon { get; set; }
+        public string? ExpirationDate { get; set; }
     }
 
     public class DosageEffect

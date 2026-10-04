@@ -218,6 +218,72 @@ public class SelectedCellRecommendationTests
     }
 
     [Fact]
+    public void InDateCell_RanksAboveExpiredSelectogenTwin()
+    {
+        var expired = new Panel
+        {
+            PanelId = 1, Name = "Immucor Selectogen", LotNumber = "OLD", ExpirationDate = "2000-01-01"
+        };
+        var current = new Panel
+        {
+            PanelId = 2, Name = "ID Panel", LotNumber = "NEW", ExpirationDate = "2099-12-31"
+        };
+        var inventory = new (Panel, PanelCell)[]
+        {
+            (expired, Cell("3", ("E", "+"), ("e", "-"), ("K", "-"), ("k", "+"))),
+            (current, Cell("8", ("E", "+"), ("e", "-"), ("K", "-"), ("k", "+"))),
+        };
+
+        Assert.True(expired.IsExpired);
+        Assert.False(current.IsExpired);
+
+        var recs = SelectedCellRecommender.Recommend(TwoCandidateResult(), Array.Empty<(int, string)>(), inventory);
+        Assert.Single(recs);
+        Assert.Equal("8", recs[0].CellNumber);
+        Assert.False(recs[0].IsExpired);
+        Assert.DoesNotContain(recs, r => r.PanelId == expired.PanelId);
+    }
+
+    [Fact]
+    public void ExpiredOnlyInventory_StillWarnsAndDoesNotAutoIdentify()
+    {
+        var expired = new Panel
+        {
+            PanelId = 3, Name = "Selectogen", LotNumber = "X", ExpirationDate = "2020-06-01"
+        };
+        var recs = SelectedCellRecommender.Recommend(
+            TwoCandidateResult(),
+            Array.Empty<(int, string)>(),
+            new[] { (expired, Cell("2", ("E", "+"), ("e", "-"), ("K", "-"), ("k", "+"))) });
+
+        Assert.Single(recs);
+        Assert.True(recs[0].IsExpired);
+        Assert.Contains("expired vial", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("should not be used", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("diagnosis", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExpiringSoonVial_IsRecommendedWithDateCheck()
+    {
+        var soon = DateTime.Today.ToString("yyyy-MM-dd");
+        var panel = new Panel
+        {
+            PanelId = 4, Name = "ID Panel", LotNumber = "SOON", ExpirationDate = soon
+        };
+        Assert.True(panel.IsExpiringSoon);
+        var recs = SelectedCellRecommender.Recommend(
+            TwoCandidateResult(),
+            Array.Empty<(int, string)>(),
+            new[] { (panel, Cell("1", ("E", "+"), ("e", "-"), ("K", "-"), ("k", "+"))) });
+        Assert.Single(recs);
+        Assert.False(recs[0].IsExpired);
+        Assert.True(recs[0].IsExpiringSoon);
+        Assert.Contains(soon, recs[0].Explanation);
+        Assert.Contains("still in date", recs[0].Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Analyzer_IncludesSelectedCellsForMultipleAntibodies()
     {
         using var iso = new IsolatedDatabase();

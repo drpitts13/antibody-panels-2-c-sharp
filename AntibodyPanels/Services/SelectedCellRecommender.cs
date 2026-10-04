@@ -38,12 +38,15 @@ namespace AntibodyPanels.Services
                     scored.Add(rec);
             }
 
-            return scored
+            var ranked = scored
                 .OrderByDescending(r => r.Score)
                 .ThenBy(r => r.PanelName, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(r => r.CellNumber, StringComparer.Ordinal)
-                .Take(MaxRecommendations)
                 .ToList();
+            var inDate = ranked.Where(r => !r.IsExpired).Take(MaxRecommendations).ToList();
+            if (inDate.Count > 0) return inDate;
+
+            return ranked.Where(r => r.IsExpired).Take(2).ToList();
         }
 
         internal static List<string> ResolveCandidates(AnalysisResult result)
@@ -138,6 +141,7 @@ namespace AntibodyPanels.Services
             }
 
             ApplyRareNegatives(cell, result, ref score, reasons);
+            ApplyDating(panel, reasons);
 
             if (score <= 0) return null;
 
@@ -168,6 +172,9 @@ namespace AntibodyPanels.Services
                 AntigenProfile = profile,
                 Distinguishes = distinguishes,
                 Explanation = explanation,
+                IsExpired = panel.IsExpired,
+                IsExpiringSoon = !panel.IsExpired && panel.IsExpiringSoon,
+                ExpirationDate = panel.ExpirationDate,
             };
         }
 
@@ -179,6 +186,9 @@ namespace AntibodyPanels.Services
                 : $"{panel.Name} cell {cell.CellNumber}";
             var phenotype = reasons.FirstOrDefault(r => r.StartsWith("patient types", StringComparison.Ordinal));
             var vial = reasons.FirstOrDefault(r => r.Contains("selected-cell vial", StringComparison.Ordinal));
+            var dating = reasons.FirstOrDefault(r =>
+                r.Contains("expired vial", StringComparison.Ordinal) ||
+                r.StartsWith("expires ", StringComparison.Ordinal));
             var core = reasons.FirstOrDefault(r =>
                            r.StartsWith("distinguishes", StringComparison.Ordinal) ||
                            r.Contains("homozygous", StringComparison.Ordinal) ||
@@ -187,7 +197,7 @@ namespace AntibodyPanels.Services
                            r.StartsWith("expresses", StringComparison.Ordinal) ||
                            r.StartsWith("types ", StringComparison.Ordinal))
                        ?? reasons.FirstOrDefault(r =>
-                           r != phenotype && r != vial);
+                           r != phenotype && r != vial && r != dating);
 
             if (distinguishes.Count > 0)
             {
@@ -199,6 +209,8 @@ namespace AntibodyPanels.Services
                     : $"{where} may help distinguish {pairs} because it {extra}.";
                 if (vial != null)
                     sentence = sentence.TrimEnd('.') + $"; it {vial}.";
+                if (dating != null)
+                    sentence = sentence.TrimEnd('.') + $"; it {dating}.";
                 return sentence;
             }
 
@@ -206,9 +218,21 @@ namespace AntibodyPanels.Services
             if (core != null) parts.Add(core);
             if (phenotype != null && phenotype != core) parts.Add(phenotype);
             if (vial != null && vial != core) parts.Add(vial);
+            if (dating != null && dating != core) parts.Add(dating);
             if (parts.Count == 0)
                 return $"{where} types remaining candidate antigens.";
             return $"{where} is useful because it {string.Join("; it ", parts)}.";
+        }
+
+        private static void ApplyDating(Panel panel, List<string> reasons)
+        {
+            if (panel.IsExpired)
+            {
+                reasons.Add("comes from an expired vial and should not be used for additional testing");
+                return;
+            }
+            if (panel.IsExpiringSoon && !string.IsNullOrWhiteSpace(panel.ExpirationDate))
+                reasons.Add($"expires {panel.ExpirationDate} — confirm the vial is still in date");
         }
 
         public static bool NeedsRareNegativeCell(AnalysisResult result) =>

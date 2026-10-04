@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 21 — HTLA titer notes and rare Ag− cells).
+Last updated: 2026-10-03 (iteration 22 — expired selected-cell filtering).
 
 ## Capability matrix
 
@@ -31,7 +31,7 @@ Last updated: 2026-10-03 (iteration 21 — HTLA titer notes and rare Ag− cells
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA note now uses a recorded titer when present; still not a diagnosis | Neutralization / full titer grid later |
-| Analysis | Selected-cell recommendations with “why” | Partial | Unused vials, patient Ag−, and rare high-prevalence Ag− cells for HTLA/HFA | Expired-vial later |
+| Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; expired shown only as last-resort “do not use” | Neutralization cells later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Phenotype text plus specimen genotype (alleles or predicted marks); transfusion still blinds serology only | Allele catalog / variant risk notes later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
@@ -337,9 +337,23 @@ auto-identified.
 **Not in this tick:** Neutralization workflow, expired-vial filtering,
 authenticated APIs.
 
+## Iteration 22 (this change)
+
+**Deficiency:** Selected-cell ranking could name an expired Selectogen vial
+ahead of an in-date ID-panel cell. Expiration was not explained.
+
+**Bounded improvement:** In-date unused cells are preferred. Expired vials
+are omitted when any in-date recommendation exists. If only expired
+inventory remains, at most two cells are listed with a “do not use”
+warning. Expiring lots stay recommended and ask the user to confirm the
+date. Still not a diagnosis.
+
+**Not in this tick:** Allele variant catalog, neutralization workflow,
+authenticated APIs.
+
 ## Likely next tick
 
-Allele catalog / variant risk notes, or expired selected-cell filtering.
+Allele catalog / variant risk notes, or neutralization evidence.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 
