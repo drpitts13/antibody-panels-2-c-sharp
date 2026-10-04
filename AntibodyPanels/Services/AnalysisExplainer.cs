@@ -190,7 +190,7 @@ namespace AntibodyPanels.Services
             else if (exp.Status is "Suspected" or "Suspected and ruled out — review")
                 sb.Append(" No supporting antigen-positive reactive cells were listed.");
             if (exp.ConflictingCells.Count > 0)
-                sb.Append(" Conflicting evidence: ").Append(string.Join("; ", exp.ConflictingCells)).Append('.');
+                sb.Append(" Cells that block rule-out: ").Append(string.Join("; ", exp.ConflictingCells)).Append('.');
             if (!string.IsNullOrWhiteSpace(exp.DosageNote))
                 sb.Append(' ').Append(exp.DosageNote);
             if (!string.IsNullOrWhiteSpace(exp.PhaseNote))

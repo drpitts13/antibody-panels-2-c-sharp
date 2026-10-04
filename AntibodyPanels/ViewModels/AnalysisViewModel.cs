@@ -918,6 +918,10 @@ namespace AntibodyPanels.ViewModels
         public string Antibody { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public string Supporting { get; set; } = string.Empty;
+        /// <summary>
+        /// Count of cells that block rule-out (typically antigen-positive and reactive),
+        /// not Ag−-but-reactive pattern conflicts from the Suspected Antibodies tab.
+        /// </summary>
         public string Conflicting { get; set; } = string.Empty;
         public string Narrative { get; set; } = string.Empty;
     }

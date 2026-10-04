@@ -75,8 +75,18 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="110"/>
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="180"/>
-                                <DataGridTextColumn Header="Support" Binding="{Binding Supporting}" Width="70"/>
-                                <DataGridTextColumn Header="Conflict" Binding="{Binding Conflicting}" Width="70"/>
+                                <DataGridTextColumn Binding="{Binding Supporting}" Width="70">
+                                    <DataGridTextColumn.Header>
+                                        <TextBlock Text="Support"
+                                                   ToolTip="Antigen-positive cells that reacted. These support this antibody as a candidate."/>
+                                    </DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Binding="{Binding Conflicting}" Width="110">
+                                    <DataGridTextColumn.Header>
+                                        <TextBlock Text="Blocks rule-out"
+                                                   ToolTip="Antigen-positive cells that reacted, so they cannot be used to rule this antibody out. This is not the same as Conflicting cells (Ag− but reactive) on the Suspected Antibodies tab."/>
+                                    </DataGridTextColumn.Header>
+                                </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>

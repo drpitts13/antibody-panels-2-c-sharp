@@ -60,7 +60,7 @@ public class CandidateExplanationTests
         Assert.Contains(exp.ConflictingCells, c => c.Contains("cell 1"));
         Assert.DoesNotContain(exp.RuleoutCells, c => c.Contains("cell 1"));
         Assert.Contains(exp.RuleoutCells, c => c.Contains("cell 2"));
-        Assert.Contains("Conflicting evidence", exp.Narrative);
+        Assert.Contains("Cells that block rule-out", exp.Narrative);
     }
 
     [Fact]
