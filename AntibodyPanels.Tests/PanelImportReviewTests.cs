@@ -158,6 +158,61 @@ public class PanelImportReviewTests
     }
 
     [Fact]
+    public void Inspector_FlagsRareNullPhenotypes_NotLewisOrUntypedPartner()
+    {
+        var k0 = new PanelCell { CellNumber = "1" };
+        k0.SetAntigen("K", "-");
+        k0.SetAntigen("k", "-");
+        var lewis = new PanelCell { CellNumber = "2" };
+        lewis.SetAntigen("Lea", "-");
+        lewis.SetAntigen("Leb", "-");
+        var untypedK = new PanelCell { CellNumber = "3" };
+        untypedK.SetAntigen("K", "-");
+        var jk = new PanelCell { CellNumber = "4" };
+        jk.SetAntigen("Jka", "-");
+        jk.SetAntigen("Jkb", "-");
+        var rhnull = new PanelCell { CellNumber = "5" };
+        rhnull.SetAntigen("C", "-");
+        rhnull.SetAntigen("c", "-");
+        rhnull.SetAntigen("E", "-");
+        rhnull.SetAntigen("e", "-");
+
+        var issues = PanelTypingInspector.Inspect(new[] { k0, lewis, untypedK, jk, rhnull });
+        Assert.Contains(issues, i => i.Kind == PanelTypingInspector.NullPhenotype
+            && i.CellNumber == "1" && i.Explanation.Contains("K0"));
+        Assert.Contains(issues, i => i.Kind == PanelTypingInspector.NullPhenotype
+            && i.CellNumber == "4" && i.Explanation.Contains("Jk(a−b−)"));
+        Assert.Contains(issues, i => i.Kind == PanelTypingInspector.NullPhenotype
+            && i.CellNumber == "5" && i.Explanation.Contains("Rhnull"));
+        Assert.DoesNotContain(issues, i => i.CellNumber == "5" && i.Explanation.Contains("types C−c−.")
+            && !i.Explanation.Contains("Rhnull"));
+        Assert.DoesNotContain(issues, i => i.CellNumber is "2" or "3");
+        Assert.DoesNotContain(issues, i => i.Kind == PanelTypingInspector.ImpossibleValue);
+    }
+
+    [Fact]
+    public void Import_K0LikeCell_StaysInactiveWithNullReview()
+    {
+        using var iso = new IsolatedDatabase();
+        var parsed = ParseCsv("""
+            Cell,D,C,c,E,e,K,k
+            1,+,-,-,-,+,+,-
+            2,-,+,+,+,-,-,-
+            """, "LOT-K0", "10-cell");
+        var outcome = new VendorPanelImportService(iso.Db).Import(parsed);
+        Assert.False(iso.Db.GetPanel(outcome.PanelId)!.IsActive);
+        Assert.Contains(outcome.Review.TypingIssues, i => i.Kind == PanelTypingInspector.NullPhenotype
+            && i.CellNumber == "2");
+        Assert.Contains("K0-like", outcome.Review.Explanation);
+        Assert.Contains("Not a diagnosis", outcome.Review.Explanation);
+        Assert.DoesNotContain(outcome.Review.TypingIssues, i => i.Kind == PanelTypingInspector.ImpossibleValue);
+        var cell2 = iso.Db.GetPanelCells(outcome.PanelId).Single(c => c.CellNumber == "2");
+        Assert.Equal("-", cell2.GetTypedValue("K"));
+        Assert.Equal("-", cell2.GetTypedValue("k"));
+        Assert.False(cell2.IsHomozygousFor("K"));
+    }
+
+    [Fact]
     public void Activate_MakesPanelAvailableForInventory()
     {
         using var iso = new IsolatedDatabase();

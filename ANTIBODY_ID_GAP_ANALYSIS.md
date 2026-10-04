@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 30 — import typing catalog).
+Last updated: 2026-10-04 (iteration 31 — null-phenotype import review).
 
 ## Capability matrix
 
@@ -19,10 +19,10 @@ Last updated: 2026-10-04 (iteration 30 — import typing catalog).
 | Import | PDF | Partial | PdfPig positional grid; layout-fragile | Harden after schema work |
 | Import | XLSX / XML / JSON panels | Present | JSON/XML structured schema; first-sheet XLSX via zip/shared strings; same inactive+artifact review | Multi-sheet XLSX later |
 | Import | Vendor APIs / authenticated portals | Missing | Public HTML + file import only. Do not bypass auth, CAPTCHA, licensing, or terms | Secrets storage only if a vendor authorizes access |
-| Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-`/`++`/NT; import review flags ++ vs partner+ | Null-phenotype catalog later |
+| Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; ++ vs partner+ and rare-null (K0, Jk(a−b−), Rhnull-like) on import review | More ISBT alleles later |
 | Common model | Homozygous / heterozygous / negative / unknown / NT | Present | Import and panel editor persist `++` / NT; rule-out and search use explicit ++ or typed partner − | Combo/list editors later |
 | Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | — |
-| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` not coerced to `-`; schema vs prior lot; ++ vs partner+ and unknown columns on review | Broader phenotype-null catalog later |
+| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | Schema vs prior lot; ++ vs partner+; unknown columns; rare-null both-negative notes (Lewis skipped) | More ISBT alleles later |
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
@@ -470,9 +470,24 @@ columns are not imported. Nothing is auto-activated or identified.
 **Not in this tick:** Null-phenotype catalogs (K0, Rhnull), more ISBT
 alleles, authenticated APIs.
 
+## Iteration 31 (this change)
+
+**Deficiency:** Both-negative antithetical types on a reagent cell looked
+like ordinary negatives. K−k−, Jk(a−b−), or C−c− plus E−e− could be a
+true null cell or a mistype, and Lewis Lea−Leb− (common) would have been
+noisy if every pair were flagged.
+
+**Bounded improvement:** Import review notes rare-null patterns (K0-like,
+Jk(a−b−), Fy(a−b−), S−s−, M−N−, Lu(a−b−), Rhnull/D−−-like). Lewis both
+negative is not flagged. An untyped partner is not treated as negative.
+Lots stay inactive. Nothing is auto-identified.
+
+**Not in this tick:** More ISBT alleles, phenotype-string vs typed-antigen
+conflicts, authenticated APIs.
+
 ## Likely next tick
 
-More ISBT alleles, or a review note for rare null phenotypes (both
-antitheticals negative). Authenticated vendor portals stay later and
-must not bypass auth, CAPTCHA, licensing, or terms.
+More ISBT alleles, or a mismatch note when Rh phenotype text (R1R1)
+disagrees with typed C/c/E/e/D. Authenticated vendor portals stay later
+and must not bypass auth, CAPTCHA, licensing, or terms.
 
