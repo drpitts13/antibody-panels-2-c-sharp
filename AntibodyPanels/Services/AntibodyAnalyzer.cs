@@ -275,7 +275,7 @@ namespace AntibodyPanels.Services
                             .TryGetValue(ag, out var at) ? at : null;
                         var antitheticalTyped = antithetical != null && cell.HasTypedAntigen(antithetical);
                         var antitheticalVal = antitheticalTyped ? cell.GetAntigen(antithetical!) : null;
-                        var isHomo = antitheticalTyped && antitheticalVal == "-";
+                        var isHomo = cell.IsHomozygousFor(ag);
 
                         if (!result.ContainsKey(antibody)) result[antibody] = new();
                         result[antibody].Add(new RuleoutDetail
@@ -304,14 +304,10 @@ namespace AntibodyPanels.Services
         private bool CanRuleOut(string antigen, PanelCell cell, List<Rule> rules)
         {
             if (cell.GetAntigen(antigen) != "+") return false;
-            if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
+            if (!AntigenConstants.AntitheticalPairs.ContainsKey(antigen))
                 return true;
-            if (!cell.HasTypedAntigen(antithetical))
-                return false;
-            var antitheticalVal = cell.GetAntigen(antithetical);
-            var isHomozygous = antitheticalVal == "-";
-            if (RuleAllowsHeterozygous(antigen, rules)) return true;
-            return isHomozygous;
+            if (cell.IsHomozygousFor(antigen)) return true;
+            return RuleAllowsHeterozygous(antigen, rules);
         }
 
         private static bool RuleAllowsHeterozygous(string antigen, List<Rule> rules) =>
@@ -776,9 +772,7 @@ namespace AntibodyPanels.Services
                     {
                         if (rxn.CellNumber == "AC") continue;
                         if (!cellDict.TryGetValue(rxn.CellNumber, out var cell)) continue;
-                        bool isHomo = cell.GetAntigen(ag) == "+" &&
-                                      cell.HasTypedAntigen(antithetical) &&
-                                      cell.GetAntigen(antithetical) == "-";
+                        bool isHomo = cell.IsHomozygousFor(ag);
                         bool isHet = cell.GetAntigen(ag) == "+" &&
                                      cell.HasTypedAntigen(antithetical) &&
                                      cell.GetAntigen(antithetical) == "+";

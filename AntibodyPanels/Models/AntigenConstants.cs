@@ -202,12 +202,19 @@ namespace AntibodyPanels.Models
             new[] { "NT", "Negative", "W+", "1+", "2+", "3+", "4+" };
 
         public const string AntigenNotTested = "NT";
+        public const string AntigenHomozygous = "++";
 
         public static readonly IReadOnlyList<string> AntigenValues =
-            new[] { "+", "-" };
+            new[] { "+", "-", AntigenHomozygous };
 
         public static bool IsTypedAntigenValue(string? value) =>
-            value == "+" || value == "-";
+            value == "+" || value == "-" || value == AntigenHomozygous;
+
+        public static bool IsAntigenPositiveValue(string? value) =>
+            value == "+" || value == AntigenHomozygous;
+
+        public static bool IsExplicitHomozygousValue(string? value) =>
+            value == AntigenHomozygous;
 
         public const string ZygosityBoth = "Both";
         public const string ZygosityHomozygous = "Homozygous";
@@ -215,7 +222,8 @@ namespace AntibodyPanels.Models
 
         /// <summary>
         /// Search-tab options for cells that are positive for a selected antigen.
-        /// Homozygous = antigen+ and antithetical−; heterozygous = both +; both = any +.
+        /// Homozygous = explicit ++ or antigen+ with antithetical−;
+        /// heterozygous = both +; both = any +.
         /// </summary>
         public static readonly IReadOnlyList<string> PositiveZygosityOptions =
             new[] { ZygosityBoth, ZygosityHomozygous, ZygosityHeterozygous };

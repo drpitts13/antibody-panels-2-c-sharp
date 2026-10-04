@@ -293,12 +293,8 @@ namespace AntibodyPanels.Services
             return string.IsNullOrEmpty(reliable?.PatientValue) ? null : reliable!.PatientValue;
         }
 
-        private static bool IsHomozygous(PanelCell cell, string antigen)
-        {
-            if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
-                return false;
-            return cell.HasTypedAntigen(antithetical) && cell.GetAntigen(antithetical) == "-";
-        }
+        private static bool IsHomozygous(PanelCell cell, string antigen) =>
+            cell.IsHomozygousFor(antigen);
 
         private static bool NeedsMoreAgPositive(AnalysisResult result, string antibody) =>
             result.SuspectedStatistics.TryGetValue(antibody, out var stats) &&

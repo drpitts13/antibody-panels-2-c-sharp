@@ -60,7 +60,7 @@
             <ComboBox Width="130" VerticalAlignment="Center"
                       ItemsSource="{Binding ZygosityOptions}"
                       SelectedItem="{Binding SelectedZygosity}"
-                      ToolTip="Applies to antigens marked +. Homozygous = antigen+ and antithetical−. Heterozygous = both alleles +. Both = any antigen-positive cell. Antigens without an antithetical pair (such as D) stay antigen+."/>
+                      ToolTip="Applies to antigens marked +. Homozygous = explicit ++ or antigen+ with antithetical−. Heterozygous = both alleles +. Both = any antigen-positive cell. An untyped partner is not treated as negative. Antigens without an antithetical pair (such as D) stay antigen+."/>
             <TextBlock Margin="16,0,0,0" VerticalAlignment="Center"
                        Text="{Binding Results.Count, StringFormat='Results: {0}'}" FontStyle="Italic"/>
         </StackPanel>

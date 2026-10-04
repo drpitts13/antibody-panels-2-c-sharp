@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 24 — neutralization evidence).
+Last updated: 2026-10-03 (iteration 25 — explicit zygosity persistence).
 
 ## Capability matrix
 
@@ -19,8 +19,8 @@ Last updated: 2026-10-03 (iteration 24 — neutralization evidence).
 | Import | PDF | Partial | PdfPig positional grid; layout-fragile | Harden after schema work |
 | Import | XLSX / XML / JSON panels | Present | JSON/XML structured schema; first-sheet XLSX via zip/shared strings; same inactive+artifact review | Multi-sheet XLSX later |
 | Import | Vendor APIs / authenticated portals | Missing | Public HTML + file import only. Do not bypass auth, CAPTCHA, licensing, or terms | Secrets storage only if a vendor authorizes access |
-| Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-` | Persist NT / unknown / zygosity |
-| Common model | Homozygous / heterozygous / negative / unknown / NT | Partial | Import NT / missing columns stay untyped; zygosity still inferred from typed antitheticals | Persist explicit homozygous state later |
+| Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-`/`++`/NT | Impossible-value catalog later |
+| Common model | Homozygous / heterozygous / negative / unknown / NT | Present | Import `++` / `+/+` / HOMO persists; rule-out and search use explicit ++ or typed partner −; untyped partner is not invented | Editor still toggles +/− only |
 | Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | Impossible-value checks later |
 | Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` not coerced to `-`; vendor and lab CSV compare antigen schema vs prior lot | Impossible-value catalog later |
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
@@ -379,9 +379,25 @@ auto-identified.
 **Not in this tick:** Full titer grid, broader ISBT catalog, authenticated
 APIs.
 
+## Iteration 25 (this change)
+
+**Deficiency:** Vendor `++` / `+/+` / HOMO was flattened to `+`. Homozygous
+rule-out then required a typed antithetical partner, so a marked homozygous
+cell with `e` NT could not rule out anti-E. A lone `+` with an untyped
+partner still had to stay unknown.
+
+**Bounded improvement:** Persist explicit `++`. Rule-out, selected-cell
+ranking, dosage homo/het, antigram dosage, and inventory search treat `++`
+as homozygous without inventing a partner-negative. A typed partner `+`
+overrides `++` (conflict, not homozygous). A single `+` with an untyped
+partner is still not homozygous. Nothing is auto-identified.
+
+**Not in this tick:** Panel-editor `++` toggle, broader ISBT catalog,
+authenticated APIs.
+
 ## Likely next tick
 
-Broader allele catalog, or explicit zygosity persistence.
+Broader allele catalog, panel-editor zygosity marks, or a full titer grid.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

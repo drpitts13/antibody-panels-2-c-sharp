@@ -58,11 +58,16 @@ namespace AntibodyPanels.Services
                 return AntigenZygosity.NotTested;
             if (value == "-")
                 return AntigenZygosity.Negative;
+            var explicitHomo = AntigenConstants.IsExplicitHomozygousValue(value);
             if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var partner))
                 return AntigenZygosity.PositiveUnknown;
-            if (!Typed(antigens, partner, out var partnerValue))
-                return AntigenZygosity.PositiveUnknown;
-            return partnerValue == "-" ? AntigenZygosity.Homozygous : AntigenZygosity.Heterozygous;
+            if (Typed(antigens, partner, out var partnerValue))
+            {
+                if (AntigenConstants.IsAntigenPositiveValue(partnerValue))
+                    return AntigenZygosity.Heterozygous;
+                return AntigenZygosity.Homozygous;
+            }
+            return explicitHomo ? AntigenZygosity.Homozygous : AntigenZygosity.PositiveUnknown;
         }
 
         public static AntigenZygosity Classify(PanelCell cell, string antigen) =>
@@ -97,12 +102,17 @@ namespace AntibodyPanels.Services
         {
             var cell = string.IsNullOrWhiteSpace(cellNumber) ? "Cell" : "Cell " + cellNumber.Trim();
             var system = SystemOf(antigen);
-            return Classify(antigens, antigen) switch
+            var zygosity = Classify(antigens, antigen);
+            var partnerTyped = AntigenConstants.AntitheticalPairs.ContainsKey(antigen) &&
+                               Typed(antigens, Partner(antigen), out _);
+            return zygosity switch
             {
                 AntigenZygosity.NotTested =>
                     $"{cell} was not typed for {antigen} ({system}).",
                 AntigenZygosity.Negative =>
                     $"{cell} is {antigen}− ({system}).",
+                AntigenZygosity.Homozygous when !partnerTyped =>
+                    $"{cell} is homozygous for {antigen} (explicit ++; {Partner(antigen)} was not typed; {system}).",
                 AntigenZygosity.Homozygous =>
                     $"{cell} is homozygous for {antigen} ({antigen}+ {Partner(antigen)}−; {system}).",
                 AntigenZygosity.Heterozygous =>

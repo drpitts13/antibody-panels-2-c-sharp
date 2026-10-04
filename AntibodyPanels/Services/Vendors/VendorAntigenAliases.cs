@@ -106,8 +106,9 @@ namespace AntibodyPanels.Services.Vendors
         }
 
         /// <summary>
-        /// Returns +, -, NT, or null when the token is blank or unrecognized.
+        /// Returns +, ++, -, NT, or null when the token is blank or unrecognized.
         /// NT / ? / ND stay not-tested. They are never coerced to antigen-negative.
+        /// ++ / +/+ / HOMO stay explicitly homozygous and are not flattened to +.
         /// </summary>
         public static string? NormalizeValue(string? raw, bool required)
         {
@@ -117,8 +118,10 @@ namespace AntibodyPanels.Services.Vendors
             var compact = v.Replace(" ", "", StringComparison.Ordinal).ToUpperInvariant();
             if (compact is "NT" or "N.T." or "N/T" or "?" or "ND")
                 return AntigenConstants.AntigenNotTested;
+            if (compact is "++" or "+/+" or "HOMO" or "HOM" or "HOMOZYGOUS")
+                return AntigenConstants.AntigenHomozygous;
             if (compact is "+" or "POS" or "POSITIVE" or "1" or "TRUE" or "+W" or "W+"
-                or "+S" or "S+" or "W" or "S" or "(+)" or "++")
+                or "+S" or "S+" or "W" or "S" or "(+)")
                 return "+";
             if (compact is "-" or "−" or "–" or "0" or "NEG" or "NEGATIVE" or "FALSE" or "Ø")
                 return "-";

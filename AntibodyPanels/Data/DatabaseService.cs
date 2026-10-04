@@ -975,7 +975,7 @@ namespace AntibodyPanels.Data
             foreach (var ag in AntigenConstants.WarehouseAntigens)
             {
                 if (!cell.HasTypedAntigen(ag)) continue;
-                UpdatePanelCellAntigen(cell.Id, ag, cell.GetAntigen(ag));
+                UpdatePanelCellAntigen(cell.Id, ag, cell.GetTypedValue(ag)!);
             }
             UpdatePanelCellMetadata(cell.Id, cell.DonorId, cell.RhPhenotype, cell.SpecialTypes);
         }
@@ -1049,7 +1049,7 @@ namespace AntibodyPanels.Data
                 foreach (var ag in extrasOnImport)
                 {
                     if (imported.HasTypedAntigen(ag))
-                        cell.SetAntigen(ag, imported.GetAntigen(ag));
+                        cell.SetAntigen(ag, imported.GetTypedValue(ag)!);
                     else if (imported.Antigens.TryGetValue(ag, out var extraVal))
                         cell.SetAntigen(ag, extraVal);
                 }
@@ -1879,15 +1879,14 @@ namespace AntibodyPanels.Data
             foreach (var kvp in antigenCriteria)
             {
                 if (kvp.Value != "+" && kvp.Value != "-") continue;
-                if (!TryAddAntigenEqualsClause(kvp.Key, kvp.Value, whereClauses, parameters, ref param))
-                    continue;
-
-                if (kvp.Value == "+" &&
-                    (requireHomo || requireHet) &&
-                    AntigenConstants.AntitheticalPairs.TryGetValue(kvp.Key, out var antithetical))
+                if (kvp.Value == "+")
                 {
-                    var antitheticalValue = requireHomo ? "-" : "+";
-                    TryAddAntigenEqualsClause(antithetical, antitheticalValue, whereClauses, parameters, ref param);
+                    if (!TryAddAntigenPositiveClause(kvp.Key, whereClauses, parameters, ref param))
+                        continue;
+                }
+                else if (!TryAddAntigenEqualsClause(kvp.Key, kvp.Value, whereClauses, parameters, ref param))
+                {
+                    continue;
                 }
             }
             if (whereClauses.Count == 0) return new();
@@ -1922,7 +1921,73 @@ namespace AntibodyPanels.Data
                 }
             }
             AttachExtraAntigens(cells);
-            return results;
+            if (!requireHomo && !requireHet) return results;
+            return results
+                .Where(item => MatchesRequestedZygosity(item.Item2, antigenCriteria, requireHomo))
+                .ToList();
+        }
+
+        private static bool MatchesRequestedZygosity(
+            PanelCell cell,
+            Dictionary<string, string> antigenCriteria,
+            bool requireHomo)
+        {
+            foreach (var kvp in antigenCriteria)
+            {
+                if (kvp.Value != "+") continue;
+                if (!AntigenConstants.AntitheticalPairs.ContainsKey(kvp.Key))
+                    continue;
+                if (requireHomo)
+                {
+                    if (!cell.IsHomozygousFor(kvp.Key)) return false;
+                }
+                else if (!cell.HasTypedAntigen(kvp.Key) ||
+                         !AntigenConstants.AntitheticalPairs.TryGetValue(kvp.Key, out var partner) ||
+                         !cell.HasTypedAntigen(partner) ||
+                         cell.GetAntigen(partner) != "+")
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool TryAddAntigenPositiveClause(
+            string antigen,
+            List<string> whereClauses,
+            List<(string name, string value)> parameters,
+            ref int param)
+        {
+            if (AntigenConstants.IsStandard(antigen))
+            {
+                var pPlus = $"$v{param++}";
+                var pHomo = $"$v{param++}";
+                parameters.Add((pPlus, "+"));
+                parameters.Add((pHomo, AntigenConstants.AntigenHomozygous));
+                var col = AntigenMapper.GetColumn(antigen);
+                whereClauses.Add($"pc.{col} IN ({pPlus}, {pHomo})");
+                return true;
+            }
+
+            if (AntigenConstants.IsWarehouse(antigen))
+            {
+                var pPlus = $"$v{param++}";
+                var pHomo = $"$v{param++}";
+                var agName = $"$ag{param++}";
+                parameters.Add((pPlus, "+"));
+                parameters.Add((pHomo, AntigenConstants.AntigenHomozygous));
+                parameters.Add((agName, antigen));
+                whereClauses.Add($@"
+                        EXISTS (
+                            SELECT 1 FROM panel_cell_extra_antigens x
+                            WHERE x.cell_id = pc.id
+                              AND x.antigen_name = {agName}
+                              AND x.value IN ({pPlus}, {pHomo})
+                        )");
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryAddAntigenEqualsClause(

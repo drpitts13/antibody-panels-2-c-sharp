@@ -47,7 +47,7 @@ namespace AntibodyPanels.Services
             {
                 csv.WriteField(cell.CellNumber);
                 foreach (var ag in antigens)
-                    csv.WriteField(cell.GetAntigen(ag));
+                    csv.WriteField(cell.GetTypedValue(ag) ?? cell.GetAntigen(ag));
                 csv.NextRecord();
             }
         }
@@ -200,6 +200,8 @@ namespace AntibodyPanels.Services
         {
             var v = raw.Trim();
             if (v.Length == 0) return "-";
+            if (v is "++" or "+/+" or "homo" or "HOMO" or "homozygous" or "Homozygous")
+                return AntigenConstants.AntigenHomozygous;
             if (v is "+" or "pos" or "POS" or "1" or "true" or "True") return "+";
             if (v is "-" or "−" or "neg" or "NEG" or "0" or "false" or "False") return "-";
             return null;

@@ -599,11 +599,9 @@ namespace AntibodyPanels.ViewModels
 
         private static bool CanRuleOutAntigen(string antigen, PanelCell cell, List<Rule> rules)
         {
-            if (!AntigenConstants.AntitheticalPairs.TryGetValue(antigen, out var antithetical))
+            if (!AntigenConstants.AntitheticalPairs.ContainsKey(antigen))
                 return true;
-            if (!cell.HasTypedAntigen(antithetical))
-                return false;
-            if (cell.GetAntigen(antithetical) == "-") return true;
+            if (cell.IsHomozygousFor(antigen)) return true;
             return RuleAllowsHeterozygous(antigen, rules);
         }
 
