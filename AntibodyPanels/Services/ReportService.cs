@@ -323,7 +323,10 @@ namespace AntibodyPanels.Services
             var settingsText = snap?.SettingsJson
                 ?? $"threshold={settings.ProbabilityThreshold:0.00}; idRule={settings.IdentificationRuleLabel}; acs={settings.AcsRuleoutCount}";
             var fingerprint = snap == null ? "n/a" : snap.InputFingerprint;
-            return $"Software {version}  Settings: {settingsText}  Input fingerprint: {fingerprint}";
+            var rules = snap?.RuleEngineVersion == null
+                ? ""
+                : $"  Rule engine v{snap.RuleEngineVersion}";
+            return $"Software {version}{rules}  Settings: {settingsText}  Input fingerprint: {fingerprint}";
         }
 
         private static string FormatSuspectedAntibodyLine(string antibody, double probability,

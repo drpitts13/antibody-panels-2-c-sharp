@@ -87,6 +87,37 @@ public class Fda510kControlTests
         Assert.False(string.IsNullOrWhiteSpace(snap.SuspectedJson));
         Assert.False(string.IsNullOrWhiteSpace(snap.AcsJson));
         Assert.NotNull(JsonDocument.Parse(snap.SettingsJson));
+        Assert.Equal(AnalysisRuleTrace.EngineVersion, snap.RuleEngineVersion);
+        Assert.False(string.IsNullOrWhiteSpace(snap.RulesJson));
+        Assert.Contains("DefaultMinRuleoutCount", snap.RulesJson);
+        Assert.Contains("No per-antibody rule overrides", iso.Analyzer.AnalyzeSpecimen("FDA-SNAP", updateDb: false).RuleConfigurationNote);
+    }
+
+    [Fact]
+    public void Snapshot_RecordsPerAntibodyRuleOverride_AfterChange()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("FDA-RULES", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 1, null, false);
+        iso.Db.LinkSpecimenPanel("FDA-RULES", panelId);
+        iso.Db.SaveReaction("FDA-RULES", panelId, "1", "0", "0", "0", "2+");
+        iso.Db.AddRule("Anti-D C Exception", "het C", "anti-D", "C", true, 3);
+
+        iso.Analyzer.AnalyzeSpecimen("FDA-RULES");
+        var snap = iso.Db.GetLatestAnalysisSnapshot("FDA-RULES");
+        Assert.Equal(AnalysisRuleTrace.EngineVersion, snap!.RuleEngineVersion);
+        Assert.Contains("anti-D", snap.RulesJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"MinRuleoutCount\":3", snap.RulesJson);
+        Assert.Contains("heterozygous C allowed", iso.Analyzer.AnalyzeSpecimen("FDA-RULES", updateDb: false).RuleConfigurationNote);
+
+        var rule = iso.Db.GetAllRules().Single(r => r.Antibody == "anti-D");
+        iso.Db.UpdateRule(rule.RuleId, rule.Name, rule.Description, "anti-D", "C", true, 2);
+        iso.Analyzer.AnalyzeSpecimen("FDA-RULES");
+        var later = iso.Db.GetLatestAnalysisSnapshot("FDA-RULES");
+        Assert.Contains("\"MinRuleoutCount\":2", later!.RulesJson);
+        Assert.DoesNotContain("\"MinRuleoutCount\":3", later.RulesJson);
+        var report = iso.Reports.GeneratePreviewText(ReportType.AnalysisResults, "FDA-RULES");
+        Assert.Contains($"Rule engine v{AnalysisRuleTrace.EngineVersion}", report);
     }
 
     [Fact]
@@ -103,6 +134,7 @@ public class Fda510kControlTests
         Assert.Contains("INTENDED USE:", analysis);
         Assert.Contains(SoftwareIdentity.Version, analysis);
         Assert.Contains("Input fingerprint:", analysis);
+        Assert.Contains($"Rule engine v{AnalysisRuleTrace.EngineVersion}", analysis);
 
         var clinical = iso.Reports.GeneratePreviewText(ReportType.ClinicalIdentification, "FDA-RPT");
         Assert.Contains("INTENDED USE:", clinical);

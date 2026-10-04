@@ -37,6 +37,11 @@ public class CandidateExplanationTests
         Assert.Contains("1 of 3", exp.Narrative);
         Assert.DoesNotContain("anti-K", result.RuledOut.Keys);
         Assert.False(result.Suspected.ContainsKey("anti-K") && result.RuledOut.ContainsKey("anti-K"));
+        Assert.Equal(AnalysisRuleTrace.EngineVersion, result.RuleEngineVersion);
+        Assert.Contains("anti-K requires 3", result.RuleConfigurationNote);
+        Assert.Contains("Lab default rule-out count is", result.RuleConfigurationNote);
+        Assert.Contains("not a diagnosis", result.RuleConfigurationNote, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("anti-K requires 3", AnalysisExplainer.FormatDocument(result));
     }
 
     [Fact]

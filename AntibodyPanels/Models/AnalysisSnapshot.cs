@@ -11,5 +11,7 @@ namespace AntibodyPanels.Models
         public string? RuledOutJson { get; set; }
         public string? SuspectedJson { get; set; }
         public string? AcsJson { get; set; }
+        public string? RuleEngineVersion { get; set; }
+        public string? RulesJson { get; set; }
     }
 }

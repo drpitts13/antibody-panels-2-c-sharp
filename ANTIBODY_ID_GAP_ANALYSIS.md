@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 33 — neutralization-cell ranking).
+Last updated: 2026-10-04 (iteration 34 — analysis rule-version trace).
 
 ## Capability matrix
 
@@ -35,7 +35,7 @@ Last updated: 2026-10-04 (iteration 33 — neutralization-cell ranking).
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK null/weak, Jk(a−b−)/Jk3, K0/KEL-null, GYPB U-var; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + snapshots with rule-engine version and per-antibody rule JSON; Explain/Summary/report show the policy | User/operator on snapshot later |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
 
 ## Iteration 1 (this change)
@@ -516,9 +516,25 @@ not ranked. Nothing is auto-identified.
 **Not in this tick:** More ISBT alleles, saliva Le(a−b−) panel-wide
 ranking, authenticated APIs.
 
+## Iteration 34 (this change)
+
+**Deficiency:** Analysis snapshots stored software version and lab
+settings, but not the rule-engine version or per-antibody MinRuleoutCount
+/ heterozygous exceptions. A later rule edit left no trace of the policy
+that produced a prior analysis.
+
+**Bounded improvement:** Snapshots record `rule-engine-v1` plus the
+active antibody rules. Explain Analysis, Summary, and the report trace
+line state lab default vs overrides (for example anti-D requires 3,
+heterozygous C allowed). Changing a rule writes a new snapshot. Nothing
+is auto-identified.
+
+**Not in this tick:** More ISBT alleles, operator identity on the
+snapshot row, authenticated APIs.
+
 ## Likely next tick
 
-More ISBT alleles, or rule-version detail on analysis snapshots.
+More ISBT alleles, or never-imported specificity classifiers.
 Authenticated vendor portals stay later and must not bypass auth,
 CAPTCHA, licensing, or terms.
 

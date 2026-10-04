@@ -75,6 +75,8 @@ namespace AntibodyPanels.Services
                 TreatmentInferences = inferences,
                 AbsorptionConclusions = absorptionConclusions,
                 Acs = EvaluateAcs(observedRuleouts, allScores),
+                RuleEngineVersion = AnalysisRuleTrace.EngineVersion,
+                RuleConfigurationNote = AnalysisRuleTrace.Explain(rules, AppSettings.Current),
             };
             ApplyPatientTyping(specimenId, result);
             result.SpecialReactionNotes = DescribeSpecialGrades(reactions);
@@ -113,7 +115,9 @@ namespace AntibodyPanels.Services
                     result.Acs.IsEligibleWithException,
                     result.Acs.RequiredRuleoutCount,
                     result.Acs.SuggestedCombinedResult
-                }));
+                }),
+                AnalysisRuleTrace.EngineVersion,
+                AnalysisRuleTrace.Serialize(_db.GetAllRules(), settings));
         }
 
         public static string ComputeInputFingerprint(IEnumerable<Reaction> reactions, IEnumerable<PanelRun> runs)
