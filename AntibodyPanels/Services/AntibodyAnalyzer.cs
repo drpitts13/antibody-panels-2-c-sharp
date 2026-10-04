@@ -88,6 +88,11 @@ namespace AntibodyPanels.Services
             ApplyHtlaTitration(specimenId, result, reactions);
             ApplyNeutralization(specimenId, result, reactions, runs);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
+            var cellsByPanel = contexts.Values
+                .Select(c => c.Run.PanelId)
+                .Distinct()
+                .ToDictionary(id => id, id => _db.GetPanelCells(id));
+            EnzymeTreatmentPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
 

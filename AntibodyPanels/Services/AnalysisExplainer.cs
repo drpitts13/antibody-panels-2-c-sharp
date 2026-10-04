@@ -61,6 +61,13 @@ namespace AntibodyPanels.Services
                     sb.AppendLine("  " + pattern.Explanation);
                 sb.AppendLine();
             }
+            if (result.TreatmentInferences.Count > 0)
+            {
+                sb.AppendLine("Enzyme/treatment comparison (evidence only):");
+                foreach (var inf in result.TreatmentInferences)
+                    sb.AppendLine("  " + inf.Observation);
+                sb.AppendLine();
+            }
             if (result.UntypeableSpecificities.Count > 0)
             {
                 sb.AppendLine("Specificities the current panels cannot type (antigen never imported):");

@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 39 — DAT-aware pattern evidence scores).
+Last updated: 2026-10-04 (iteration 40 — enzyme-treated vs untreated pattern).
 
 ## Capability matrix
 
@@ -27,15 +27,15 @@ Last updated: 2026-10-04 (iteration 39 — DAT-aware pattern evidence scores).
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable (never imported), and pattern candidates | Enzyme-treated vs untreated pattern |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, and enzyme-comparison candidates | More RHD/RHCE alleles |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT concordant/discordant with AC; named LFA/pan cells; evidence scores. HTLA titer plus Dil grid; Neut/Inhib vs IAT | Enzyme-treated vs untreated later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant vs untreated | More ISBT alleles later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce is case-sensitive; CeRN/HAR/C^w variant-C notes; GATA still does not support anti-Fya | More RHD/RHCE alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | Enzyme pattern later |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | More RHD alleles later |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
 
 ## Iteration 1 (this change)
@@ -612,10 +612,27 @@ Nothing is auto-identified.
 **Not in this tick:** Enzyme-treated vs untreated pattern comparison,
 authenticated APIs.
 
+## Iteration 40 (this change)
+
+**Deficiency:** Ficin/papain runs gated destroyed-antigen rule-outs, but
+lost vs gained vs surviving reactivity was only inferred for antibodies
+already suspected. Explain Analysis did not show a panel-wide enzyme
+comparison, and ReactivityGainedOnEnzyme was unused.
+
+**Bounded improvement:** Compare untreated vs ficin/papain runs on the
+same panel. Lost reactivity names cells and enzyme-destroyed antigens
+(Fya, M, S, …). Newly reactive cells favor enzyme-enhanced antigens
+(Rh, Kidd). Survival of reactivity argues against destroyed antigens as
+the sole explanation. Mixed lost/persisted is conflicting evidence.
+Scores and named cells are not a diagnosis.
+
+**Not in this tick:** Cross-panel enzyme pairing, more RHD DAR/DVI
+catalog rows, authenticated APIs.
+
 ## Likely next tick
 
-Enzyme-treated versus untreated run comparison as a reviewable pattern
-(destroyed vs enhanced antigens) with explicit evidence, not a
-diagnosis. Authenticated vendor portals stay later and must not bypass
-auth, CAPTCHA, licensing, or terms.
+More RHD/RHCE allele catalog rows (DAR/DVI and similar) with review
+notes that predicted types do not silently rule out. Authenticated
+vendor portals stay later and must not bypass auth, CAPTCHA, licensing,
+or terms.
 
