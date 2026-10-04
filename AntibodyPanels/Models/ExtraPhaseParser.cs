@@ -15,6 +15,13 @@ namespace AntibodyPanels.Models
 
         public static readonly IReadOnlyList<string> Suggested = new[] { "RT", "PEG", "Gel", "Solid" };
 
+        public static readonly IReadOnlyList<string> TiterGridNames =
+            new[] { "Dil1", "Dil2", "Dil4", "Dil8", "Dil16", "Dil32", "Dil64", "Dil128" };
+
+        private static readonly Regex DilutionName = new(
+            @"^(?:(?:Dil(?:ution|n)?|Titer)\s*)?(\d{1,5})$|^1\s*[:/]\s*(\d{1,5})$|^(Neat|Undiluted)$",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         private static readonly HashSet<string> IatLike = new(StringComparer.OrdinalIgnoreCase)
         {
             "AHG", "IAT", "Gel", "Solid", "PEG"
@@ -24,7 +31,36 @@ namespace AntibodyPanels.Models
             !string.IsNullOrWhiteSpace(name) && Reserved.Contains(name.Trim());
 
         public static bool IsIatLike(string? name) =>
-            !string.IsNullOrWhiteSpace(name) && IatLike.Contains(name.Trim());
+            !string.IsNullOrWhiteSpace(name) && IatLike.Contains(name.Trim()) && !IsDilution(name);
+
+        public static bool IsDilution(string? name) => TryParseDilution(name, out _);
+
+        /// <summary>
+        /// Serial-dilution column (Dil4, 1:16, Neat). Not an IAT identification phase.
+        /// </summary>
+        public static bool TryParseDilution(string? name, out int dilution)
+        {
+            dilution = 0;
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            var trimmed = name.Trim();
+            if (trimmed.Equals("Dil", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Diln", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Dilution", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.Equals("Titer", StringComparison.OrdinalIgnoreCase))
+                return false;
+            var m = DilutionName.Match(trimmed);
+            if (!m.Success) return false;
+            if (m.Groups[3].Success)
+            {
+                dilution = 1;
+                return true;
+            }
+            var raw = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+            if (!int.TryParse(raw, out var n) || n < 1 || n > 1024) return false;
+            if ((n & (n - 1)) != 0) return false;
+            dilution = n;
+            return true;
+        }
 
         public static bool Contains(string? configured, string name) =>
             Parse(configured).Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
@@ -75,22 +111,26 @@ namespace AntibodyPanels.Models
                 return Array.Empty<string>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var list = new List<string>();
-            foreach (var part in configured.Split(new[] { ',', ';', '/' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (var part in configured.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var name = part.Trim();
                 if (!IsValidName(name)) continue;
                 if (Reserved.Contains(name)) continue;
                 if (!seen.Add(name)) continue;
                 list.Add(name);
-                if (list.Count >= 8) break;
+                if (list.Count >= 12) break;
             }
             return list;
         }
 
-        private static bool IsValidName(string? name) =>
-            !string.IsNullOrWhiteSpace(name)
-            && name.Trim().Length <= 12
-            && Regex.IsMatch(name.Trim(), @"^[A-Za-z][A-Za-z0-9]*$");
+        private static bool IsValidName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            var trimmed = name.Trim();
+            if (trimmed.Length is < 1 or > 12) return false;
+            if (Regex.IsMatch(trimmed, @"^[A-Za-z][A-Za-z0-9]*$")) return true;
+            return IsDilution(trimmed) && Regex.IsMatch(trimmed, @"^1\s*[:/]\s*\d{1,4}$");
+        }
 
         public static string NormalizeList(string? configured) =>
             string.Join(", ", Parse(configured));

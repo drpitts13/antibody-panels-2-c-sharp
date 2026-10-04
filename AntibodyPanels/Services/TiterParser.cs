@@ -34,10 +34,17 @@ namespace AntibodyPanels.Services
             if (extraPhases == null) return best;
             foreach (var (phase, raw) in extraPhases)
             {
-                if (!TiterPhaseNames.Contains(phase.Trim())) continue;
-                var parsed = FromPhaseValue(raw);
-                if (parsed != null)
-                    best = Max(best, parsed.Value);
+                if (TiterPhaseNames.Contains(phase.Trim()))
+                {
+                    var parsed = FromPhaseValue(raw);
+                    if (parsed != null)
+                        best = Max(best, parsed.Value);
+                    continue;
+                }
+                if (!ExtraPhaseParser.TryParseDilution(phase, out var dilution))
+                    continue;
+                if (ReactionGrade.IsPositive(raw))
+                    best = Max(best, dilution);
             }
             return best;
         }

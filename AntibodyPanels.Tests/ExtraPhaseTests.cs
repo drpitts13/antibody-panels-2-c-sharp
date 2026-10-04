@@ -14,6 +14,21 @@ public class ExtraPhaseTests
     }
 
     [Fact]
+    public void Parse_AllowsTiterGridNames_AndDoesNotSplitReciprocals()
+    {
+        var parsed = ExtraPhaseParser.Parse("Dil1, Dil2, Dil4, 1:8, 1:16, Gel");
+        Assert.Contains("Dil1", parsed);
+        Assert.Contains("Dil4", parsed);
+        Assert.Contains("1:8", parsed);
+        Assert.Contains("1:16", parsed);
+        Assert.Contains("Gel", parsed);
+        Assert.DoesNotContain("8", parsed);
+        Assert.True(ExtraPhaseParser.IsDilution("1:8"));
+        Assert.False(ExtraPhaseParser.IsIatLike("1:8"));
+        Assert.Empty(ExtraPhaseParser.Parse(""));
+    }
+
+    [Fact]
     public void EmptyConfigured_DoesNotInventSuggestedColumns()
     {
         Assert.Empty(ExtraPhaseParser.Parse(""));

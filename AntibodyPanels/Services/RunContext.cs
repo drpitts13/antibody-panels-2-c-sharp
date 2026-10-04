@@ -196,6 +196,7 @@ namespace AntibodyPanels.Services
             }
             foreach (var phase in rxn.ExtraPhases.Keys)
             {
+                if (ExtraPhaseParser.IsDilution(phase)) continue;
                 if (IsPhaseInterpretable(phase))
                     yield return phase;
             }

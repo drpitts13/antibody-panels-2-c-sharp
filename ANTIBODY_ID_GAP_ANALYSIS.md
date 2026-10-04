@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 27 — panel-editor zygosity marks).
+Last updated: 2026-10-03 (iteration 28 — titer-grid endpoint).
 
 ## Capability matrix
 
@@ -30,7 +30,7 @@ Last updated: 2026-10-03 (iteration 27 — panel-editor zygosity marks).
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Neut/Inhib vs IAT; plasma/urine/P1/saliva notes | Full titer grid later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint, Neut/Inhib vs IAT | More dilution UI later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; expired shown only as last-resort “do not use” | Neutralization cells later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK null/weak, Jk(a−b−)/Jk3, K0/KEL-null, GYPB U-var; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
@@ -424,9 +424,23 @@ antigen-negative. Nothing is auto-identified.
 **Not in this tick:** Full titer grid, more ISBT alleles, authenticated
 APIs.
 
+## Iteration 28 (this change)
+
+**Deficiency:** A titer was only a notes word or a single Titer/Dilution
+number. Serial tubes (Dil1–Dil128 or 1:2 / 1:4 …) were ignored, and a
+grade on a dilution column could look like a panel phase.
+
+**Bounded improvement:** Last reactive serial-dilution extra phase is the
+endpoint (prozone uses the highest reactive tube). `1+` is still a grade,
+not titer 1. Dilution columns are not IAT and do not change rule-out.
+Nothing is auto-identified.
+
+**Not in this tick:** Preferences titer-grid checkbox, more ISBT alleles,
+authenticated APIs.
+
 ## Likely next tick
 
-A full titer grid, or more ISBT alleles.
+More ISBT alleles, or a Preferences control that adds Dil1–Dil128 columns.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 
