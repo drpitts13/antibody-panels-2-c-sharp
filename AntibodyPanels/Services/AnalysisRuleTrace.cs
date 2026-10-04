@@ -69,6 +69,39 @@ namespace AntibodyPanels.Services
             return sb.ToString();
         }
 
+        public static string ResolveOperator(LabSettings? settings = null)
+        {
+            var initials = LabSettings.NormalizeInitials(settings?.DefaultIdentifiedBy);
+            if (!string.IsNullOrWhiteSpace(initials))
+                return initials;
+            var windows = Environment.UserName?.Trim() ?? "";
+            return windows.Length > 64 ? windows[..64] : windows;
+        }
+
+        public static string FormatOperatorNote(LabSettings? settings = null)
+        {
+            var initials = LabSettings.NormalizeInitials(settings?.DefaultIdentifiedBy);
+            var windows = (Environment.UserName ?? "").Trim();
+            if (windows.Length > 64) windows = windows[..64];
+            if (!string.IsNullOrWhiteSpace(initials) && !string.IsNullOrWhiteSpace(windows) &&
+                !string.Equals(initials, windows, StringComparison.OrdinalIgnoreCase))
+            {
+                return $"Analysis recorded for operator {initials} (Windows login {windows}). " +
+                       "This identifies who ran the analysis, not a diagnosis.";
+            }
+            if (!string.IsNullOrWhiteSpace(initials))
+            {
+                return $"Analysis recorded for operator {initials}. " +
+                       "This identifies who ran the analysis, not a diagnosis.";
+            }
+            if (!string.IsNullOrWhiteSpace(windows))
+            {
+                return $"Analysis recorded for Windows login {windows}. Lab initials were not set. " +
+                       "This identifies who ran the analysis, not a diagnosis.";
+            }
+            return "Operator was not recorded for this analysis. Not a diagnosis.";
+        }
+
         private static string FormatRule(Rule rule)
         {
             var name = string.IsNullOrWhiteSpace(rule.Antibody) ? rule.Name : rule.Antibody;

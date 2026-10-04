@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 36 — RHCE variant C / CeRN).
+Last updated: 2026-10-04 (iteration 37 — snapshot operator identity).
 
 ## Capability matrix
 
@@ -35,7 +35,7 @@ Last updated: 2026-10-04 (iteration 36 — RHCE variant C / CeRN).
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce is case-sensitive; CeRN/HAR/C^w variant-C notes; GATA still does not support anti-Fya | More RHD/RHCE alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + snapshots with rule-engine version and per-antibody rule JSON; Explain/Summary/report show the policy | User/operator on snapshot later |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | Never-imported specificities later |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
 
 ## Iteration 1 (this change)
@@ -561,9 +561,24 @@ stays silent. ceAR remains a variant-e note. Nothing is auto-identified.
 **Not in this tick:** More RHD DAR/DVI catalog rows, never-imported
 specificity classifiers, authenticated APIs.
 
+## Iteration 37 (this change)
+
+**Deficiency:** Analysis snapshots recorded software version and rules
+but not who ran the analysis. Audit events already stored Windows login;
+Explain Analysis and the report trace line did not.
+
+**Bounded improvement:** Snapshots store `analyzed_by` (lab initials when
+set, otherwise Windows login). Explain, Summary, and the report name the
+operator and still say this is not a diagnosis. Blank initials fall back
+to Windows login; neither recorded is stated as such. Nothing is
+auto-identified.
+
+**Not in this tick:** Never-imported specificity classifiers,
+authenticated APIs.
+
 ## Likely next tick
 
-Never-imported specificity classifiers, or operator identity on snapshots.
-Authenticated vendor portals stay later and must not bypass auth,
-CAPTCHA, licensing, or terms.
+Never-imported specificity classifiers (antibodies the current panels
+cannot type). Authenticated vendor portals stay later and must not
+bypass auth, CAPTCHA, licensing, or terms.
 

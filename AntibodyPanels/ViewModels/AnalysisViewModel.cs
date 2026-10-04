@@ -608,6 +608,12 @@ namespace AntibodyPanels.ViewModels
             var sb = new StringBuilder();
             sb.AppendLine($"=== Analysis Results: {r.SpecimenId} ===");
             sb.AppendLine();
+            if (!string.IsNullOrWhiteSpace(r.OperatorNote))
+            {
+                sb.AppendLine("OPERATOR (who ran this analysis, not a diagnosis):");
+                sb.AppendLine("  " + r.OperatorNote);
+                sb.AppendLine();
+            }
             if (!string.IsNullOrWhiteSpace(r.RuleConfigurationNote))
             {
                 sb.AppendLine("RULE CONFIGURATION (policy used, not a diagnosis):");

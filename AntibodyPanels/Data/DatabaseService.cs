@@ -343,6 +343,8 @@ namespace AntibodyPanels.Data
                 ExecNonQuery("ALTER TABLE analysis_snapshots ADD COLUMN rule_engine_version TEXT");
             if (!cols.Contains("rules_json"))
                 ExecNonQuery("ALTER TABLE analysis_snapshots ADD COLUMN rules_json TEXT");
+            if (!cols.Contains("analyzed_by"))
+                ExecNonQuery("ALTER TABLE analysis_snapshots ADD COLUMN analyzed_by TEXT");
         }
 
         private void DeactivateExpiredSpecimens()
@@ -2724,14 +2726,14 @@ namespace AntibodyPanels.Data
 
         public void SaveAnalysisSnapshot(string specimenId, string softwareVersion, string settingsJson,
             string inputFingerprint, string? ruledOutJson, string? suspectedJson, string? acsJson,
-            string? ruleEngineVersion = null, string? rulesJson = null)
+            string? ruleEngineVersion = null, string? rulesJson = null, string? analyzedBy = null)
         {
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 INSERT INTO analysis_snapshots
                     (specimen_id, analyzed_at_utc, software_version, settings_json, input_fingerprint,
-                     ruled_out_json, suspected_json, acs_json, rule_engine_version, rules_json)
-                VALUES ($sid, $at, $ver, $settings, $fp, $ro, $sus, $acs, $rev, $rules)";
+                     ruled_out_json, suspected_json, acs_json, rule_engine_version, rules_json, analyzed_by)
+                VALUES ($sid, $at, $ver, $settings, $fp, $ro, $sus, $acs, $rev, $rules, $by)";
             cmd.Parameters.AddWithValue("$sid", specimenId);
             cmd.Parameters.AddWithValue("$at", DateTime.UtcNow.ToString("o"));
             cmd.Parameters.AddWithValue("$ver", softwareVersion);
@@ -2742,6 +2744,8 @@ namespace AntibodyPanels.Data
             cmd.Parameters.AddWithValue("$acs", (object?)acsJson ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$rev", (object?)ruleEngineVersion ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$rules", (object?)rulesJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$by",
+                (object?)(string.IsNullOrWhiteSpace(analyzedBy) ? null : analyzedBy.Trim()) ?? DBNull.Value);
             cmd.ExecuteNonQuery();
         }
 
@@ -2750,7 +2754,7 @@ namespace AntibodyPanels.Data
             using var cmd = _conn.CreateCommand();
             cmd.CommandText = @"
                 SELECT id, specimen_id, analyzed_at_utc, software_version, settings_json, input_fingerprint,
-                       ruled_out_json, suspected_json, acs_json, rule_engine_version, rules_json
+                       ruled_out_json, suspected_json, acs_json, rule_engine_version, rules_json, analyzed_by
                 FROM analysis_snapshots
                 WHERE specimen_id = $sid
                 ORDER BY id DESC
@@ -2770,7 +2774,8 @@ namespace AntibodyPanels.Data
                 SuspectedJson = r.IsDBNull(7) ? null : r.GetString(7),
                 AcsJson = r.IsDBNull(8) ? null : r.GetString(8),
                 RuleEngineVersion = r.FieldCount > 9 && !r.IsDBNull(9) ? r.GetString(9) : null,
-                RulesJson = r.FieldCount > 10 && !r.IsDBNull(10) ? r.GetString(10) : null
+                RulesJson = r.FieldCount > 10 && !r.IsDBNull(10) ? r.GetString(10) : null,
+                AnalyzedBy = r.FieldCount > 11 && !r.IsDBNull(11) ? r.GetString(11) : null
             };
         }
 

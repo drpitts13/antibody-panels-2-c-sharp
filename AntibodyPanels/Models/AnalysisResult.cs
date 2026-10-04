@@ -25,6 +25,8 @@ namespace AntibodyPanels.Models
         public List<ReactionPatternNote> ReactionPatterns { get; set; } = new();
         public string RuleEngineVersion { get; set; } = string.Empty;
         public string RuleConfigurationNote { get; set; } = string.Empty;
+        public string AnalyzedBy { get; set; } = string.Empty;
+        public string OperatorNote { get; set; } = string.Empty;
 
         // ── Special-panel inference outputs ───────────────────────────────────
 

@@ -118,6 +118,38 @@ public class Fda510kControlTests
         Assert.DoesNotContain("\"MinRuleoutCount\":3", later.RulesJson);
         var report = iso.Reports.GeneratePreviewText(ReportType.AnalysisResults, "FDA-RULES");
         Assert.Contains($"Rule engine v{AnalysisRuleTrace.EngineVersion}", report);
+        Assert.Contains("Operator", report);
+    }
+
+    [Fact]
+    public void Snapshot_RecordsLabInitialsAndWindowsLogin()
+    {
+        using var iso = new IsolatedDatabase();
+        var previous = AppSettings.Current.DefaultIdentifiedBy;
+        try
+        {
+            AppSettings.Current.DefaultIdentifiedBy = "ZX";
+            iso.Db.AddSpecimen("FDA-OP", "serum", null);
+            var panelId = iso.Db.AddPanel("P", "L", "V", 1, null, false);
+            iso.Db.LinkSpecimenPanel("FDA-OP", panelId);
+            iso.Db.SaveReaction("FDA-OP", panelId, "1", "0", "0", "2+", "2+");
+            iso.Analyzer.AnalyzeSpecimen("FDA-OP");
+            var snap = iso.Db.GetLatestAnalysisSnapshot("FDA-OP");
+            Assert.Equal("ZX", snap!.AnalyzedBy);
+            var live = iso.Analyzer.AnalyzeSpecimen("FDA-OP", updateDb: false);
+            Assert.Equal("ZX", live.AnalyzedBy);
+            Assert.Contains("operator ZX", live.OperatorNote, StringComparison.OrdinalIgnoreCase);
+            if (!string.Equals(Environment.UserName, "ZX", StringComparison.OrdinalIgnoreCase))
+                Assert.Contains("Windows login", live.OperatorNote);
+            Assert.Contains("not a diagnosis", live.OperatorNote, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("operator ZX", AnalysisExplainer.FormatDocument(live), StringComparison.OrdinalIgnoreCase);
+            var report = iso.Reports.GeneratePreviewText(ReportType.AnalysisResults, "FDA-OP");
+            Assert.Contains("Operator ZX", report);
+        }
+        finally
+        {
+            AppSettings.Current.DefaultIdentifiedBy = previous;
+        }
     }
 
     [Fact]

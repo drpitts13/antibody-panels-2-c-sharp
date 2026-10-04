@@ -77,6 +77,8 @@ namespace AntibodyPanels.Services
                 Acs = EvaluateAcs(observedRuleouts, allScores),
                 RuleEngineVersion = AnalysisRuleTrace.EngineVersion,
                 RuleConfigurationNote = AnalysisRuleTrace.Explain(rules, AppSettings.Current),
+                AnalyzedBy = AnalysisRuleTrace.ResolveOperator(AppSettings.Current),
+                OperatorNote = AnalysisRuleTrace.FormatOperatorNote(AppSettings.Current),
             };
             ApplyPatientTyping(specimenId, result);
             result.SpecialReactionNotes = DescribeSpecialGrades(reactions);
@@ -117,7 +119,8 @@ namespace AntibodyPanels.Services
                     result.Acs.SuggestedCombinedResult
                 }),
                 AnalysisRuleTrace.EngineVersion,
-                AnalysisRuleTrace.Serialize(_db.GetAllRules(), settings));
+                AnalysisRuleTrace.Serialize(_db.GetAllRules(), settings),
+                result.AnalyzedBy);
         }
 
         public static string ComputeInputFingerprint(IEnumerable<Reaction> reactions, IEnumerable<PanelRun> runs)

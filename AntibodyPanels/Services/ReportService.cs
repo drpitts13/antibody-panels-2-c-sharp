@@ -326,7 +326,10 @@ namespace AntibodyPanels.Services
             var rules = snap?.RuleEngineVersion == null
                 ? ""
                 : $"  Rule engine v{snap.RuleEngineVersion}";
-            return $"Software {version}{rules}  Settings: {settingsText}  Input fingerprint: {fingerprint}";
+            var who = string.IsNullOrWhiteSpace(snap?.AnalyzedBy)
+                ? ""
+                : $"  Operator {snap!.AnalyzedBy}";
+            return $"Software {version}{rules}{who}  Settings: {settingsText}  Input fingerprint: {fingerprint}";
         }
 
         private static string FormatSuspectedAntibodyLine(string antibody, double probability,
