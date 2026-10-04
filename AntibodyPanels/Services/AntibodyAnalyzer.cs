@@ -84,7 +84,7 @@ namespace AntibodyPanels.Services
             };
             ApplyPatientTyping(specimenId, result);
             result.SpecialReactionNotes = DescribeSpecialGrades(reactions);
-            result.ReactionPatterns = ClassifyReactionPatterns(byRun, contexts);
+            result.ReactionPatterns = ClassifyReactionPatterns(specimenId, byRun, contexts);
             ApplyHtlaTitration(specimenId, result, reactions);
             ApplyNeutralization(specimenId, result, reactions, runs);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
@@ -1228,7 +1228,8 @@ namespace AntibodyPanels.Services
             return SelectedCellRecommender.Recommend(result, tested, inventory);
         }
 
-        private static List<ReactionPatternNote> ClassifyReactionPatterns(
+        private List<ReactionPatternNote> ClassifyReactionPatterns(
+            string specimenId,
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts)
         {
@@ -1239,7 +1240,8 @@ namespace AntibodyPanels.Services
                 foreach (var rxn in rxns)
                     observations.Add(ReactionPatternClassifier.Observe(rxn, ctx));
             }
-            return ReactionPatternClassifier.Classify(observations);
+            var dat = _db.GetSpecimen(specimenId)?.DatResult;
+            return ReactionPatternClassifier.Classify(observations, dat);
         }
 
         private static List<string> DescribeSpecialGrades(IEnumerable<Reaction> reactions)

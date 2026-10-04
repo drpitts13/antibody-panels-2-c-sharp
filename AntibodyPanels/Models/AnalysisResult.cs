@@ -73,6 +73,10 @@ namespace AntibodyPanels.Models
         public int MatchingCells { get; set; }
         public int EvaluatedCells { get; set; }
         public string Explanation { get; set; } = "";
+        /// <summary>Analytical evidence 0–1, not a diagnosis.</summary>
+        public double EvidenceScore { get; set; }
+        public List<string> SupportingCells { get; set; } = new();
+        public List<string> ConflictingCells { get; set; } = new();
     }
 
     public class AcsExceptionAntibody

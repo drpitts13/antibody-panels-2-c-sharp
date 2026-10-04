@@ -14,9 +14,9 @@ namespace AntibodyPanels.Services
         double IatStrength);
 
     /// <summary>
-    /// Labels cold, warm/IAT, mixed-phase, and panreactive patterns as
-    /// reviewable evidence. Gel, Solid, and PEG count as IAT-like phases.
-    /// This is not a diagnosis.
+    /// Labels cold, warm/IAT, mixed-phase, panreactive, HTLA-like, autoantibody,
+    /// high-prevalence, and low-frequency patterns as reviewable evidence.
+    /// Gel, Solid, and PEG count as IAT-like phases. Scores are not a diagnosis.
     /// </summary>
     public static class ReactionPatternClassifier
     {
@@ -47,9 +47,11 @@ namespace AntibodyPanels.Services
             return new PatternCellObservation(rxn.CellNumber, HasEntered(rxn), any, cold, iat, iatStrength);
         }
 
-        public static List<ReactionPatternNote> Classify(IEnumerable<PatternCellObservation> cells)
+        public static List<ReactionPatternNote> Classify(
+            IEnumerable<PatternCellObservation> cells, string? datResult = null)
         {
-            var evaluated = cells
+            var all = cells.ToList();
+            var evaluated = all
                 .Where(c => c.Evaluated && !IsAc(c.CellNumber))
                 .ToList();
             var notes = new List<ReactionPatternNote>();
@@ -75,61 +77,163 @@ namespace AntibodyPanels.Services
                     "This resembles an HTLA or high-titer low-avidity pattern. Consider titration, neutralization, and rare Ag− cells. Not a diagnosis.",
                 minMatches: 4);
 
-            var pan = evaluated.Count(c => c.AnyReactive);
+            var reactive = evaluated.Where(c => c.AnyReactive).ToList();
+            var nonreactive = evaluated.Where(c => !c.AnyReactive).ToList();
+            var pan = reactive.Count;
             if (evaluated.Count >= 4 && pan * 5 >= evaluated.Count * 4)
             {
-                notes.Add(new ReactionPatternNote
+                var panNote = new ReactionPatternNote
                 {
                     Kind = Panreactive,
                     MatchingCells = pan,
                     EvaluatedCells = evaluated.Count,
+                    SupportingCells = reactive.Select(c => c.CellNumber).ToList(),
+                    ConflictingCells = nonreactive.Select(c => c.CellNumber).ToList(),
+                    EvidenceScore = Score(pan, evaluated.Count),
                     Explanation =
                         $"{pan} of {evaluated.Count} evaluated cells are reactive. " +
                         "This resembles panagglutination (autoantibody, high-prevalence antigen, or reagent issue). " +
                         "Review the autocontrol and DAT. Not a diagnosis."
-                });
-                var ac = cells.FirstOrDefault(c => IsAc(c.CellNumber) && c.Evaluated);
-                if (!string.IsNullOrEmpty(ac.CellNumber))
+                };
+                if (nonreactive.Count > 0)
+                {
+                    panNote.Explanation =
+                        panNote.Explanation.TrimEnd() +
+                        $" Nonreactive cell(s): {string.Join(", ", nonreactive.Select(c => c.CellNumber))} " +
+                        "(conflicts with a complete panagglutinin).";
+                }
+                AppendScore(panNote);
+                notes.Add(panNote);
+
+                var ac = all.FirstOrDefault(c => IsAc(c.CellNumber) && c.Evaluated);
+                var acPresent = !string.IsNullOrEmpty(ac.CellNumber);
+                if (acPresent)
                 {
                     if (ac.AnyReactive)
                     {
-                        notes.Add(new ReactionPatternNote
-                        {
-                            Kind = Autoantibody,
-                            MatchingCells = pan,
-                            EvaluatedCells = evaluated.Count,
-                            Explanation =
-                                "Autocontrol is reactive with a panagglutinin pattern. " +
-                                "This favors autoantibody (or recently transfused cells) over a high-prevalence alloantibody. Not a diagnosis."
-                        });
+                        notes.Add(DatAwareNote(
+                            Autoantibody, pan, evaluated.Count, reactive, nonreactive, datResult,
+                            "Autocontrol is reactive with a panagglutinin pattern. " +
+                            "This favors autoantibody (or recently transfused cells) over a high-prevalence alloantibody. Not a diagnosis.",
+                            favorsAuto: true));
                     }
                     else
                     {
-                        notes.Add(new ReactionPatternNote
-                        {
-                            Kind = HighPrevalence,
-                            MatchingCells = pan,
-                            EvaluatedCells = evaluated.Count,
-                            Explanation =
-                                "Autocontrol is nonreactive with a panagglutinin pattern. " +
-                                "This favors a high-prevalence alloantibody over a warm autoantibody. Consider rare Ag− cells. Not a diagnosis."
-                        });
+                        notes.Add(DatAwareNote(
+                            HighPrevalence, pan, evaluated.Count, reactive, nonreactive, datResult,
+                            "Autocontrol is nonreactive with a panagglutinin pattern. " +
+                            "This favors a high-prevalence alloantibody over a warm autoantibody. Consider rare Ag− cells. Not a diagnosis.",
+                            favorsAuto: false));
                     }
+                }
+                else if (IsDatPositive(datResult))
+                {
+                    notes.Add(DatAwareNote(
+                        Autoantibody, pan, evaluated.Count, reactive, nonreactive, datResult,
+                        "Autocontrol was not recorded. A positive DAT with panagglutination favors autoantibody " +
+                        "over a high-prevalence alloantibody, but does not replace an autocontrol. Not a diagnosis.",
+                        favorsAuto: true));
+                }
+                else if (IsDatNegative(datResult))
+                {
+                    notes.Add(DatAwareNote(
+                        HighPrevalence, pan, evaluated.Count, reactive, nonreactive, datResult,
+                        "Autocontrol was not recorded. A negative DAT with panagglutination favors a " +
+                        "high-prevalence alloantibody over a typical warm autoantibody. Consider rare Ag− cells. Not a diagnosis.",
+                        favorsAuto: false));
                 }
             }
             else if (evaluated.Count >= 6 && pan is 1 or 2)
             {
-                notes.Add(new ReactionPatternNote
+                var lfa = new ReactionPatternNote
                 {
                     Kind = LowFrequency,
                     MatchingCells = pan,
                     EvaluatedCells = evaluated.Count,
+                    SupportingCells = reactive.Select(c => c.CellNumber).ToList(),
+                    EvidenceScore = Score(pan, evaluated.Count),
                     Explanation =
-                        $"{pan} of {evaluated.Count} evaluated cells are reactive. " +
-                        "This may be a low-frequency antigen, an extra antibody, or a mistype. Not a diagnosis."
-                });
+                        $"{pan} of {evaluated.Count} evaluated cells are reactive" +
+                        (reactive.Count > 0
+                            ? $" (cell {string.Join(", ", reactive.Select(c => c.CellNumber))})"
+                            : "") +
+                        ". This may be a low-frequency antigen, an extra antibody, or a mistype. Not a diagnosis."
+                };
+                AppendScore(lfa);
+                notes.Add(lfa);
             }
             return notes;
+        }
+
+        public static bool IsDatPositive(string? dat)
+        {
+            if (string.IsNullOrWhiteSpace(dat)) return false;
+            var v = dat.Trim();
+            if (v.Equals("NT", StringComparison.OrdinalIgnoreCase)) return false;
+            if (IsDatNegative(v)) return false;
+            return ReactionGrade.IsPositive(v);
+        }
+
+        public static bool IsDatNegative(string? dat)
+        {
+            if (string.IsNullOrWhiteSpace(dat)) return false;
+            var v = dat.Trim();
+            return v.Equals("Negative", StringComparison.OrdinalIgnoreCase)
+                   || ReactionGrade.IsNegative(v);
+        }
+
+        private static ReactionPatternNote DatAwareNote(
+            string kind, int matching, int evaluated,
+            List<PatternCellObservation> supporting,
+            List<PatternCellObservation> conflicting,
+            string? datResult, string baseExplanation, bool favorsAuto)
+        {
+            var note = new ReactionPatternNote
+            {
+                Kind = kind,
+                MatchingCells = matching,
+                EvaluatedCells = evaluated,
+                SupportingCells = supporting.Select(c => c.CellNumber).ToList(),
+                ConflictingCells = conflicting.Select(c => c.CellNumber).ToList(),
+                EvidenceScore = Score(matching, evaluated),
+                Explanation = baseExplanation
+            };
+            if (IsDatPositive(datResult))
+            {
+                var dat = datResult!.Trim();
+                if (favorsAuto)
+                {
+                    note.Explanation = note.Explanation.TrimEnd() +
+                        $" DAT is {dat}, which supports autoantibody over a high-prevalence alloantibody.";
+                    note.EvidenceScore = Math.Min(1, note.EvidenceScore + 0.1);
+                }
+                else
+                {
+                    note.Explanation = note.Explanation.TrimEnd() +
+                        $" DAT is {dat}, which argues against a typical high-prevalence alloantibody " +
+                        "(review recently transfused cells or a recording error).";
+                    note.ConflictingCells.Add("DAT");
+                    note.EvidenceScore = Math.Max(0.2, note.EvidenceScore - 0.15);
+                }
+            }
+            else if (IsDatNegative(datResult))
+            {
+                if (favorsAuto)
+                {
+                    note.Explanation = note.Explanation.TrimEnd() +
+                        " DAT is negative, which argues against a typical warm autoantibody despite the autocontrol.";
+                    note.ConflictingCells.Add("DAT");
+                    note.EvidenceScore = Math.Max(0.2, note.EvidenceScore - 0.15);
+                }
+                else
+                {
+                    note.Explanation = note.Explanation.TrimEnd() +
+                        " DAT is negative, which agrees with a high-prevalence alloantibody over a warm autoantibody.";
+                    note.EvidenceScore = Math.Min(1, note.EvidenceScore + 0.1);
+                }
+            }
+            AppendScore(note);
+            return note;
         }
 
         private static void Add(
@@ -140,15 +244,31 @@ namespace AntibodyPanels.Services
             Func<int, int, string> explain,
             int minMatches = 3)
         {
-            var n = evaluated.Count(match);
+            var matching = evaluated.Where(match).ToList();
+            var n = matching.Count;
             if (n < minMatches || n * 2 < evaluated.Count) return;
-            notes.Add(new ReactionPatternNote
+            var note = new ReactionPatternNote
             {
                 Kind = kind,
                 MatchingCells = n,
                 EvaluatedCells = evaluated.Count,
+                SupportingCells = matching.Select(c => c.CellNumber).ToList(),
+                EvidenceScore = Score(n, evaluated.Count),
                 Explanation = explain(n, evaluated.Count)
-            });
+            };
+            AppendScore(note);
+            notes.Add(note);
+        }
+
+        private static double Score(int matching, int evaluated) =>
+            evaluated <= 0 ? 0 : Math.Round(Math.Clamp(matching / (double)evaluated, 0, 1), 2);
+
+        private static void AppendScore(ReactionPatternNote note)
+        {
+            if (note.Explanation.Contains("evidence score", StringComparison.OrdinalIgnoreCase))
+                return;
+            note.Explanation = note.Explanation.TrimEnd() +
+                               $" Analytical evidence score {note.EvidenceScore:0.00}.";
         }
 
         private static bool InterpretablePositive(RunContext? ctx, string phase, string? value) =>

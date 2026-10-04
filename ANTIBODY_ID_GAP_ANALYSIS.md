@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 38 — never-imported specificity classifiers).
+Last updated: 2026-10-04 (iteration 39 — DAT-aware pattern evidence scores).
 
 ## Capability matrix
 
@@ -27,15 +27,15 @@ Last updated: 2026-10-04 (iteration 38 — never-imported specificity classifier
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable (never imported), and pattern candidates | Pattern classifiers |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable (never imported), and pattern candidates | Enzyme-treated vs untreated pattern |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint; Preferences can add Dil1–Dil128; Neut/Inhib vs IAT | More ISBT alleles later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT concordant/discordant with AC; named LFA/pan cells; evidence scores. HTLA titer plus Dil grid; Neut/Inhib vs IAT | Enzyme-treated vs untreated later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce is case-sensitive; CeRN/HAR/C^w variant-C notes; GATA still does not support anti-Fya | More RHD/RHCE alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | Pattern classifiers later |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | Enzyme pattern later |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
 
 ## Iteration 1 (this change)
@@ -594,11 +594,28 @@ unless a panel types them. Nothing is auto-identified.
 **Not in this tick:** Pattern classifiers (HTLA/HFA/LFA beyond titer),
 authenticated APIs.
 
+## Iteration 39 (this change)
+
+**Deficiency:** Pattern notes labeled cold, warm, panagglutination, and
+HTLA but did not name which cells supported or conflicted, did not use
+the recorded DAT, and did not attach an evidence score. Panagglutination
+without an autocontrol could not lean auto vs high-prevalence.
+
+**Bounded improvement:** Each pattern records supporting/conflicting
+cells and an analytical evidence score (not a diagnosis). Low-frequency
+notes name the reactive cell. Incomplete panagglutination names the
+nonreactive cells. DAT positive with panagglutination and no autocontrol
+favors autoantibody; DAT negative favors high-prevalence. A reactive
+autocontrol with a negative DAT is shown as conflicting evidence.
+Nothing is auto-identified.
+
+**Not in this tick:** Enzyme-treated vs untreated pattern comparison,
+authenticated APIs.
+
 ## Likely next tick
 
-Pattern classifiers that distinguish panreactivity, cold vs warm,
-HTLA-like, autoantibody, and high-/low-frequency antigen patterns
-with explicit evidence (not a diagnosis). Authenticated vendor
-portals stay later and must not bypass auth, CAPTCHA, licensing, or
-terms.
+Enzyme-treated versus untreated run comparison as a reviewable pattern
+(destroyed vs enhanced antigens) with explicit evidence, not a
+diagnosis. Authenticated vendor portals stay later and must not bypass
+auth, CAPTCHA, licensing, or terms.
 
