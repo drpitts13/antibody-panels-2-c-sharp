@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 40 — enzyme-treated vs untreated pattern).
+Last updated: 2026-10-04 (iteration 41 — partial D DAR/DVI catalog).
 
 ## Capability matrix
 
@@ -27,15 +27,15 @@ Last updated: 2026-10-04 (iteration 40 — enzyme-treated vs untreated pattern).
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, and enzyme-comparison candidates | More RHD/RHCE alleles |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, and enzyme-comparison candidates | DTT vs untreated comparison |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant vs untreated | More ISBT alleles later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
-| Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce is case-sensitive; CeRN/HAR/C^w variant-C notes; GATA still does not support anti-Fya | More RHD/RHCE alleles later |
+| Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce case-sensitive; CeRN variant-C; RHD DAR/DVI/DNB partial D does not rule out anti-D; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | More RHD alleles later |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | DTT pattern later |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
 
 ## Iteration 1 (this change)
@@ -629,10 +629,27 @@ Scores and named cells are not a diagnosis.
 **Not in this tick:** Cross-panel enzyme pairing, more RHD DAR/DVI
 catalog rows, authenticated APIs.
 
+## Iteration 41 (this change)
+
+**Deficiency:** RHD*DAR was treated as ordinary D+ with no review note,
+so serologic D+ looked like it could rule out anti-D. DVI/DNB used a
+generic weak/partial sentence that did not say D+ does not rule out
+anti-D.
+
+**Bounded improvement:** Catalog partial D alleles (DAR, DVI, DIII–DVII,
+DNB, DAU, DFR, DOL, DBT, DHAR, and similar). They do not predict D+ and
+add a note that serologic or predicted D+ does not rule out anti-D.
+Weak D (RHD*01W) still predicts D+ with the existing weak-D note.
+Ordinary RHD*01 is unchanged. A D+ tube type with RHD*DAR is conflicting
+evidence, not a rule-out. Nothing is auto-identified.
+
+**Not in this tick:** DTT-treated vs untreated pattern comparison,
+authenticated APIs.
+
 ## Likely next tick
 
-More RHD/RHCE allele catalog rows (DAR/DVI and similar) with review
-notes that predicted types do not silently rule out. Authenticated
+DTT-treated versus untreated run comparison (Kell/Lutheran destroyed)
+with named cells and evidence scores, not a diagnosis. Authenticated
 vendor portals stay later and must not bypass auth, CAPTCHA, licensing,
 or terms.
 

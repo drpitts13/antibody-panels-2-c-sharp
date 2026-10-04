@@ -199,6 +199,71 @@ public class PatientTypingTests
     }
 
     [Fact]
+    public void RhdDar_DoesNotPredictDPositive_AndDoesNotRuleOutAntiD()
+    {
+        Assert.True(AlleleVariantCatalog.IsRhdPartial("DAR"));
+        Assert.False(AlleleVariantCatalog.IsRhdNull("DAR"));
+        Assert.False(AlleleVariantCatalog.IsRhdWeak("DAR"));
+        var typing = PatientTypingParser.Parse(null, null, null, "RHD*DAR; RHCE*ce/ce");
+        Assert.False(typing.PredictedAntigens.ContainsKey("D"));
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("does not rule out anti-D", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(ev, c => c.Explanation.Contains("partial D", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Predicted);
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-D" && c.PatientValue == "+");
+    }
+
+    [Fact]
+    public void RhdDvi_IsPartialD_NotOrdinaryDPositive()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "RHD*DVI.1");
+        Assert.False(typing.PredictedAntigens.ContainsKey("D"));
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("does not rule out anti-D", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void RhdDar_WithSerologicDPositive_IsConflictingEvidence_NotARuleOut()
+    {
+        var typing = PatientTypingParser.Parse("D+", null, null, "RHD*DAR");
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Against && c.PatientValue == "+");
+        Assert.Contains(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("does not rule out anti-D", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Analyzer_RhdDar_DoesNotAutoIdentifyAntiD()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("DAR-D", "serum", null, notes: null, phenotype: "D+",
+            previousAntibodies: null, datResult: null, genotype: "RHD*DAR; RHCE*ce/ce");
+        var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+        iso.Db.LinkSpecimenPanel("DAR-D", panelId);
+        iso.Db.SaveReaction("DAR-D", panelId, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction("DAR-D", panelId, "2", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("DAR-D", updateDb: false);
+        Assert.Contains(result.PatientTypingConsiderations,
+            c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(result.PatientTypingConsiderations,
+            c => c.Explanation.Contains("does not rule out anti-D", StringComparison.OrdinalIgnoreCase));
+        Assert.False(result.RuledOut.ContainsKey("anti-D"));
+        Assert.DoesNotContain(result.Suspected.Keys, k => k.Equals("anti-D", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void OrdinaryRhd01_StillPredictsDPositive_WithoutPartialNote()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "RHD*01; RHCE*ce/ce");
+        Assert.Equal("+", typing.PredictedAntigens["D"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.DoesNotContain(ev, c => c.Kind == PatientTypingKind.Variant && c.Antibody == "anti-D");
+    }
+
+    [Fact]
     public void RhdDnb_IsNotTreatedAsDNegative()
     {
         Assert.False(AlleleVariantCatalog.IsRhdNull("DNB"));

@@ -236,14 +236,13 @@ namespace AntibodyPanels.Services
                     case "RHD":
                         if (AlleleVariantCatalog.IsRhdNull(allele))
                             rhdExpress.Add(false);
-                        else if (AlleleVariantCatalog.IsRhdPartialOrWeak(allele) &&
-                                 NormalizeKey(allele).Contains("EL"))
+                        else if (AlleleVariantCatalog.IsRhdPartial(allele) ||
+                                 NormalizeKey(allele).Contains("EL") ||
+                                 NormalizeKey(allele).Contains("DEL"))
                             break;
-                        else if (AlleleVariantCatalog.IsRhdPartialOrWeak(allele) &&
-                                 (NormalizeKey(allele).Contains("01W") ||
-                                  NormalizeKey(allele).Contains("WEAK")))
+                        else if (AlleleVariantCatalog.IsRhdWeak(allele))
                             rhdExpress.Add(true);
-                        else if (!AlleleVariantCatalog.IsRhdPartialOrWeak(allele))
+                        else
                             rhdExpress.Add(true);
                         break;
                     case "FY":

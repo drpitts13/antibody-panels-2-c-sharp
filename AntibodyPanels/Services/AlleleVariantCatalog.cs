@@ -74,14 +74,36 @@ namespace AntibodyPanels.Services
                    u is "NEGATIVE" or "NEG";
         }
 
+        /// <summary>
+        /// Partial D (DAR, DVI, DNB, …). May type D+ and still make alloanti-D.
+        /// </summary>
+        public static bool IsRhdPartial(string allele)
+        {
+            var u = NormalizeKey(allele);
+            if (IsRhdWeak(u) || u.Contains("EL") || u.Contains("DEL")) return false;
+            return u.Contains("DAR") || u.Contains("DVI") || u.Contains("DVII") ||
+                   u.Contains("DIII") || u.Contains("DIV") ||
+                   u == "DV" || u.StartsWith("DV.") ||
+                   u.Contains("DFR") || u.Contains("DAU") ||
+                   u.Contains("DNB") || u.Contains("DOL") ||
+                   u.Contains("DBT") || u.Contains("DHAR") ||
+                   u.Contains("DCS") || u.Contains("DTO");
+        }
+
+        public static bool IsRhdWeak(string allele)
+        {
+            var u = NormalizeKey(allele);
+            return u.Contains("01W") || u.Contains("WEAK");
+        }
+
         public static bool IsRhdPartialOrWeak(string allele)
         {
             var u = NormalizeKey(allele);
-            return u.Contains("01W") || u.Contains("WEAK") ||
+            return IsRhdPartial(u) || IsRhdWeak(u) ||
+                   u.Contains("EL") || u.Contains("DEL") ||
                    u.Contains("DVI") || u.Contains("DVII") ||
                    u.Contains("DFR") || u.Contains("DAU") ||
-                   u.Contains("DNB") || u.Contains("DOL") ||
-                   u.Contains("EL");
+                   u.Contains("DNB") || u.Contains("DOL");
         }
 
         public static bool IsRhceVariantE(string allele)
@@ -171,7 +193,15 @@ namespace AntibodyPanels.Services
                     Explanation =
                         $"RHD*{allele} is a DEL / very weak D variant. Routine serology may type D−. Review anti-D risk and do not treat a D− tube type as a complete genotype. Not a diagnosis."
                 },
-                "RHD" when IsRhdPartialOrWeak(allele) => new AlleleVariantNote
+                "RHD" when IsRhdPartial(allele) => new AlleleVariantNote
+                {
+                    Antibody = "anti-D",
+                    Antigen = "D",
+                    Allele = "RHD*" + allele,
+                    Explanation =
+                        $"RHD*{allele} is a partial D variant (DAR / DVI / DNB-like). The patient may type D+ with some reagents and still make alloanti-D. Serologic or predicted D+ does not rule out anti-D. Not a diagnosis."
+                },
+                "RHD" when IsRhdWeak(allele) || IsRhdPartialOrWeak(allele) => new AlleleVariantNote
                 {
                     Antibody = "anti-D",
                     Antigen = "D",
