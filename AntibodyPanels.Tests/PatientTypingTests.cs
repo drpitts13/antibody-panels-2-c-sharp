@@ -140,6 +140,54 @@ public class PatientTypingTests
     }
 
     [Fact]
+    public void GataFy01N_DoesNotSupportAlloAntiFya()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "FY*01N.01/FY*02");
+        Assert.Equal("-", typing.PredictedAntigens["Fya"]);
+        Assert.Equal("+", typing.PredictedAntigens["Fyb"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-Fya" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("GATA", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Fya" && c.Kind == PatientTypingKind.Predicted);
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Fya" && c.Kind == PatientTypingKind.Supporting);
+    }
+
+    [Fact]
+    public void RhdDnb_IsNotTreatedAsDNegative()
+    {
+        Assert.False(AlleleVariantCatalog.IsRhdNull("DNB"));
+        var typing = PatientTypingParser.Parse(null, null, null, "RHD*DNB; RHCE*ce/ce");
+        Assert.False(typing.PredictedAntigens.ContainsKey("D"));
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("partial D", StringComparison.OrdinalIgnoreCase)
+                                || c.Explanation.Contains("weak D", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-D" && c.PatientValue == "-");
+    }
+
+    [Fact]
+    public void WeakD_PredictsDPositiveWithVariantNote()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "RHD*01W.1");
+        Assert.Equal("+", typing.PredictedAntigens["D"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "+");
+        Assert.Contains(ev, c => c.Antibody == "anti-D" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains("Not a diagnosis", ev.Single(c => c.Kind == PatientTypingKind.Variant).Explanation);
+    }
+
+    [Fact]
+    public void RhceCeAr_KeepsEPositive_AndWarnsELikeAlloantibody()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "RHCE*ceAR/ceAR");
+        Assert.Equal("+", typing.PredictedAntigens["e"]);
+        Assert.Equal("-", typing.PredictedAntigens["E"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-e" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("e-like", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Parse_SingleRhceHaplotype_DoesNotInventAntitheticalNegatives()
     {
         var typing = PatientTypingParser.Parse(null, null, null, "RHCE*ce");

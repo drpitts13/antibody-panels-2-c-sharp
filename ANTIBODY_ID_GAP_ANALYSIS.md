@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 22 — expired selected-cell filtering).
+Last updated: 2026-10-03 (iteration 23 — allele variant risk notes).
 
 ## Capability matrix
 
@@ -32,7 +32,7 @@ Last updated: 2026-10-03 (iteration 22 — expired selected-cell filtering).
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA note now uses a recorded titer when present; still not a diagnosis | Neutralization / full titer grid later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; expired shown only as last-resort “do not use” | Neutralization cells later |
-| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Phenotype text plus specimen genotype (alleles or predicted marks); transfusion still blinds serology only | Allele catalog / variant risk notes later |
+| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus variant notes (GATA, weak/partial D, RHCE ceAR, FyX); GATA does not support anti-Fya | Broader allele catalog later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
@@ -351,9 +351,23 @@ date. Still not a diagnosis.
 **Not in this tick:** Allele variant catalog, neutralization workflow,
 authenticated APIs.
 
+## Iteration 23 (this change)
+
+**Deficiency:** Any `N` in an *RHD* allele was treated as a deletion, so
+*RHD*DNB* became D−. *FY*01N (GATA) predicted Fy(a−) and treated that as
+support for alloanti-Fya, which is usually wrong.
+
+**Bounded improvement:** Null *RHD* alleles are *01N* / deletion / DEL only.
+Weak D, partial D, DEL, GATA *FY*01N, FyX, and *RHCE*ceAR-like haplotypes
+add Variant notes. GATA suppresses “predicted Fya− supports anti-Fya.”
+Nothing is auto-identified.
+
+**Not in this tick:** Full ISBT catalog, neutralization workflow,
+authenticated APIs.
+
 ## Likely next tick
 
-Allele catalog / variant risk notes, or neutralization evidence.
+Neutralization evidence, or a broader allele catalog.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

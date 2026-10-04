@@ -242,7 +242,8 @@ namespace AntibodyPanels.Models
         Against,
         Uninterpretable,
         Historical,
-        Predicted
+        Predicted,
+        Variant
     }
 
     public class CandidateExplanation

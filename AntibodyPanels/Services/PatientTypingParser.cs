@@ -11,6 +11,7 @@ namespace AntibodyPanels.Services
         public Dictionary<string, string> Antigens { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> PredictedAntigens { get; } = new(StringComparer.Ordinal);
         public List<string> HistoricalAntibodies { get; } = new();
+        public List<AlleleVariantNote> VariantNotes { get; } = new();
         public bool PhenotypeUnreliable { get; set; }
         public string UnreliableReason { get; set; } = string.Empty;
     }
@@ -63,6 +64,7 @@ namespace AntibodyPanels.Services
             ApplySystemPairs(phenotype, typing.Antigens);
             ApplyLooseAntigens(phenotype, typing.Antigens);
             ApplyGenotype(genotype, typing.PredictedAntigens);
+            typing.VariantNotes.AddRange(AlleleVariantCatalog.Match(genotype));
             typing.HistoricalAntibodies.AddRange(ParseHistorical(previousAntibodies));
             if (LooksRecentlyTransfused(phenotype) || LooksRecentlyTransfused(notes))
             {
@@ -119,10 +121,16 @@ namespace AntibodyPanels.Services
                 }
             }
 
+            var suppressSupport = new HashSet<string>(
+                typing.VariantNotes.Where(v => v.SuppressPredictedSupport).Select(v => v.Antigen),
+                StringComparer.OrdinalIgnoreCase);
+
             foreach (var (ag, val) in typing.PredictedAntigens.OrderBy(x => x.Key, StringComparer.Ordinal))
             {
                 typing.Antigens.TryGetValue(ag, out var serology);
                 if (serology == val && !typing.PhenotypeUnreliable)
+                    continue;
+                if (val == "-" && suppressSupport.Contains(ag))
                     continue;
 
                 var antibody = $"anti-{ag}";
@@ -158,6 +166,17 @@ namespace AntibodyPanels.Services
                     Kind = PatientTypingKind.Predicted,
                     PatientValue = val,
                     Explanation = explanation,
+                });
+            }
+
+            foreach (var variant in typing.VariantNotes)
+            {
+                list.Add(new PatientTypingConsideration
+                {
+                    Antibody = variant.Antibody,
+                    Antigen = variant.Antigen,
+                    Kind = PatientTypingKind.Variant,
+                    Explanation = variant.Explanation,
                 });
             }
 
@@ -215,7 +234,17 @@ namespace AntibodyPanels.Services
                         if (hap != null) rhce.Add(hap);
                         break;
                     case "RHD":
-                        rhdExpress.Add(!IsNullAllele(allele));
+                        if (AlleleVariantCatalog.IsRhdNull(allele))
+                            rhdExpress.Add(false);
+                        else if (AlleleVariantCatalog.IsRhdPartialOrWeak(allele) &&
+                                 NormalizeKey(allele).Contains("EL"))
+                            break;
+                        else if (AlleleVariantCatalog.IsRhdPartialOrWeak(allele) &&
+                                 (NormalizeKey(allele).Contains("01W") ||
+                                  NormalizeKey(allele).Contains("WEAK")))
+                            rhdExpress.Add(true);
+                        else if (!AlleleVariantCatalog.IsRhdPartialOrWeak(allele))
+                            rhdExpress.Add(true);
                         break;
                     case "FY":
                         var fyCode = NormalizeFyJk(allele, "A", "B");
@@ -305,6 +334,7 @@ namespace AntibodyPanels.Services
             if (core is "02" or "2") return "Ce";
             if (core is "03" or "3") return "cE";
             if (core is "04" or "4") return "CE";
+            if (core.StartsWith("ce", StringComparison.OrdinalIgnoreCase)) return "ce";
             if (core.Equals("ce", StringComparison.OrdinalIgnoreCase)) return "ce";
             if (core.Equals("CE", StringComparison.Ordinal)) return "CE";
             if (core.Length == 2 && core[0] == 'C' && (core[1] == 'e' || core[1] == 'E'))
@@ -314,14 +344,8 @@ namespace AntibodyPanels.Services
             return null;
         }
 
-        private static bool IsNullAllele(string allele)
-        {
-            var upper = allele.ToUpperInvariant();
-            return upper.Contains('N') ||
-                   upper.Contains("DEL") ||
-                   upper.Contains("NULL") ||
-                   upper is "NEGATIVE" or "NEG";
-        }
+        private static string NormalizeKey(string allele) =>
+            allele.Trim().ToUpperInvariant().Replace(" ", "", StringComparison.Ordinal);
 
         private static string? NormalizeFyJk(string allele, string aLetter, string bLetter)
         {
@@ -485,8 +509,9 @@ namespace AntibodyPanels.Services
         {
             PatientTypingKind.Against => 0,
             PatientTypingKind.Predicted => 1,
-            PatientTypingKind.Uninterpretable => 2,
-            PatientTypingKind.Historical => 3,
+            PatientTypingKind.Variant => 2,
+            PatientTypingKind.Uninterpretable => 3,
+            PatientTypingKind.Historical => 4,
             _ => 4
         };
     }
