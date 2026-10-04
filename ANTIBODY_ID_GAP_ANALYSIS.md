@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 23 — allele variant risk notes).
+Last updated: 2026-10-03 (iteration 24 — neutralization evidence).
 
 ## Capability matrix
 
@@ -30,7 +30,7 @@ Last updated: 2026-10-03 (iteration 23 — allele variant risk notes).
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA note now uses a recorded titer when present; still not a diagnosis | Neutralization / full titer grid later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Neut/Inhib vs IAT; plasma/urine/P1/saliva notes | Full titer grid later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; expired shown only as last-resort “do not use” | Neutralization cells later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus variant notes (GATA, weak/partial D, RHCE ceAR, FyX); GATA does not support anti-Fya | Broader allele catalog later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
@@ -365,9 +365,23 @@ Nothing is auto-identified.
 **Not in this tick:** Full ISBT catalog, neutralization workflow,
 authenticated APIs.
 
+## Iteration 24 (this change)
+
+**Deficiency:** HTLA notes said “consider neutralization,” but a Neut/Inhib
+column or “neutralized with plasma” note was never compared to IAT.
+
+**Bounded improvement:** Pair IAT with Neut/Neutral/Inhib grades. Loss of
+reactivity favors a soluble-substance / HTLA-like pattern (plasma, urine,
+saliva, P1). Persistence argues against readily neutralized Ch/Rg, Sd(a),
+or Lewis. Notes without paired grades stay qualitative. Nothing is
+auto-identified.
+
+**Not in this tick:** Full titer grid, broader ISBT catalog, authenticated
+APIs.
+
 ## Likely next tick
 
-Neutralization evidence, or a broader allele catalog.
+Broader allele catalog, or explicit zygosity persistence.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

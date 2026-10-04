@@ -80,6 +80,7 @@ namespace AntibodyPanels.Services
             result.SpecialReactionNotes = DescribeSpecialGrades(reactions);
             result.ReactionPatterns = ClassifyReactionPatterns(byRun, contexts);
             ApplyHtlaTitration(specimenId, result, reactions);
+            ApplyNeutralization(specimenId, result, reactions, runs);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
@@ -1176,6 +1177,13 @@ namespace AntibodyPanels.Services
             var specimen = _db.GetSpecimen(specimenId);
             var extras = reactions.SelectMany(r => r.ExtraPhases);
             HtlaTitrationNotes.Apply(result, TiterParser.Highest(specimen?.Notes, extras));
+        }
+
+        private void ApplyNeutralization(
+            string specimenId, AnalysisResult result, List<Reaction> reactions, List<PanelRun> runs)
+        {
+            var specimen = _db.GetSpecimen(specimenId);
+            NeutralizationNotes.Apply(result, specimen?.Notes, reactions, runs);
         }
 
         private List<SelectedCellRecommendation> RecommendSelectedCells(
