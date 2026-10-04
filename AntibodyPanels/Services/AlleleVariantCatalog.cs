@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace AntibodyPanels.Services
@@ -20,7 +21,11 @@ namespace AntibodyPanels.Services
     public static class AlleleVariantCatalog
     {
         private static readonly Regex Token = new(
-            @"\b(RHCE|RHD|FY|JK|KEL)\s*\*\s*([A-Za-z0-9.]+)",
+            @"\b(RHCE|RHD|FY|JK|KEL|GYPA|GYPB)\s*\*\s*([A-Za-z0-9.]+)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex JkPair = new(
+            @"\bJK\s*\*\s*([A-Za-z0-9.]+)\s*/\s*(?:JK\s*\*\s*)?([A-Za-z0-9.]+)",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         public static List<AlleleVariantNote> Match(string? genotype)
@@ -43,6 +48,12 @@ namespace AntibodyPanels.Services
                 notes.TrueForAll(n => n.Antigen != "Fya"))
             {
                 notes.Add(GataNote("GATA"));
+            }
+
+            if (JkNullAlleleCount(genotype) >= 2 &&
+                notes.TrueForAll(n => n.Antibody != "anti-Jk3"))
+            {
+                notes.Add(Jk3Note());
             }
 
             return notes;
@@ -71,6 +82,39 @@ namespace AntibodyPanels.Services
         {
             var u = NormalizeKey(allele);
             return u.StartsWith("01N") || u.Contains("GATA");
+        }
+
+        public static bool IsFyNull(string allele) =>
+            IsGataSilencing(allele) || NormalizeKey(allele).Contains("02N");
+
+        public static bool IsJkWeak(string allele)
+        {
+            var u = NormalizeKey(allele);
+            return u.Contains("01W") || u.Contains("02W") || u.Contains("WEAK");
+        }
+
+        public static bool IsJkNull(string allele)
+        {
+            var u = NormalizeKey(allele);
+            if (IsJkWeak(u)) return false;
+            return u.Contains("01N") || u.Contains("02N") ||
+                   u.Contains("NULL") || u is "NEGATIVE" or "NEG";
+        }
+
+        public static bool IsKelNull(string allele)
+        {
+            var u = NormalizeKey(allele);
+            if (u.Contains("02M") || u.Contains("KMOD")) return false;
+            return u.Contains("01N") || u.Contains("02N") ||
+                   u.Contains("K0") || u.Contains("KNULL") || u.Contains("NULL");
+        }
+
+        public static bool IsGypbNullOrUvar(string allele)
+        {
+            var u = NormalizeKey(allele);
+            return u.Contains("03N") || u.Contains("04N") ||
+                   u.Contains("UNULL") || u.Contains("UVAR") ||
+                   u.Contains("DELETION") || u is "U-" or "UNEG";
         }
 
         private static AlleleVariantNote? Describe(string system, string allele)
@@ -112,13 +156,23 @@ namespace AntibodyPanels.Services
                     Explanation =
                         $"RHCE*{allele} is a variant e haplotype. The patient may type e+ and still make an e-like alloantibody. Predicted e+ does not rule out anti-e. Not a diagnosis."
                 },
-                "KEL" when u.Contains("02M") || u.Contains("KMOD") || u.Contains("K0") => new AlleleVariantNote
+                "JK" when IsJkNull(allele) => JkNullNote(allele),
+                "JK" when IsJkWeak(allele) => JkWeakNote(allele),
+                "KEL" when IsKelNull(allele) || u.Contains("02M") || u.Contains("KMOD") => new AlleleVariantNote
                 {
-                    Antibody = "anti-k",
-                    Antigen = "k",
+                    Antibody = u.Contains("01N") ? "anti-K" : "anti-k",
+                    Antigen = u.Contains("01N") ? "K" : "k",
                     Allele = "KEL*" + allele,
                     Explanation =
-                        $"KEL*{allele} is a Kmod / K0-like allele. Serologic k typing may be weak or absent. Not a diagnosis."
+                        $"KEL*{allele} is a K0 / Kell-null or Kmod allele. Serologic K/k typing may be weak or absent; a K0 phenotype can make anti-Ku. Not a diagnosis."
+                },
+                "GYPB" when IsGypbNullOrUvar(allele) => new AlleleVariantNote
+                {
+                    Antibody = "anti-U",
+                    Antigen = "U",
+                    Allele = "GYPB*" + allele,
+                    Explanation =
+                        $"GYPB*{allele} is a GYPB null / U variant. S/s typing may be absent and anti-U risk needs review. Predicted S− or s− is not an identification. Not a diagnosis."
                 },
                 _ => null
             };
@@ -134,6 +188,63 @@ namespace AntibodyPanels.Services
                 "FY*01N (GATA) silences Fya on red cells only; tissue Fya is usually present. " +
                 "Predicted RBC Fy(a−) does not support alloanti-Fya the way a true Fy(a−) type would. Not a diagnosis."
         };
+
+        private static AlleleVariantNote JkNullNote(string allele)
+        {
+            var u = NormalizeKey(allele);
+            var isB = u.Contains("02N") || u.StartsWith("B");
+            return new AlleleVariantNote
+            {
+                Antibody = isB ? "anti-Jkb" : "anti-Jka",
+                Antigen = isB ? "Jkb" : "Jka",
+                Allele = "JK*" + allele,
+                Explanation =
+                    $"JK*{allele} is a true Jk null (RBC and tissue). Unlike GATA-FY, predicted Jk− can support an alloantibody to that antigen. Not a diagnosis."
+            };
+        }
+
+        private static AlleleVariantNote JkWeakNote(string allele)
+        {
+            var u = NormalizeKey(allele);
+            var isB = u.Contains("02W") || u.StartsWith("B");
+            var ag = isB ? "Jkb" : "Jka";
+            return new AlleleVariantNote
+            {
+                Antibody = "anti-" + ag,
+                Antigen = ag,
+                Allele = "JK*" + allele,
+                Explanation =
+                    $"JK*{allele} is a weak Jk allele. The patient may type {ag}+^w or {ag}− with some reagents and still make an alloanti-{ag}. Predicted {ag}+ does not rule out anti-{ag}. Not a diagnosis."
+            };
+        }
+
+        private static AlleleVariantNote Jk3Note() => new()
+        {
+            Antibody = "anti-Jk3",
+            Antigen = "Jk3",
+            Allele = "JK*null/null",
+            Explanation =
+                "Two JK null alleles predict Jk(a−b−). Review for anti-Jk3 (high-prevalence) in addition to anti-Jka or anti-Jkb. This is not an identification."
+        };
+
+        private static int JkNullAlleleCount(string genotype)
+        {
+            var alleles = new List<string>();
+            foreach (Match m in JkPair.Matches(genotype))
+            {
+                alleles.Add(m.Groups[1].Value);
+                alleles.Add(m.Groups[2].Value);
+            }
+            if (alleles.Count == 0)
+            {
+                foreach (Match m in Token.Matches(genotype))
+                {
+                    if (m.Groups[1].Value.Equals("JK", StringComparison.OrdinalIgnoreCase))
+                        alleles.Add(m.Groups[2].Value);
+                }
+            }
+            return alleles.Count(IsJkNull);
+        }
 
         private static string NormalizeKey(string allele) =>
             allele.Trim().ToUpperInvariant().Replace(" ", "", StringComparison.Ordinal);

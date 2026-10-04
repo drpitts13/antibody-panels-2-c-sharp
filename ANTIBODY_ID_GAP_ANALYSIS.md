@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 25 — explicit zygosity persistence).
+Last updated: 2026-10-03 (iteration 26 — JK/KEL/GYPB allele notes).
 
 ## Capability matrix
 
@@ -32,7 +32,7 @@ Last updated: 2026-10-03 (iteration 25 — explicit zygosity persistence).
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Neut/Inhib vs IAT; plasma/urine/P1/saliva notes | Full titer grid later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; expired shown only as last-resort “do not use” | Neutralization cells later |
-| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus variant notes (GATA, weak/partial D, RHCE ceAR, FyX); GATA does not support anti-Fya | Broader allele catalog later |
+| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK null/weak, Jk(a−b−)/Jk3, K0/KEL-null, GYPB U-var; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + analysis snapshots; panel activate/deactivate logged; artifact hash visible | Rule-version detail |
@@ -395,9 +395,24 @@ partner is still not homozygous. Nothing is auto-identified.
 **Not in this tick:** Panel-editor `++` toggle, broader ISBT catalog,
 authenticated APIs.
 
+## Iteration 26 (this change)
+
+**Deficiency:** *JK**, *KEL* null, and *GYPB* tokens were parsed for
+predicted Jk/K/S types, but there were no review notes. *JK*01N/JK*02N*
+looked like ordinary Jk(a−b−) support and never mentioned anti-Jk3.
+Weak *JK*01W was treated as a normal Jk(a+).
+
+**Bounded improvement:** True JK nulls stay predicted antigen-negative
+(unlike GATA-FY). Two JK null alleles add a Jk3 review note. Weak JK
+warns that predicted Jk+ does not rule out alloanti-Jk. KEL-null / K0
+and GYPB null / U-var add Variant notes. Nothing is auto-identified.
+
+**Not in this tick:** Full ISBT catalog, panel-editor zygosity marks,
+authenticated APIs.
+
 ## Likely next tick
 
-Broader allele catalog, panel-editor zygosity marks, or a full titer grid.
+Panel-editor zygosity marks, a full titer grid, or more ISBT alleles.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

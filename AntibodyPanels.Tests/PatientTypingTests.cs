@@ -260,4 +260,90 @@ public class PatientTypingTests
             .First(e => e.Antibody == "anti-E");
         Assert.Contains("genotype predicts", exp.PhenotypeNote, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Jk01N_IsTrueNull_AndSupportsPredictedJkaNegative()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "JK*01N.01/JK*02");
+        Assert.Equal("-", typing.PredictedAntigens["Jka"]);
+        Assert.Equal("+", typing.PredictedAntigens["Jkb"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-Jka" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "-");
+        Assert.Contains(ev, c => c.Antibody == "anti-Jka" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("true Jk null", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Jk3");
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Fya" && c.Kind == PatientTypingKind.Variant);
+    }
+
+    [Fact]
+    public void JkNullDiploid_AddsJk3ReviewNote_WithoutIdentifying()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "JK*01N.01/JK*02N.01");
+        Assert.Equal("-", typing.PredictedAntigens["Jka"]);
+        Assert.Equal("-", typing.PredictedAntigens["Jkb"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-Jka" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "-");
+        Assert.Contains(ev, c => c.Antibody == "anti-Jkb" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "-");
+        Assert.Contains(ev, c => c.Antibody == "anti-Jk3" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("Jk(a−b−)", StringComparison.OrdinalIgnoreCase)
+                                || c.Explanation.Contains("Jk(a-b-)", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("not an identification", ev.Single(c => c.Antibody == "anti-Jk3").Explanation,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void JkWeak_KeepsPredictedPositive_AndWarnsAlloantibodyPossible()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "JK*01W.01/JK*02");
+        Assert.Equal("+", typing.PredictedAntigens["Jka"]);
+        Assert.Equal("+", typing.PredictedAntigens["Jkb"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-Jka" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "+");
+        Assert.Contains(ev, c => c.Antibody == "anti-Jka" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("does not rule out anti-Jka", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Jk3");
+    }
+
+    [Fact]
+    public void Kel02NDiploid_PredictsKellNull_WithKuReviewNote()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "KEL*02N.01/KEL*02N.01");
+        Assert.Equal("-", typing.PredictedAntigens["K"]);
+        Assert.Equal("-", typing.PredictedAntigens["k"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Kind == PatientTypingKind.Variant && c.Explanation.Contains("anti-Ku"));
+        Assert.Contains("Not a diagnosis", ev.First(c => c.Kind == PatientTypingKind.Variant).Explanation);
+    }
+
+    [Fact]
+    public void Gypb03N_AddsUVariantNote_WithoutInventingIdentification()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "GYPB*03N.01/GYPB*04");
+        Assert.Equal("-", typing.PredictedAntigens["S"]);
+        Assert.Equal("+", typing.PredictedAntigens["s"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-U" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("U variant", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-U" && c.Kind is PatientTypingKind.Supporting or PatientTypingKind.Predicted);
+    }
+
+    [Fact]
+    public void Analyzer_JkNullDiploid_DoesNotAutoIdentifyJk3()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("JK-NULL", "serum", null, notes: null, phenotype: null,
+            previousAntibodies: null, datResult: null, genotype: "JK*01N.01/JK*02N.01");
+        var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+        iso.Db.LinkSpecimenPanel("JK-NULL", panelId);
+        iso.Db.SaveReaction("JK-NULL", panelId, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction("JK-NULL", panelId, "2", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("JK-NULL", updateDb: false);
+        Assert.Contains(result.PatientTypingConsiderations,
+            c => c.Antibody == "anti-Jk3" && c.Kind == PatientTypingKind.Variant);
+        Assert.False(result.RuledOut.ContainsKey("anti-Jk3"));
+        Assert.DoesNotContain(result.Suspected.Keys, k => k.Equals("anti-Jk3", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(result.Suggestions, s => s.Contains("identified", StringComparison.OrdinalIgnoreCase)
+                                                       && s.Contains("Jk3", StringComparison.OrdinalIgnoreCase));
+    }
 }

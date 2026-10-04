@@ -351,7 +351,9 @@ namespace AntibodyPanels.Services
         {
             var upper = allele.ToUpperInvariant();
             var core = upper.Split('.')[0];
-            var isNull = core.Contains('N');
+            var isNull = aLetter == "A"
+                ? AlleleVariantCatalog.IsFyNull(allele)
+                : AlleleVariantCatalog.IsJkNull(allele);
             if (core.StartsWith("01", StringComparison.Ordinal) || core == "1" || core == aLetter)
                 return isNull ? "aN" : "a";
             if (core.StartsWith("02", StringComparison.Ordinal) || core == "2" || core == bLetter)
@@ -362,6 +364,11 @@ namespace AntibodyPanels.Services
         private static string? NormalizeKel(string allele)
         {
             var core = allele.Split('.')[0];
+            if (AlleleVariantCatalog.IsKelNull(allele))
+            {
+                var u = NormalizeKey(allele);
+                return u.Contains("01N") || u.StartsWith("1N") ? "KN" : "kN";
+            }
             if (core is "01" or "1" or "K") return "K";
             if (core is "02" or "2" or "k" or "KEL2") return "k";
             return null;
@@ -377,6 +384,13 @@ namespace AntibodyPanels.Services
 
         private static string? NormalizeGypb(string allele)
         {
+            if (AlleleVariantCatalog.IsGypbNullOrUvar(allele))
+            {
+                var u = NormalizeKey(allele);
+                if (u.Contains("03N")) return "SN";
+                if (u.Contains("04N")) return "sN";
+                return "UN";
+            }
             var core = allele.Split('.')[0];
             if (core == "S" || core is "03" or "3") return "S";
             if (core == "s" || core is "04" or "4") return "s";
