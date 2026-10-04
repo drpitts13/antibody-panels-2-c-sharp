@@ -92,6 +92,37 @@ namespace AntibodyPanels.Services
             _ => "the recorded neutralizing substance"
         };
 
+        /// <summary>
+        /// Antigens whose absence on an unused cell may help evaluate a
+        /// neutralization / soluble-substance pattern. Not a diagnosis list.
+        /// </summary>
+        public static IReadOnlyList<string> DiscriminatorAntigens(NeutralizationSubstance substance) =>
+            substance switch
+            {
+                NeutralizationSubstance.Plasma => new[] { "Ch", "Rg" },
+                NeutralizationSubstance.Urine => new[] { "Sda" },
+                NeutralizationSubstance.Saliva => new[] { "Lea", "Leb" },
+                NeutralizationSubstance.P1 => new[] { "P1" },
+                _ => new[] { "Ch", "Rg", "Sda", "P1" }
+            };
+
+        public static bool FavorsSolubleSubstanceFollowUp(AnalysisResult result)
+        {
+            var note = result.ReactionPatterns.FirstOrDefault(p => p.Kind == NeutralizationNotes.Kind);
+            if (note == null) return false;
+            if (note.Explanation.Contains("argues against", StringComparison.OrdinalIgnoreCase))
+                return false;
+            return note.Explanation.Contains("became nonreactive", StringComparison.OrdinalIgnoreCase)
+                   || note.Explanation.Contains("qualitative note", StringComparison.OrdinalIgnoreCase)
+                   || note.Explanation.Contains("favors a soluble-substance", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static NeutralizationSubstance SubstanceOf(AnalysisResult result)
+        {
+            var note = result.ReactionPatterns.FirstOrDefault(p => p.Kind == NeutralizationNotes.Kind);
+            return note == null ? NeutralizationSubstance.Unknown : ParseSubstance(note.Explanation);
+        }
+
         private static bool ContainsWord(string blob, string word) =>
             System.Text.RegularExpressions.Regex.IsMatch(
                 blob, $@"\b{System.Text.RegularExpressions.Regex.Escape(word)}\b");

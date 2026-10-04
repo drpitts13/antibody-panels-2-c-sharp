@@ -24,7 +24,9 @@ namespace AntibodyPanels.Services
             IEnumerable<(Panel Panel, PanelCell Cell)> inventory)
         {
             var candidates = ResolveCandidates(result);
-            if (candidates.Count == 0 && !NeedsRareNegativeCell(result)) return new();
+            if (candidates.Count == 0 && !NeedsRareNegativeCell(result) &&
+                !NeutralizationParser.FavorsSolubleSubstanceFollowUp(result))
+                return new();
 
             var tested = new HashSet<(int, string)>(alreadyTested);
             var scored = new List<SelectedCellRecommendation>();
@@ -112,7 +114,8 @@ namespace AntibodyPanels.Services
                 }
             }
 
-            if (present.Count == 0 && absent.Count == 0 && !NeedsRareNegativeCell(result))
+            if (present.Count == 0 && absent.Count == 0 && !NeedsRareNegativeCell(result) &&
+                !NeutralizationParser.FavorsSolubleSubstanceFollowUp(result))
                 return null;
 
             foreach (var plus in present)
@@ -141,6 +144,7 @@ namespace AntibodyPanels.Services
             }
 
             ApplyRareNegatives(cell, result, ref score, reasons);
+            ApplyNeutralizationDiscriminators(cell, panel, result, ref score, reasons);
             ApplyDating(panel, reasons);
 
             if (score <= 0) return null;
@@ -248,6 +252,56 @@ namespace AntibodyPanels.Services
             score += 4;
             var shown = string.Join(", ", negatives.Take(3).Select(ag => ag + "−"));
             reasons.Add($"types {shown} and may help evaluate an HTLA or high-prevalence pattern");
+        }
+
+        private static void ApplyNeutralizationDiscriminators(
+            PanelCell cell, Panel panel, AnalysisResult result, ref int score, List<string> reasons)
+        {
+            if (!NeutralizationParser.FavorsSolubleSubstanceFollowUp(result)) return;
+            var targets = NeutralizationParser.DiscriminatorAntigens(
+                NeutralizationParser.SubstanceOf(result));
+            var hits = targets.Where(ag => LacksNeutralizationAntigen(cell, ag)).ToList();
+            if (hits.Count == 0) return;
+            if (!IsNeutralizationInventoryCell(panel, cell, hits)) return;
+            score += 4;
+            var shown = string.Join(", ", hits.Take(3).Select(ag => ag + "−"));
+            reasons.Add($"types {shown} and may help evaluate neutralization / soluble-substance evidence");
+        }
+
+        /// <summary>
+        /// Prefer selected-cell vials, Special Types annotations, or warehouse
+        /// Ch/Rg types. Ordinary ID-panel P1− / Le(a−) rows are not boosted.
+        /// </summary>
+        private static bool IsNeutralizationInventoryCell(
+            Panel panel, PanelCell cell, IReadOnlyList<string> hits)
+        {
+            if (LooksLikeSelectedCellVial(panel)) return true;
+            if (hits.Any(ag => SpecialTypesMentionsNegative(cell.SpecialTypes, ag)))
+                return true;
+            return hits.Any(ag =>
+                AntigenConstants.IsWarehouse(ag) &&
+                cell.HasTypedAntigen(ag) && cell.GetAntigen(ag) == "-");
+        }
+
+        private static bool LacksNeutralizationAntigen(PanelCell cell, string antigen)
+        {
+            if (cell.HasTypedAntigen(antigen) && cell.GetAntigen(antigen) == "-")
+                return true;
+            return SpecialTypesMentionsNegative(cell.SpecialTypes, antigen);
+        }
+
+        private static bool SpecialTypesMentionsNegative(string? specialTypes, string antigen)
+        {
+            if (string.IsNullOrWhiteSpace(specialTypes)) return false;
+            foreach (var name in RareAntigenReader.FromSpecialTypes(specialTypes))
+            {
+                if (string.Equals(name, antigen, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            var compact = antigen.Equals("Sda", StringComparison.OrdinalIgnoreCase)
+                ? @"(?:Sda|Sd\s*\(\s*a\s*)"
+                : Regex.Escape(antigen);
+            return Regex.IsMatch(specialTypes, $@"(?<![A-Za-z]){compact}\s*[-−–]", RegexOptions.IgnoreCase);
         }
 
         public static bool LooksLikeSelectedCellVial(Panel panel)

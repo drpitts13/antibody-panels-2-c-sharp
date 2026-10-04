@@ -93,6 +93,62 @@ public class NeutralizationTests
         Assert.Contains(result.Suggestions, s => s.Contains("soluble-substance") || s.Contains("neutral", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void P1Neutralization_RecommendsUnusedSelectedP1Negative_NotOrdinaryPanelP1Neg()
+    {
+        var result = new AnalysisResult();
+        var rxns = Enumerable.Range(1, 6).Select(i => Rxn(i.ToString(), "1+", "0"));
+        NeutralizationNotes.Apply(result, "neutralized with P1 substance", rxns);
+        Assert.True(NeutralizationParser.FavorsSolubleSubstanceFollowUp(result));
+
+        var selectogen = new Panel { PanelId = 2, Name = "Selectogen", LotNumber = "S" };
+        var p1neg = new PanelCell { CellNumber = "8" };
+        p1neg.SetAntigen("P1", "-");
+        var ordinary = new Panel { PanelId = 3, Name = "ID panel", LotNumber = "I" };
+        var ordinaryP1 = new PanelCell { CellNumber = "9" };
+        ordinaryP1.SetAntigen("P1", "-");
+        ordinaryP1.SetAntigen("E", "+");
+
+        var recs = SelectedCellRecommender.Recommend(
+            result,
+            Array.Empty<(int, string)>(),
+            new[] { (ordinary, ordinaryP1), (selectogen, p1neg) });
+
+        Assert.Contains(recs, r => r.CellNumber == "8");
+        var rec = recs.First(r => r.CellNumber == "8");
+        Assert.Contains("P1", rec.Explanation);
+        Assert.Contains("neutralization", rec.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(recs, r => r.CellNumber == "9");
+        Assert.DoesNotContain(recs, r => r.Explanation.Contains("identified", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void PersistedIatAfterUrineNeut_DoesNotRecommendSdaNegativeCell()
+    {
+        var result = new AnalysisResult();
+        var rxns = Enumerable.Range(1, 6).Select(i => Rxn(i.ToString(), "2+", "2+"));
+        NeutralizationNotes.Apply(result, "urine neutralization", rxns);
+        Assert.False(NeutralizationParser.FavorsSolubleSubstanceFollowUp(result));
+
+        var stock = new Panel { PanelId = 2, Name = "Selectogen rare" };
+        var sda = new PanelCell { CellNumber = "4", SpecialTypes = "Sd(a-)" };
+        var recs = SelectedCellRecommender.Recommend(
+            result, Array.Empty<(int, string)>(), new[] { (stock, sda) });
+        Assert.Empty(recs);
+    }
+
+    [Fact]
+    public void QualitativePlasmaNote_RecommendsChNegativeSelectedCell()
+    {
+        var result = new AnalysisResult();
+        NeutralizationNotes.Apply(result, "neutralized with plasma", Array.Empty<Reaction>());
+        var stock = new Panel { PanelId = 2, Name = "0.8% selected cells" };
+        var ch = new PanelCell { CellNumber = "3", SpecialTypes = "Ch-" };
+        var recs = SelectedCellRecommender.Recommend(
+            result, Array.Empty<(int, string)>(), new[] { (stock, ch) });
+        Assert.Contains(recs, r => r.CellNumber == "3" && r.Explanation.Contains("Ch"));
+    }
+
     private static Reaction Rxn(string cell, string ahg, string neut) => new()
     {
         CellNumber = cell,

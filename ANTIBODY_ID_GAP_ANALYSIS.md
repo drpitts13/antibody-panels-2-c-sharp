@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 32 — Weiner vs typed Rh).
+Last updated: 2026-10-04 (iteration 33 — neutralization-cell ranking).
 
 ## Capability matrix
 
@@ -31,7 +31,7 @@ Last updated: 2026-10-04 (iteration 32 — Weiner vs typed Rh).
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint; Preferences can add Dil1–Dil128; Neut/Inhib vs IAT | More ISBT alleles later |
-| Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; expired shown only as last-resort “do not use” | Neutralization cells later |
+| Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK null/weak, Jk(a−b−)/Jk3, K0/KEL-null, GYPB U-var; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
@@ -499,8 +499,26 @@ inactive. Nothing is auto-identified.
 **Not in this tick:** More ISBT alleles, ABO vs reverse-cell notes,
 authenticated APIs.
 
+## Iteration 33 (this change)
+
+**Deficiency:** Neutralization notes explained IAT vs Neut, but unused
+inventory was never ranked for the matching antigen-negative cell
+(P1− after P1 substance, Ch− after plasma). Ordinary ID-panel P1−
+rows would have drowned those vials.
+
+**Bounded improvement:** When neutralization favors a soluble
+substance (lost IAT reactivity or a qualitative note), unused
+selected-cell vials or Special Types annotations that lack P1, Ch/Rg,
+Sd(a), or Lewis are recommended with a why sentence. Persistence after
+neutralization does not boost those cells. Ordinary panel P1− rows are
+not ranked. Nothing is auto-identified.
+
+**Not in this tick:** More ISBT alleles, saliva Le(a−b−) panel-wide
+ranking, authenticated APIs.
+
 ## Likely next tick
 
-More ISBT alleles, or neutralization-cell ranking. Authenticated vendor
-portals stay later and must not bypass auth, CAPTCHA, licensing, or terms.
+More ISBT alleles, or rule-version detail on analysis snapshots.
+Authenticated vendor portals stay later and must not bypass auth,
+CAPTCHA, licensing, or terms.
 
