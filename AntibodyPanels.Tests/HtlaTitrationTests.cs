@@ -204,6 +204,52 @@ public class HtlaTitrationTests
         Assert.False(result.RuledOut.ContainsKey("anti-Jk3"));
     }
 
+    [Fact]
+    public void PreferencesTiterGrid_DilutionPositive_AhgZero_StillRulesOut()
+    {
+        using var iso = new IsolatedDatabase();
+        var previous = AppSettings.Current.ExtraPhases;
+        try
+        {
+            AppSettings.Current.ExtraPhases = ExtraPhaseParser.FromSuggested(
+                false, false, false, false, "", titerGrid: true);
+            Assert.True(ExtraPhaseParser.ContainsTiterGrid(AppSettings.Current.ExtraPhases));
+
+            iso.Db.AddSpecimen("TITER-CONFLICT", "serum", null);
+            var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+            iso.Db.LinkSpecimenPanel("TITER-CONFLICT", panelId);
+            var cells = iso.Db.GetPanelCells(panelId);
+            iso.Db.UpdatePanelCellAntigen(cells[0].Id, "E", "+");
+            iso.Db.UpdatePanelCellAntigen(cells[0].Id, "e", "-");
+            iso.Db.UpdatePanelCellAntigen(cells[1].Id, "E", "-");
+            var runId = iso.Db.GetOrCreateDefaultRun("TITER-CONFLICT", panelId);
+            iso.Db.SaveReaction(runId, "1", "0", "0", "0", "2+", new Dictionary<string, string>
+            {
+                ["Dil1"] = "1+",
+                ["Dil2"] = "w+",
+                ["Dil4"] = "0"
+            });
+            iso.Db.SaveReaction(runId, "2", "0", "0", "0", "2+");
+
+            var loaded = iso.Db.GetReactions(runId).Single(r => r.CellNumber == "1");
+            Assert.Equal(2, TiterParser.Highest(null, loaded.ExtraPhases));
+            var ctx = new RunContext(new PanelRun());
+            Assert.True(ctx.IsNegative(loaded));
+            Assert.False(ctx.IsPositive(loaded));
+
+            var result = iso.Analyzer.AnalyzeSpecimen("TITER-CONFLICT", updateDb: false);
+            Assert.True(result.RuledOut.ContainsKey("anti-E"));
+            Assert.Contains(result.RuleoutEvaluations,
+                e => e.Antibody == "anti-E" && e.MeetsCriteria);
+            Assert.DoesNotContain(result.Suggestions,
+                s => s.Contains("identified", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            AppSettings.Current.ExtraPhases = previous;
+        }
+    }
+
     private static AnalysisResult HtlaResult()
     {
         var cells = Enumerable.Range(1, 8)

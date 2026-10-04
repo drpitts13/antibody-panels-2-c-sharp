@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 28 — titer-grid endpoint).
+Last updated: 2026-10-04 (iteration 29 — Preferences titer grid).
 
 ## Capability matrix
 
@@ -26,11 +26,11 @@ Last updated: 2026-10-03 (iteration 28 — titer-grid endpoint).
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
-| Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like | Custom method names later |
+| Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint, Neut/Inhib vs IAT | More dilution UI later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint; Preferences can add Dil1–Dil128; Neut/Inhib vs IAT | More ISBT alleles later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; expired shown only as last-resort “do not use” | Neutralization cells later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK null/weak, Jk(a−b−)/Jk3, K0/KEL-null, GYPB U-var; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
@@ -438,9 +438,25 @@ Nothing is auto-identified.
 **Not in this tick:** Preferences titer-grid checkbox, more ISBT alleles,
 authenticated APIs.
 
+## Iteration 29 (this change)
+
+**Deficiency:** Serial-dilution columns parsed as a titer only if the lab
+typed Dil1–Dil128 (or 1:n) into Extra phases. Tube-only Preferences had
+no control to add that grid, and the extra-phase list capped at 12 names
+so a titer grid plus Solid/Neut could be truncated.
+
+**Bounded improvement:** Preferences **Titer grid (Dil1–Dil128)** adds
+those columns. Unchecking removes them and keeps RT/PEG/Gel/Solid and
+custom names such as Neut. Dilution grades remain titer evidence, not
+IAT, and cannot prevent AHG-negative rule-out. Extra-phase cap raised
+to 24. Nothing is auto-identified.
+
+**Not in this tick:** More ISBT alleles, impossible-value import catalog,
+authenticated APIs.
+
 ## Likely next tick
 
-More ISBT alleles, or a Preferences control that adds Dil1–Dil128 columns.
+More ISBT alleles, or an impossible-value catalog on import review.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 

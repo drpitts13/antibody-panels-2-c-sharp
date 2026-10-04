@@ -25,6 +25,7 @@
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="36"/>
                 <RowDefinition Height="32"/>
+                <RowDefinition Height="32"/>
             </Grid.RowDefinitions>
 
             <Label Content="Lab name:" Grid.Row="0" VerticalAlignment="Center"/>
@@ -77,9 +78,9 @@
                       VerticalAlignment="Center" Margin="4,0,0,0"/>
 
             <Label Content="Extra phases:" Grid.Row="13" VerticalAlignment="Center"
-                   ToolTip="Optional extra reaction columns. Leave blank for the classic IS / 37°C / AHG / CC grid. Gel, Solid, and PEG count as IAT-like evidence."/>
+                   ToolTip="Optional extra reaction columns. Leave blank for the classic IS / 37°C / AHG / CC grid. Gel, Solid, and PEG count as IAT-like evidence. Dil1–Dil128 are serial-dilution titer columns, not identification phases."/>
             <TextBox x:Name="ExtraPhasesBox" Grid.Row="13" Grid.Column="1" VerticalAlignment="Center" Margin="0,2"
-                     ToolTip="Suggested: RT, PEG, Gel, Solid. Custom names are kept. Example: RT, PEG, Gel"
+                     ToolTip="Suggested: RT, PEG, Gel, Solid, and optional Dil1–Dil128. Custom names are kept. Dilution columns are not IAT."
                      TextChanged="ExtraPhasesBox_TextChanged"/>
 
             <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal"
@@ -94,6 +95,13 @@
                           VerticalAlignment="Center" Checked="SuggestedPhaseChanged" Unchecked="SuggestedPhaseChanged"
                           ToolTip="Solid-phase / Capture IAT column. Counts as IAT-like, not a diagnosis."/>
             </StackPanel>
+
+            <CheckBox x:Name="PhaseTiterGridCheck"
+                      Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2"
+                      Content="Titer grid (Dil1–Dil128)"
+                      VerticalAlignment="Center" Margin="4,0,0,0"
+                      ToolTip="Adds serial-dilution columns. Last reactive tube is the titer endpoint. These grades are not IAT and do not rule out or identify an antibody."
+                      Checked="SuggestedPhaseChanged" Unchecked="SuggestedPhaseChanged"/>
         </Grid>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">

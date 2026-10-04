@@ -55,18 +55,20 @@ namespace AntibodyPanels.Views.Dialogs
                 PhasePegCheck.IsChecked == true,
                 PhaseGelCheck.IsChecked == true,
                 PhaseSolidCheck.IsChecked == true,
-                ExtraPhasesBox.Text);
+                ExtraPhasesBox.Text,
+                PhaseTiterGridCheck.IsChecked == true);
             _syncingPhases = false;
         }
 
         private void SyncSuggestedChecks()
         {
-            if (PhaseRtCheck == null) return;
+            if (PhaseRtCheck == null || PhaseTiterGridCheck == null) return;
             _syncingPhases = true;
             PhaseRtCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "RT");
             PhasePegCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "PEG");
             PhaseGelCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "Gel");
             PhaseSolidCheck.IsChecked = ExtraPhaseParser.Contains(ExtraPhasesBox.Text, "Solid");
+            PhaseTiterGridCheck.IsChecked = ExtraPhaseParser.ContainsTiterGrid(ExtraPhasesBox.Text);
             _syncingPhases = false;
         }
 

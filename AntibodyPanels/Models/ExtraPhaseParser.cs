@@ -72,21 +72,35 @@ namespace AntibodyPanels.Models
                    ?? trimmed;
         }
 
+        public static bool IsTiterGridName(string? name) =>
+            !string.IsNullOrWhiteSpace(name) &&
+            TiterGridNames.Any(n => string.Equals(n, name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// True when every Dil1–Dil128 column is present. Partial lists stay custom.
+        /// </summary>
+        public static bool ContainsTiterGrid(string? configured) =>
+            TiterGridNames.All(n => Contains(configured, n));
+
         /// <summary>
         /// Builds the lab ExtraPhases list from suggested method columns plus any
         /// custom names already stored. Empty stays empty — tube-only labs keep
-        /// the classic IS / 37°C / AHG / CC grid.
+        /// the classic IS / 37°C / AHG / CC grid. Dilution columns are not IAT.
         /// </summary>
-        public static string FromSuggested(bool rt, bool peg, bool gel, bool solid, string? current = null)
+        public static string FromSuggested(
+            bool rt, bool peg, bool gel, bool solid, string? current = null, bool titerGrid = false)
         {
             var custom = Parse(current)
-                .Where(n => !Suggested.Any(s => string.Equals(s, n, StringComparison.OrdinalIgnoreCase)))
+                .Where(n =>
+                    !Suggested.Any(s => string.Equals(s, n, StringComparison.OrdinalIgnoreCase)) &&
+                    !IsTiterGridName(n))
                 .ToList();
             var list = new List<string>();
             if (rt) list.Add("RT");
             if (peg) list.Add("PEG");
             if (gel) list.Add("Gel");
             if (solid) list.Add("Solid");
+            if (titerGrid) list.AddRange(TiterGridNames);
             list.AddRange(custom);
             return string.Join(", ", list);
         }
@@ -118,7 +132,7 @@ namespace AntibodyPanels.Models
                 if (Reserved.Contains(name)) continue;
                 if (!seen.Add(name)) continue;
                 list.Add(name);
-                if (list.Count >= 12) break;
+                if (list.Count >= 24) break;
             }
             return list;
         }

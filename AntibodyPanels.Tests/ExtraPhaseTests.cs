@@ -33,10 +33,35 @@ public class ExtraPhaseTests
     {
         Assert.Empty(ExtraPhaseParser.Parse(""));
         Assert.Equal("", ExtraPhaseParser.FromSuggested(false, false, false, false, ""));
+        Assert.Equal("", ExtraPhaseParser.FromSuggested(false, false, false, false, "", titerGrid: false));
         Assert.Equal("", ExtraPhaseParser.NormalizeList(null));
         var settings = LabSettings.CreateDefault();
         settings.Clamp();
         Assert.Equal("", settings.ExtraPhases);
+        Assert.False(ExtraPhaseParser.ContainsTiterGrid(""));
+        Assert.False(ExtraPhaseParser.ContainsTiterGrid("Dil1, Dil4"));
+    }
+
+    [Fact]
+    public void FromSuggested_TiterGrid_AddsDilutionsWithoutMakingThemIat()
+    {
+        var enabled = ExtraPhaseParser.FromSuggested(false, false, false, true, "Neut", titerGrid: true);
+        Assert.Contains("Solid", enabled);
+        Assert.Contains("Neut", enabled);
+        foreach (var name in ExtraPhaseParser.TiterGridNames)
+        {
+            Assert.Contains(name, ExtraPhaseParser.Parse(enabled));
+            Assert.False(ExtraPhaseParser.IsIatLike(name));
+        }
+        Assert.True(ExtraPhaseParser.ContainsTiterGrid(enabled));
+        Assert.Equal(ExtraPhaseParser.TiterGridNames.Count + 2, ExtraPhaseParser.Parse(enabled).Count);
+
+        var off = ExtraPhaseParser.FromSuggested(false, false, false, true, enabled, titerGrid: false);
+        Assert.Equal("Solid, Neut", off);
+        Assert.False(ExtraPhaseParser.ContainsTiterGrid(off));
+
+        var gelKept = ExtraPhaseParser.FromSuggested(false, false, true, false, "1:8, Gel", titerGrid: false);
+        Assert.Equal("Gel, 1:8", gelKept);
     }
 
     [Fact]
