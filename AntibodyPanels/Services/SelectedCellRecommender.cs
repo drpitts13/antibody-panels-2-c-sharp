@@ -24,7 +24,7 @@ namespace AntibodyPanels.Services
             IEnumerable<(Panel Panel, PanelCell Cell)> inventory)
         {
             var candidates = ResolveCandidates(result);
-            if (candidates.Count == 0) return new();
+            if (candidates.Count == 0 && !NeedsRareNegativeCell(result)) return new();
 
             var tested = new HashSet<(int, string)>(alreadyTested);
             var scored = new List<SelectedCellRecommendation>();
@@ -109,7 +109,7 @@ namespace AntibodyPanels.Services
                 }
             }
 
-            if (present.Count == 0 && absent.Count == 0)
+            if (present.Count == 0 && absent.Count == 0 && !NeedsRareNegativeCell(result))
                 return null;
 
             foreach (var plus in present)
@@ -137,6 +137,8 @@ namespace AntibodyPanels.Services
                 reasons.Add("comes from an unused selected-cell vial");
             }
 
+            ApplyRareNegatives(cell, result, ref score, reasons);
+
             if (score <= 0) return null;
 
             var profile = string.Join(" ", candidates
@@ -144,6 +146,11 @@ namespace AntibodyPanels.Services
                 .Distinct()
                 .Where(cell.HasTypedAntigen)
                 .Select(ag => ag + cell.GetAntigen(ag)));
+            if (string.IsNullOrWhiteSpace(profile))
+            {
+                profile = string.Join(" ", RareAntigenReader.Negatives(cell)
+                    .Select(ag => ag + "-"));
+            }
 
             var distinguishes = present
                 .SelectMany(plus => absent.Select(minus => $"{plus} vs {minus}"))
@@ -176,7 +183,9 @@ namespace AntibodyPanels.Services
                            r.StartsWith("distinguishes", StringComparison.Ordinal) ||
                            r.Contains("homozygous", StringComparison.Ordinal) ||
                            r.Contains("may add", StringComparison.Ordinal) ||
-                           r.StartsWith("expresses", StringComparison.Ordinal))
+                           r.Contains("may help evaluate", StringComparison.Ordinal) ||
+                           r.StartsWith("expresses", StringComparison.Ordinal) ||
+                           r.StartsWith("types ", StringComparison.Ordinal))
                        ?? reasons.FirstOrDefault(r =>
                            r != phenotype && r != vial);
 
@@ -200,6 +209,21 @@ namespace AntibodyPanels.Services
             if (parts.Count == 0)
                 return $"{where} types remaining candidate antigens.";
             return $"{where} is useful because it {string.Join("; it ", parts)}.";
+        }
+
+        public static bool NeedsRareNegativeCell(AnalysisResult result) =>
+            result.ReactionPatterns.Any(p =>
+                p.Kind is ReactionPatternClassifier.Htla or ReactionPatternClassifier.HighPrevalence);
+
+        private static void ApplyRareNegatives(
+            PanelCell cell, AnalysisResult result, ref int score, List<string> reasons)
+        {
+            if (!NeedsRareNegativeCell(result)) return;
+            var negatives = RareAntigenReader.Negatives(cell);
+            if (negatives.Count == 0) return;
+            score += 4;
+            var shown = string.Join(", ", negatives.Take(3).Select(ag => ag + "−"));
+            reasons.Add($"types {shown} and may help evaluate an HTLA or high-prevalence pattern");
         }
 
         public static bool LooksLikeSelectedCellVial(Panel panel)

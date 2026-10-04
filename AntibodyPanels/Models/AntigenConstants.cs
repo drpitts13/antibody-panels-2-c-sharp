@@ -84,6 +84,19 @@ namespace AntibodyPanels.Models
         public static readonly IReadOnlyList<string> WarehouseAntigens =
             WarehouseCatalog.Select(d => d.Name).ToList();
 
+        /// <summary>
+        /// High-prevalence antigens used to find unused Ag− cells for HTLA /
+        /// high-prevalence workups. Not a diagnosis list.
+        /// </summary>
+        public static readonly IReadOnlyList<string> HighPrevalenceAntigens = new[]
+        {
+            "k", "Kpb", "Jsb", "Lub",
+            "Yta", "Vel", "Coa", "Dib", "Wrb", "U",
+            "Ge2", "Ge3", "Sc1", "LWa",
+            "Kna", "McCa", "Yka", "Hy", "Joa",
+            "Inb", "Jra", "Cra", "Ata", "Lan", "Ch", "Rg"
+        };
+
         public static readonly IReadOnlyList<string> AllKnownAntigens =
             Antigens.Concat(WarehouseAntigens).ToList();
 

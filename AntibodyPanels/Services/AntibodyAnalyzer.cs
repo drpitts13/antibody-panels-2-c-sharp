@@ -79,6 +79,7 @@ namespace AntibodyPanels.Services
             ApplyPatientTyping(specimenId, result);
             result.SpecialReactionNotes = DescribeSpecialGrades(reactions);
             result.ReactionPatterns = ClassifyReactionPatterns(byRun, contexts);
+            ApplyHtlaTitration(specimenId, result, reactions);
             result.SelectedCellRecommendations = RecommendSelectedCells(reactions, result);
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
@@ -1168,6 +1169,13 @@ namespace AntibodyPanels.Services
                 specimen.Phenotype, specimen.PreviousAntibodies, specimen.Notes, specimen.Genotype);
             result.PatientPhenotypeUnreliable = typing.PhenotypeUnreliable;
             result.PatientTypingConsiderations = PatientTypingParser.Evaluate(typing);
+        }
+
+        private void ApplyHtlaTitration(string specimenId, AnalysisResult result, List<Reaction> reactions)
+        {
+            var specimen = _db.GetSpecimen(specimenId);
+            var extras = reactions.SelectMany(r => r.ExtraPhases);
+            HtlaTitrationNotes.Apply(result, TiterParser.Highest(specimen?.Notes, extras));
         }
 
         private List<SelectedCellRecommendation> RecommendSelectedCells(

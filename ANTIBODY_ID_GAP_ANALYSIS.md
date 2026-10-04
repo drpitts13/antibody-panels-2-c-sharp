@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-03 (iteration 20 — selected-cell vial and phenotype ranking).
+Last updated: 2026-10-03 (iteration 21 — HTLA titer notes and rare Ag− cells).
 
 ## Capability matrix
 
@@ -30,8 +30,8 @@ Last updated: 2026-10-03 (iteration 20 — selected-cell vial and phenotype rank
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | Cold/warm/mixed/panreactive plus HTLA, AC-based HFA vs auto, and LFA | Stronger HTLA titration later |
-| Analysis | Selected-cell recommendations with “why” | Partial | Unused inventory ranked; selected-cell vials and patient Ag− types get a reviewable boost | Rare Ag− / expired-vial later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA note now uses a recorded titer when present; still not a diagnosis | Neutralization / full titer grid later |
+| Analysis | Selected-cell recommendations with “why” | Partial | Unused vials, patient Ag−, and rare high-prevalence Ag− cells for HTLA/HFA | Expired-vial later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | Phenotype text plus specimen genotype (alleles or predicted marks); transfusion still blinds serology only | Allele catalog / variant risk notes later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
@@ -322,9 +322,24 @@ recommendations, not a diagnosis.
 **Not in this tick:** HTLA titration workflow, expired-vial filtering,
 authenticated APIs.
 
+## Iteration 21 (this change)
+
+**Deficiency:** HTLA notes only said “consider titration.” A recorded titer
+in Notes or a Titer extra-phase was ignored, and unused Yt(a−) / Vel−
+cells were never ranked when the sheet looked HTLA or high-prevalence.
+
+**Bounded improvement:** Parse a recorded titer (notes or Titer/Dilution
+column). Titer ≥16 strengthens the HTLA sentence; a low titer warns that
+it may not be HTLA. When HTLA or high-prevalence is present, unused cells
+typed or annotated as high-prevalence Ag− are recommended. Nothing is
+auto-identified.
+
+**Not in this tick:** Neutralization workflow, expired-vial filtering,
+authenticated APIs.
+
 ## Likely next tick
 
-Stronger HTLA titration notes, or rare-antigen selected cells.
+Allele catalog / variant risk notes, or expired selected-cell filtering.
 Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
 licensing, or terms.
 
