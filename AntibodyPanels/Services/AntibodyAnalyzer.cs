@@ -93,6 +93,7 @@ namespace AntibodyPanels.Services
                 .Distinct()
                 .ToDictionary(id => id, id => _db.GetPanelCells(id));
             EnzymeTreatmentPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
+            DttTreatmentPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
 
