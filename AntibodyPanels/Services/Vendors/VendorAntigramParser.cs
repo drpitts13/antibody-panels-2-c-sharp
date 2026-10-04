@@ -95,11 +95,17 @@ namespace AntibodyPanels.Services.Vendors
 
             var antigenCols = new List<(int Index, string Antigen)>();
             var order = new List<string>();
+            var unknown = new List<string>();
             for (int i = 0; i < header.Length; i++)
             {
                 if (i == cellIdx) continue;
                 var ag = VendorAntigenAliases.Resolve(header[i]);
-                if (ag == null || antigenCols.Any(c => c.Antigen == ag)) continue;
+                if (ag == null)
+                {
+                    PanelTypingInspector.TryRecordUnknownHeader(header[i], unknown);
+                    continue;
+                }
+                if (antigenCols.Any(c => c.Antigen == ag)) continue;
                 antigenCols.Add((i, ag));
                 order.Add(ag);
             }
@@ -107,6 +113,7 @@ namespace AntibodyPanels.Services.Vendors
                 return Fail(vendor, listing, fileName, "CSV has no recognized antigen columns.");
 
             var result = SeedResult(vendor, listing, fileName, text ?? fileName);
+            result.UnknownAntigens.AddRange(unknown);
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int r = 1; r < rows.Count; r++)
             {

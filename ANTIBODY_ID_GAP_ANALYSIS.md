@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 29 — Preferences titer grid).
+Last updated: 2026-10-04 (iteration 30 — import typing catalog).
 
 ## Capability matrix
 
@@ -19,10 +19,10 @@ Last updated: 2026-10-04 (iteration 29 — Preferences titer grid).
 | Import | PDF | Partial | PdfPig positional grid; layout-fragile | Harden after schema work |
 | Import | XLSX / XML / JSON panels | Present | JSON/XML structured schema; first-sheet XLSX via zip/shared strings; same inactive+artifact review | Multi-sheet XLSX later |
 | Import | Vendor APIs / authenticated portals | Missing | Public HTML + file import only. Do not bypass auth, CAPTCHA, licensing, or terms | Secrets storage only if a vendor authorizes access |
-| Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-`/`++`/NT | Impossible-value catalog later |
+| Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; antigens stored as `+`/`-`/`++`/NT; import review flags ++ vs partner+ | Null-phenotype catalog later |
 | Common model | Homozygous / heterozygous / negative / unknown / NT | Present | Import and panel editor persist `++` / NT; rule-out and search use explicit ++ or typed partner − | Combo/list editors later |
-| Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | Impossible-value checks later |
-| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` not coerced to `-`; vendor and lab CSV compare antigen schema vs prior lot | Impossible-value catalog later |
+| Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | — |
+| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | NT/`?` not coerced to `-`; schema vs prior lot; ++ vs partner+ and unknown columns on review | Broader phenotype-null catalog later |
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
@@ -454,9 +454,25 @@ to 24. Nothing is auto-identified.
 **Not in this tick:** More ISBT alleles, impossible-value import catalog,
 authenticated APIs.
 
+## Iteration 30 (this change)
+
+**Deficiency:** Import review compared antigen *headers* to the prior lot,
+but a cell marked E++ with e+ still looked like a clean homozygous type,
+and columns the catalog does not know (Fy3, vendor extras) disappeared
+without a review sentence.
+
+**Bounded improvement:** `PanelTypingInspector` flags homozygous ++ with
+a positive antithetical partner, unrecognized type tokens, and unknown
+antigen columns. Issues appear on the inactive-lot review. Heterozygous
++/+ and ++ with an untyped or negative partner stay silent. Unknown
+columns are not imported. Nothing is auto-activated or identified.
+
+**Not in this tick:** Null-phenotype catalogs (K0, Rhnull), more ISBT
+alleles, authenticated APIs.
+
 ## Likely next tick
 
-More ISBT alleles, or an impossible-value catalog on import review.
-Authenticated vendor portals stay later and must not bypass auth, CAPTCHA,
-licensing, or terms.
+More ISBT alleles, or a review note for rare null phenotypes (both
+antitheticals negative). Authenticated vendor portals stay later and
+must not bypass auth, CAPTCHA, licensing, or terms.
 

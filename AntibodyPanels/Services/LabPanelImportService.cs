@@ -76,7 +76,8 @@ namespace AntibodyPanels.Services
                 sourceSha256: sha,
                 sourceArtifactPath: artifactPath);
 
-            _db.ReplacePanelCells(id, ToCells(parsed));
+            var storedCells = ToCells(parsed);
+            _db.ReplacePanelCells(id, storedCells);
             if (parsed.AntigenHeaderOrder.Count > 0)
                 _db.SetPanelAntigenOrder(id, parsed.AntigenHeaderOrder);
 
@@ -92,6 +93,7 @@ namespace AntibodyPanels.Services
                 PriorPanelId = prior?.PanelId,
                 Schema = PanelImportReviewer.CompareSchema(parsed.AntigenHeaderOrder, priorAntigens),
                 StoredInactive = true,
+                TypingIssues = PanelTypingInspector.Inspect(storedCells, parsed.UnknownHeaders)
             };
             review.Explanation = PanelImportReviewer.Explain(review, request.LotNumber, request.Vendor);
             return new PanelImportOutcome { PanelId = id, Review = review };

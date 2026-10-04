@@ -27,6 +27,7 @@ namespace AntibodyPanels.Services
         public string? PriorLotNumber { get; set; }
         public int? PriorPanelId { get; set; }
         public SchemaDiff Schema { get; set; } = new();
+        public List<PanelTypingIssue> TypingIssues { get; set; } = new();
         public bool StoredInactive { get; set; } = true;
         public string Explanation { get; set; } = string.Empty;
     }
@@ -75,8 +76,23 @@ namespace AntibodyPanels.Services
                 if (review.Schema.Removed.Count > 0)
                     sb.Append(" Removed: ").Append(string.Join(", ", review.Schema.Removed)).Append('.');
             }
+            AppendTypingIssues(sb, review.TypingIssues);
             sb.Append(" Activate only after a qualified user reviews the antigram. This is not a diagnosis.");
             return sb.ToString();
+        }
+
+        private static void AppendTypingIssues(StringBuilder sb, IReadOnlyList<PanelTypingIssue> issues)
+        {
+            if (issues == null || issues.Count == 0) return;
+            sb.Append(" Typing review: ");
+            const int cap = 12;
+            for (int i = 0; i < issues.Count && i < cap; i++)
+            {
+                if (i > 0) sb.Append(' ');
+                sb.Append(issues[i].Explanation);
+            }
+            if (issues.Count > cap)
+                sb.Append(" Additional typing issues were omitted from this summary.");
         }
 
         private static List<string> Normalize(IEnumerable<string> antigens) =>

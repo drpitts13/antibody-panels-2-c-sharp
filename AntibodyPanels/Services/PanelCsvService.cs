@@ -21,6 +21,7 @@ namespace AntibodyPanels.Services
         public List<ImportedPanelCell> Cells { get; } = new();
         public List<string> Errors { get; } = new();
         public List<string> AntigenHeaderOrder { get; } = new();
+        public List<string> UnknownHeaders { get; } = new();
         public byte[]? SourceBytes { get; set; }
         public string? SourceFileName { get; set; }
         public string? SourcePath { get; set; }
@@ -132,6 +133,8 @@ namespace AntibodyPanels.Services
                 var name = raw.Trim();
                 if (AntigenConstants.IsKnown(name) && !result.AntigenHeaderOrder.Contains(name))
                     result.AntigenHeaderOrder.Add(name);
+                else
+                    PanelTypingInspector.TryRecordUnknownHeader(name, result.UnknownHeaders);
             }
 
             int rowNum = 1;

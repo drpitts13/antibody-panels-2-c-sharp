@@ -50,6 +50,7 @@ namespace AntibodyPanels.Services.Vendors
         public string? SpecialNotes { get; set; }
         public List<PanelCell> Cells { get; } = new();
         public List<string> AntigenOrder { get; } = new();
+        public List<string> UnknownAntigens { get; } = new();
         public List<string> Errors { get; } = new();
         public bool Success => Errors.Count == 0 && Cells.Count > 0;
     }

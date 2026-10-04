@@ -96,6 +96,7 @@ namespace AntibodyPanels.Services.Vendors
                 PriorPanelId = prior?.PanelId,
                 Schema = PanelImportReviewer.CompareSchema(incoming, priorAntigens),
                 StoredInactive = true,
+                TypingIssues = PanelTypingInspector.Inspect(parsed.Cells, parsed.UnknownAntigens)
             };
             review.Explanation = PanelImportReviewer.Explain(review, parsed.LotNumber, parsed.Vendor);
             return new PanelImportOutcome { PanelId = id, Review = review };

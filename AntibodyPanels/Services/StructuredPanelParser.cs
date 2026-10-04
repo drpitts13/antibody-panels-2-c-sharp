@@ -51,6 +51,7 @@ namespace AntibodyPanels.Services
         {
             var result = new PanelCsvImportResult();
             result.Errors.AddRange(parsed.Errors);
+            result.UnknownHeaders.AddRange(parsed.UnknownAntigens);
             foreach (var ag in parsed.AntigenOrder)
             {
                 if (!result.AntigenHeaderOrder.Contains(ag))
@@ -97,6 +98,8 @@ namespace AntibodyPanels.Services
             {
                 var ag = VendorAntigenAliases.Resolve(raw);
                 if (ag != null && !order.Contains(ag)) order.Add(ag);
+                else if (ag == null)
+                    PanelTypingInspector.TryRecordUnknownHeader(raw, result.UnknownAntigens);
             }
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -121,7 +124,11 @@ namespace AntibodyPanels.Services
                 foreach (var pair in src.Antigens)
                 {
                     var ag = VendorAntigenAliases.Resolve(pair.Key);
-                    if (ag == null) continue;
+                    if (ag == null)
+                    {
+                        PanelTypingInspector.TryRecordUnknownHeader(pair.Key, result.UnknownAntigens);
+                        continue;
+                    }
                     var required = AntigenConstants.IsStandard(ag);
                     var value = VendorAntigenAliases.NormalizeValue(pair.Value, required);
                     if (value == null)

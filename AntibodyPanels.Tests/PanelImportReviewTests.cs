@@ -1,3 +1,4 @@
+using AntibodyPanels.Models;
 using AntibodyPanels.Services;
 using AntibodyPanels.Services.Vendors;
 using AntibodyPanels.Tests.Infrastructure;
@@ -96,6 +97,64 @@ public class PanelImportReviewTests
         Assert.False(outcome.Review.Schema.Changed);
         Assert.Equal("LOT-1", outcome.Review.PriorLotNumber);
         Assert.Contains("matches prior lot LOT-1", outcome.Review.Explanation);
+    }
+
+    [Fact]
+    public void Inspector_FlagsHomozygousConflict_NotHeterozygousOrUntypedPartner()
+    {
+        var conflict = new PanelCell { CellNumber = "1" };
+        conflict.SetAntigen("E", "++");
+        conflict.SetAntigen("e", "+");
+        var het = new PanelCell { CellNumber = "2" };
+        het.SetAntigen("E", "+");
+        het.SetAntigen("e", "+");
+        var homo = new PanelCell { CellNumber = "3" };
+        homo.SetAntigen("E", "++");
+        homo.SetAntigen("e", "-");
+        var untyped = new PanelCell { CellNumber = "4" };
+        untyped.SetAntigen("E", "++");
+
+        var issues = PanelTypingInspector.Inspect(new[] { conflict, het, homo, untyped });
+        Assert.Contains(issues, i => i.Kind == PanelTypingInspector.ImpossibleValue
+            && i.CellNumber == "1" && i.Explanation.Contains("E") && i.Explanation.Contains("e"));
+        Assert.DoesNotContain(issues, i => i.CellNumber is "2" or "3" or "4");
+    }
+
+    [Fact]
+    public void Inspector_HighlightsUnknownAntigens_AndInvalidValues()
+    {
+        var cell = new PanelCell { CellNumber = "7" };
+        cell.SetAntigen("K", "5+");
+        var issues = PanelTypingInspector.Inspect(new[] { cell }, new[] { "Fy3", "Donor", "K" });
+        Assert.Contains(issues, i => i.Kind == PanelTypingInspector.UnknownAntigen
+            && i.Explanation.Contains("Fy3") && !i.Explanation.Contains("Donor"));
+        Assert.Contains(issues, i => i.Kind == PanelTypingInspector.InvalidValue
+            && i.CellNumber == "7" && i.Explanation.Contains("5+"));
+    }
+
+    [Fact]
+    public void Import_HomozygousConflictAndUnknownColumn_StayInactiveWithReview()
+    {
+        using var iso = new IsolatedDatabase();
+        var parsed = ParseCsv("""
+            Cell,D,C,c,E,e,Fy3
+            1,+,-,-,++,+,+
+            2,-,+,+,+,-,-
+            """, "LOT-CONFLICT", "10-cell");
+
+        Assert.Contains("Fy3", parsed.UnknownAntigens);
+        var outcome = new VendorPanelImportService(iso.Db).Import(parsed);
+        Assert.False(iso.Db.GetPanel(outcome.PanelId)!.IsActive);
+        Assert.Contains(outcome.Review.TypingIssues, i => i.Kind == PanelTypingInspector.ImpossibleValue);
+        Assert.Contains(outcome.Review.TypingIssues, i => i.Kind == PanelTypingInspector.UnknownAntigen);
+        Assert.Contains("marks E homozygous", outcome.Review.Explanation);
+        Assert.Contains("Unknown antigen columns were not imported: Fy3", outcome.Review.Explanation);
+        Assert.Contains("not a diagnosis", outcome.Review.Explanation, StringComparison.OrdinalIgnoreCase);
+        var cells = iso.Db.GetPanelCells(outcome.PanelId);
+        var cell1 = cells.Single(c => c.CellNumber == "1");
+        Assert.DoesNotContain(cell1.Antigens.Keys, k => k.Equals("Fy3", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("++", cell1.GetTypedValue("E"));
+        Assert.Equal("+", cell1.GetTypedValue("e"));
     }
 
     [Fact]
