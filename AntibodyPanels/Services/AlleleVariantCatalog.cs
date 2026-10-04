@@ -84,6 +84,23 @@ namespace AntibodyPanels.Services
                    u.Contains("EL");
         }
 
+        public static bool IsRhceVariantE(string allele)
+        {
+            var u = NormalizeKey(allele);
+            return u.Contains("AR") || u.Contains("EK") || u.Contains("MO") ||
+                   u.Contains("VS") || u.Contains("CF") || u.Contains("AG");
+        }
+
+        /// <summary>
+        /// Partial / variant C (CeRN, HAR, C^w). Predicted C+ does not rule out alloanti-C.
+        /// </summary>
+        public static bool IsRhceVariantC(string allele)
+        {
+            var u = NormalizeKey(allele);
+            if (IsRhceVariantE(u)) return false;
+            return u.Contains("CERN") || u.Contains("HAR") || u.Contains("CW");
+        }
+
         public static bool IsGataSilencing(string allele)
         {
             var u = NormalizeKey(allele);
@@ -162,8 +179,15 @@ namespace AntibodyPanels.Services
                     Explanation =
                         $"RHD*{allele} is a weak D or partial D variant. Serologic D type and anti-D risk need review; reagent-dependent D typing is common. Not a diagnosis."
                 },
-                "RHCE" when u.Contains("AR") || u.Contains("EK") || u.Contains("MO") ||
-                            u.Contains("VS") || u.Contains("CF") || u.Contains("AG") => new AlleleVariantNote
+                "RHCE" when IsRhceVariantC(allele) => new AlleleVariantNote
+                {
+                    Antibody = "anti-C",
+                    Antigen = "C",
+                    Allele = "RHCE*" + allele,
+                    Explanation =
+                        $"RHCE*{allele} is a variant C haplotype (CeRN / HAR / C^w-like). The patient may type C+ and still make a C-like alloantibody. Predicted C+ does not rule out anti-C. Not a diagnosis."
+                },
+                "RHCE" when IsRhceVariantE(allele) => new AlleleVariantNote
                 {
                     Antibody = "anti-e",
                     Antigen = "e",

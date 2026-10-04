@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 35 — GYPA null / En(a) alleles).
+Last updated: 2026-10-04 (iteration 36 — RHCE variant C / CeRN).
 
 ## Capability matrix
 
@@ -32,7 +32,7 @@ Last updated: 2026-10-04 (iteration 35 — GYPA null / En(a) alleles).
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint; Preferences can add Dil1–Dil128; Neut/Inhib vs IAT | More ISBT alleles later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
-| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK/KEL/GYPB nulls; GYPA*01N/Mk predict M−/N− with En(a) review; GATA still does not support anti-Fya | More RHCE/RHD alleles later |
+| Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce is case-sensitive; CeRN/HAR/C^w variant-C notes; GATA still does not support anti-Fya | More RHD/RHCE alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + snapshots with rule-engine version and per-antibody rule JSON; Explain/Summary/report show the policy | User/operator on snapshot later |
@@ -546,9 +546,24 @@ GYPA*01/GYPA*02 stays silent. Nothing is auto-identified.
 **Not in this tick:** RHCE*CeRN / more RHD alleles, operator on snapshots,
 authenticated APIs.
 
+## Iteration 36 (this change)
+
+**Deficiency:** RHCE haplotype parsing used case-insensitive "ce", so
+RHCE*Ce and RHCE*CeRN were treated as little-c haplotypes. Variant C
+(CeRN / HAR / C^w) had no review note, so predicted C+ looked like it
+could rule out anti-C.
+
+**Bounded improvement:** C vs c in RHCE alleles is case-sensitive. CeRN
+still predicts C+e+ (with c+ if the partner is ce) and adds a variant-C
+note that predicted C+ does not rule out anti-C. Ordinary RHCE*Ce/ce
+stays silent. ceAR remains a variant-e note. Nothing is auto-identified.
+
+**Not in this tick:** More RHD DAR/DVI catalog rows, never-imported
+specificity classifiers, authenticated APIs.
+
 ## Likely next tick
 
-RHCE variant-C alleles (CeRN), or never-imported specificity classifiers.
+Never-imported specificity classifiers, or operator identity on snapshots.
 Authenticated vendor portals stay later and must not bypass auth,
 CAPTCHA, licensing, or terms.
 

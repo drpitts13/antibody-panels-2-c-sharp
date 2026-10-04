@@ -334,13 +334,13 @@ namespace AntibodyPanels.Services
             if (core is "02" or "2") return "Ce";
             if (core is "03" or "3") return "cE";
             if (core is "04" or "4") return "CE";
-            if (core.StartsWith("ce", StringComparison.OrdinalIgnoreCase)) return "ce";
-            if (core.Equals("ce", StringComparison.OrdinalIgnoreCase)) return "ce";
-            if (core.Equals("CE", StringComparison.Ordinal)) return "CE";
-            if (core.Length == 2 && core[0] == 'C' && (core[1] == 'e' || core[1] == 'E'))
-                return core[1] == 'E' ? "CE" : "Ce";
-            if (core.Length == 2 && core[0] == 'c' && (core[1] == 'e' || core[1] == 'E'))
-                return core[1] == 'E' ? "cE" : "ce";
+            // C vs c is case-sensitive. IgnoreCase "ce" would turn CeRN and CE into ce.
+            if (core.Length >= 2 &&
+                (core[0] is 'C' or 'c') &&
+                (core[1] is 'E' or 'e'))
+            {
+                return string.Concat(core[0] == 'C' ? 'C' : 'c', core[1] == 'E' ? 'E' : 'e');
+            }
             return null;
         }
 

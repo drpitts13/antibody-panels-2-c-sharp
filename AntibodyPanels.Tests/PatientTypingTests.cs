@@ -140,6 +140,52 @@ public class PatientTypingTests
     }
 
     [Fact]
+    public void Parse_RhceCeSlashCe_PredictsCPositive_NotLittleCOnly()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "RHCE*Ce/ce");
+        Assert.Equal("+", typing.PredictedAntigens["C"]);
+        Assert.Equal("+", typing.PredictedAntigens["c"]);
+        Assert.Equal("-", typing.PredictedAntigens["E"]);
+        Assert.Equal("+", typing.PredictedAntigens["e"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.DoesNotContain(ev, c => c.Kind == PatientTypingKind.Variant && c.Antibody == "anti-C");
+    }
+
+    [Fact]
+    public void CeRN_PredictsCPositive_AndWarnsDoesNotRuleOutAntiC()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "RHCE*CeRN/ce");
+        Assert.Equal("+", typing.PredictedAntigens["C"]);
+        Assert.Equal("+", typing.PredictedAntigens["c"]);
+        Assert.Equal("+", typing.PredictedAntigens["e"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-C" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "+");
+        Assert.Contains(ev, c => c.Antibody == "anti-C" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(ev, c => c.Explanation.Contains("does not rule out anti-C", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-e" && c.Kind == PatientTypingKind.Variant);
+    }
+
+    [Fact]
+    public void Analyzer_CeRN_DoesNotAutoIdentifyAntiC()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("CERN", "serum", null, notes: null, phenotype: "C+",
+            previousAntibodies: null, datResult: null, genotype: "RHCE*CeRN/ce");
+        var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+        iso.Db.LinkSpecimenPanel("CERN", panelId);
+        iso.Db.SaveReaction("CERN", panelId, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction("CERN", panelId, "2", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("CERN", updateDb: false);
+        Assert.Contains(result.PatientTypingConsiderations,
+            c => c.Antibody == "anti-C" && c.Kind == PatientTypingKind.Variant);
+        Assert.False(result.RuledOut.ContainsKey("anti-C"));
+        Assert.DoesNotContain(result.Suspected.Keys, k => k.Equals("anti-C", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(result.Suggestions, s => s.Contains("identified", StringComparison.OrdinalIgnoreCase)
+                                                       && s.Contains("anti-C", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void GataFy01N_DoesNotSupportAlloAntiFya()
     {
         var typing = PatientTypingParser.Parse(null, null, null, "FY*01N.01/FY*02");
