@@ -376,6 +376,13 @@ namespace AntibodyPanels.Services
 
         private static string? NormalizeGypa(string allele)
         {
+            if (AlleleVariantCatalog.IsGypaNull(allele))
+            {
+                var u = allele.Trim().ToUpperInvariant().Replace(" ", "", StringComparison.Ordinal);
+                if (u.Contains("01N")) return "M0";
+                if (u.Contains("02N")) return "N0";
+                return "GP0";
+            }
             var core = allele.Split('.')[0];
             if (core.Equals("M", StringComparison.OrdinalIgnoreCase) || core is "01" or "1") return "M";
             if (core.Equals("N", StringComparison.OrdinalIgnoreCase) || core is "02" or "2") return "N";

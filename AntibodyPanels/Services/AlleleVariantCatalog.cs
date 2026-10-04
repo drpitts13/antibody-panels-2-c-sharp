@@ -56,6 +56,12 @@ namespace AntibodyPanels.Services
                 notes.Add(Jk3Note());
             }
 
+            if (IsGypaEnaRisk(genotype) &&
+                notes.TrueForAll(n => n.Antibody != "anti-Ena"))
+            {
+                notes.Add(EnaNote());
+            }
+
             return notes;
         }
 
@@ -107,6 +113,15 @@ namespace AntibodyPanels.Services
             if (u.Contains("02M") || u.Contains("KMOD")) return false;
             return u.Contains("01N") || u.Contains("02N") ||
                    u.Contains("K0") || u.Contains("KNULL") || u.Contains("NULL");
+        }
+
+        public static bool IsGypaNull(string allele)
+        {
+            var u = NormalizeKey(allele);
+            if (u.Contains("01W") || u.Contains("02W") || u.Contains("WEAK")) return false;
+            return u.Contains("01N") || u.Contains("02N") ||
+                   u.Contains("NULL") || u.Contains("ENA") ||
+                   u is "MK" or "MKMK" or "NEGATIVE" or "NEG";
         }
 
         public static bool IsGypbNullOrUvar(string allele)
@@ -174,6 +189,7 @@ namespace AntibodyPanels.Services
                     Explanation =
                         $"GYPB*{allele} is a GYPB null / U variant. S/s typing may be absent and anti-U risk needs review. Predicted S− or s− is not an identification. Not a diagnosis."
                 },
+                "GYPA" when IsGypaNull(allele) => GypaNullNote(allele),
                 _ => null
             };
         }
@@ -216,6 +232,48 @@ namespace AntibodyPanels.Services
                 Explanation =
                     $"JK*{allele} is a weak Jk allele. The patient may type {ag}+^w or {ag}− with some reagents and still make an alloanti-{ag}. Predicted {ag}+ does not rule out anti-{ag}. Not a diagnosis."
             };
+        }
+
+        private static AlleleVariantNote GypaNullNote(string allele)
+        {
+            var u = NormalizeKey(allele);
+            var isN = u.Contains("02N") || u.StartsWith("N");
+            var ag = isN ? "N" : "M";
+            return new AlleleVariantNote
+            {
+                Antibody = "anti-" + ag,
+                Antigen = ag,
+                Allele = "GYPA*" + allele,
+                Explanation =
+                    $"GYPA*{allele} is a GYPA null / Mk-related allele. Predicted {ag}− can support alloanti-{ag}. " +
+                    "It is not the same as an untyped MNS column. Not a diagnosis."
+            };
+        }
+
+        private static AlleleVariantNote EnaNote() => new()
+        {
+            Antibody = "anti-Ena",
+            Antigen = "Ena",
+            Allele = "GYPA*null",
+            Explanation =
+                "GYPA null / Mk alleles predict M−N−. Review for anti-En(a) (high-prevalence on GYPA) in addition to anti-M or anti-N. This is not an identification."
+        };
+
+        private static bool IsGypaEnaRisk(string genotype)
+        {
+            var alleles = new List<string>();
+            foreach (Match m in Token.Matches(genotype))
+            {
+                if (m.Groups[1].Value.Equals("GYPA", StringComparison.OrdinalIgnoreCase))
+                    alleles.Add(m.Groups[2].Value);
+            }
+            if (alleles.Count == 0) return false;
+            if (!alleles.TrueForAll(IsGypaNull)) return false;
+            return alleles.Count >= 2 || alleles.Exists(a =>
+            {
+                var u = NormalizeKey(a);
+                return u is "MK" or "MKMK" || u.Contains("ENA");
+            });
         }
 
         private static AlleleVariantNote Jk3Note() => new()

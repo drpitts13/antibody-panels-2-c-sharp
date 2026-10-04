@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 34 — analysis rule-version trace).
+Last updated: 2026-10-04 (iteration 35 — GYPA null / En(a) alleles).
 
 ## Capability matrix
 
@@ -32,7 +32,7 @@ Last updated: 2026-10-04 (iteration 34 — analysis rule-version trace).
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint; Preferences can add Dil1–Dil128; Neut/Inhib vs IAT | More ISBT alleles later |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
-| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK null/weak, Jk(a−b−)/Jk3, K0/KEL-null, GYPB U-var; GATA still does not support anti-Fya | More ISBT alleles later |
+| Analysis | Patient phenotype / genotype / transfusion limits | Partial | Genotype plus JK/KEL/GYPB nulls; GYPA*01N/Mk predict M−/N− with En(a) review; GATA still does not support anti-Fya | More RHCE/RHD alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | `audit_events` + snapshots with rule-engine version and per-antibody rule JSON; Explain/Summary/report show the policy | User/operator on snapshot later |
@@ -532,9 +532,23 @@ is auto-identified.
 **Not in this tick:** More ISBT alleles, operator identity on the
 snapshot row, authenticated APIs.
 
+## Iteration 35 (this change)
+
+**Deficiency:** GYPA tokens were recognized but GYPA*01N was treated as
+ordinary GYPA*01 (predicted M+). Mk / En(a−) genotypes never produced a
+review note, so M−N− looked like a typing gap rather than a GYPA null.
+
+**Bounded improvement:** GYPA nulls persist as antigen-negative (M0/N0),
+not as M+ or N+. GYPA*01N/GYPA*02 stays M−N+ without an En(a) note.
+Two GYPA nulls or Mk alleles add an anti-En(a) review note. Ordinary
+GYPA*01/GYPA*02 stays silent. Nothing is auto-identified.
+
+**Not in this tick:** RHCE*CeRN / more RHD alleles, operator on snapshots,
+authenticated APIs.
+
 ## Likely next tick
 
-More ISBT alleles, or never-imported specificity classifiers.
+RHCE variant-C alleles (CeRN), or never-imported specificity classifiers.
 Authenticated vendor portals stay later and must not bypass auth,
 CAPTCHA, licensing, or terms.
 

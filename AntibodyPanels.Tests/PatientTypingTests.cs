@@ -346,4 +346,63 @@ public class PatientTypingTests
         Assert.DoesNotContain(result.Suggestions, s => s.Contains("identified", StringComparison.OrdinalIgnoreCase)
                                                        && s.Contains("Jk3", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void Gypa01N_DoesNotPredictMPositive()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "GYPA*01N.01/GYPA*02");
+        Assert.Equal("-", typing.PredictedAntigens["M"]);
+        Assert.Equal("+", typing.PredictedAntigens["N"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-M" && c.Kind == PatientTypingKind.Predicted && c.PatientValue == "-");
+        Assert.Contains(ev, c => c.Antibody == "anti-M" && c.Kind == PatientTypingKind.Variant);
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Ena");
+        Assert.Contains("Not a diagnosis", ev.First(c => c.Kind == PatientTypingKind.Variant).Explanation);
+    }
+
+    [Fact]
+    public void GypaNullDiploid_PredictsMNNegative_WithEnaReview_NotIdentification()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "GYPA*01N.01/GYPA*02N.01");
+        Assert.Equal("-", typing.PredictedAntigens["M"]);
+        Assert.Equal("-", typing.PredictedAntigens["N"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.Contains(ev, c => c.Antibody == "anti-Ena" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains("not an identification", ev.Single(c => c.Antibody == "anti-Ena").Explanation,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Ena" && c.Kind is PatientTypingKind.Supporting or PatientTypingKind.Predicted);
+    }
+
+    [Fact]
+    public void GypaOrdinaryMN_DoesNotAddEnaNote()
+    {
+        var typing = PatientTypingParser.Parse(null, null, null, "GYPA*01/GYPA*02");
+        Assert.Equal("+", typing.PredictedAntigens["M"]);
+        Assert.Equal("+", typing.PredictedAntigens["N"]);
+        var ev = PatientTypingParser.Evaluate(typing);
+        Assert.DoesNotContain(ev, c => c.Antibody == "anti-Ena");
+        Assert.DoesNotContain(ev, c => c.Kind == PatientTypingKind.Variant);
+    }
+
+    [Fact]
+    public void Analyzer_GypaMk_DoesNotAutoIdentifyEna()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("GYPA-MK", "serum", null, notes: null, phenotype: "M+ N+",
+            previousAntibodies: null, datResult: null, genotype: "GYPA*Mk/GYPA*Mk");
+        var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+        iso.Db.LinkSpecimenPanel("GYPA-MK", panelId);
+        iso.Db.SaveReaction("GYPA-MK", panelId, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction("GYPA-MK", panelId, "2", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("GYPA-MK", updateDb: false);
+        Assert.Contains(result.PatientTypingConsiderations,
+            c => c.Antibody == "anti-Ena" && c.Kind == PatientTypingKind.Variant);
+        Assert.Contains(result.PatientTypingConsiderations,
+            c => c.Kind == PatientTypingKind.Predicted && c.Antigen == "M" && c.PatientValue == "-");
+        Assert.False(result.RuledOut.ContainsKey("anti-Ena"));
+        Assert.DoesNotContain(result.Suspected.Keys, k => k.Equals("anti-Ena", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(result.Suggestions, s => s.Contains("identified", StringComparison.OrdinalIgnoreCase)
+                                                       && s.Contains("En", StringComparison.OrdinalIgnoreCase));
+    }
 }
