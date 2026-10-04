@@ -23,6 +23,7 @@ namespace AntibodyPanels.Services
         public const string UnknownAntigen = "UnknownAntigen";
         public const string InvalidValue = "InvalidValue";
         public const string NullPhenotype = "NullPhenotype";
+        public const string PhenotypeMismatch = "PhenotypeMismatch";
 
         private static readonly HashSet<string> MetadataKeys = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -66,6 +67,7 @@ namespace AntibodyPanels.Services
                 }
                 AddHomozygousConflicts(cell, issues);
                 AddNullPhenotypes(cell, issues);
+                AddRhPhenotypeMismatches(cell, issues);
             }
 
             if (unknown.Count > 0)
@@ -205,5 +207,37 @@ namespace AntibodyPanels.Services
                 CellNumber = cell,
                 Explanation = $"Cell {cell} {clause} Not a diagnosis."
             };
+
+        /// <summary>
+        /// Weiner/Rh labels (R1R1, rr, …) on the cell must agree with typed
+        /// D/C/c/E/e. Untyped antigens are not treated as mismatches.
+        /// </summary>
+        private static void AddRhPhenotypeMismatches(PanelCell cell, List<PanelTypingIssue> issues)
+        {
+            if (string.IsNullOrWhiteSpace(cell.RhPhenotype)) return;
+            var label = cell.RhPhenotype.Trim();
+            var expected = PatientTypingParser.Parse(label, null, null).Antigens;
+            var conflicts = new List<string>();
+            foreach (var ag in new[] { "D", "C", "c", "E", "e" })
+            {
+                if (!expected.TryGetValue(ag, out var want)) continue;
+                var typed = cell.GetTypedValue(ag);
+                if (typed == null) continue;
+                var actual = AntigenConstants.IsAntigenPositiveValue(typed) ? "+" : "-";
+                var predicted = AntigenConstants.IsAntigenPositiveValue(want) ? "+" : "-";
+                if (actual == predicted) continue;
+                conflicts.Add($"{ag} is {typed} ({label} predicts {ag}{predicted})");
+            }
+            if (conflicts.Count == 0) return;
+            issues.Add(new PanelTypingIssue
+            {
+                Kind = PhenotypeMismatch,
+                CellNumber = cell.CellNumber,
+                Explanation =
+                    $"Cell {cell.CellNumber} Rh phenotype {label} conflicts with typed antigens: " +
+                    string.Join("; ", conflicts) +
+                    ". Confirm the antigram or the Weiner label. Not a diagnosis."
+            });
+        }
     }
 }

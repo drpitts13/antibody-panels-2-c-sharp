@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 31 — null-phenotype import review).
+Last updated: 2026-10-04 (iteration 32 — Weiner vs typed Rh).
 
 ## Capability matrix
 
@@ -22,7 +22,7 @@ Last updated: 2026-10-04 (iteration 31 — null-phenotype import review).
 | Common model | Manufacturer, lot, expiration, cell, ABO/Rh, standard antigens | Partial | `Panel` / `PanelCell`; ++ vs partner+ and rare-null (K0, Jk(a−b−), Rhnull-like) on import review | More ISBT alleles later |
 | Common model | Homozygous / heterozygous / negative / unknown / NT | Present | Import and panel editor persist `++` / NT; rule-out and search use explicit ++ or typed partner − | Combo/list editors later |
 | Import validation | Required fields, duplicate lot | Partial | Parse fails without cells; `FindPanelByVendorLot` | — |
-| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | Schema vs prior lot; ++ vs partner+; unknown columns; rare-null both-negative notes (Lewis skipped) | More ISBT alleles later |
+| Import validation | Impossible values, schema-vs-prior-lot, unknown antigens | Partial | Schema vs prior lot; ++ vs partner+; unknown columns; rare-null notes; Weiner label vs typed D/C/c/E/e | More ISBT alleles later |
 | Import traceability | Original artifact retained | Present | Vendor and lab CSV store SHA-256 + file; Artifact viewer verifies and opens | — |
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
@@ -485,9 +485,22 @@ Lots stay inactive. Nothing is auto-identified.
 **Not in this tick:** More ISBT alleles, phenotype-string vs typed-antigen
 conflicts, authenticated APIs.
 
+## Iteration 32 (this change)
+
+**Deficiency:** A stored Weiner label (R1R1) was never compared with typed
+D/C/c/E/e. An R1R1 cell that was c+ looked like a normal heterozygous
+C+c+ type and could be used for homozygous anti-c rule-out by mistake.
+
+**Bounded improvement:** Import review flags Weiner/Rh labels that
+disagree with typed Rh antigens. C++ still matches an expected C+.
+Untyped antigens and matching rr / R1R1 cells stay silent. Lots stay
+inactive. Nothing is auto-identified.
+
+**Not in this tick:** More ISBT alleles, ABO vs reverse-cell notes,
+authenticated APIs.
+
 ## Likely next tick
 
-More ISBT alleles, or a mismatch note when Rh phenotype text (R1R1)
-disagrees with typed C/c/E/e/D. Authenticated vendor portals stay later
-and must not bypass auth, CAPTCHA, licensing, or terms.
+More ISBT alleles, or neutralization-cell ranking. Authenticated vendor
+portals stay later and must not bypass auth, CAPTCHA, licensing, or terms.
 

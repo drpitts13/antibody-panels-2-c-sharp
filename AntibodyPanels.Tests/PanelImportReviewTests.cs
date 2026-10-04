@@ -213,6 +213,84 @@ public class PanelImportReviewTests
     }
 
     [Fact]
+    public void Inspector_FlagsWeinerLabelVsTypedRh_NotUntypedOrMatching()
+    {
+        var mismatch = new PanelCell { CellNumber = "1", RhPhenotype = "R1R1" };
+        mismatch.SetAntigen("D", "+");
+        mismatch.SetAntigen("C", "+");
+        mismatch.SetAntigen("c", "+");
+        mismatch.SetAntigen("E", "-");
+        mismatch.SetAntigen("e", "+");
+        var match = new PanelCell { CellNumber = "2", RhPhenotype = "R1R1" };
+        match.SetAntigen("D", "+");
+        match.SetAntigen("C", "++");
+        match.SetAntigen("c", "-");
+        match.SetAntigen("E", "-");
+        match.SetAntigen("e", "+");
+        var untyped = new PanelCell { CellNumber = "3", RhPhenotype = "rr" };
+        untyped.SetAntigen("D", "-");
+        var noLabel = new PanelCell { CellNumber = "4" };
+        noLabel.SetAntigen("D", "+");
+        noLabel.SetAntigen("C", "-");
+
+        var issues = PanelTypingInspector.Inspect(new[] { mismatch, match, untyped, noLabel });
+        Assert.Contains(issues, i => i.Kind == PanelTypingInspector.PhenotypeMismatch
+            && i.CellNumber == "1" && i.Explanation.Contains("c is +") && i.Explanation.Contains("R1R1"));
+        Assert.DoesNotContain(issues, i => i.CellNumber is "2" or "3" or "4"
+            && i.Kind == PanelTypingInspector.PhenotypeMismatch);
+    }
+
+    [Fact]
+    public void Import_R1R1LabelWithCPositivePartner_StaysInactiveWithMismatchReview()
+    {
+        using var iso = new IsolatedDatabase();
+        var json = """
+            {
+              "vendor": "Bio-Rad",
+              "name": "Weiner mismatch",
+              "lotNumber": "LOT-R1R1-MIS",
+              "productLine": "10-cell",
+              "cells": [
+                {
+                  "cellNumber": "1",
+                  "rhPhenotype": "R1R1",
+                  "antigens": { "D": "+", "C": "+", "c": "+", "E": "-", "e": "+" }
+                },
+                {
+                  "cellNumber": "2",
+                  "rhPhenotype": "rr",
+                  "antigens": { "D": "-", "C": "-", "c": "+", "E": "-", "e": "+" }
+                }
+              ]
+            }
+            """;
+        var path = Path.Combine(Path.GetTempPath(), $"vendor_review_{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, json);
+        try
+        {
+            using var catalog = new VendorCatalogService();
+            var parsed = catalog.ImportFile(VendorIds.BioRad, path);
+            Assert.True(parsed.Success, string.Join("\n", parsed.Errors));
+            var outcome = new VendorPanelImportService(iso.Db).Import(parsed);
+            Assert.False(iso.Db.GetPanel(outcome.PanelId)!.IsActive);
+            Assert.Contains(outcome.Review.TypingIssues, i =>
+                i.Kind == PanelTypingInspector.PhenotypeMismatch && i.CellNumber == "1");
+            Assert.DoesNotContain(outcome.Review.TypingIssues, i =>
+                i.Kind == PanelTypingInspector.PhenotypeMismatch && i.CellNumber == "2");
+            Assert.Contains("R1R1", outcome.Review.Explanation);
+            Assert.Contains("c is +", outcome.Review.Explanation);
+            Assert.Contains("Not a diagnosis", outcome.Review.Explanation);
+            var cell1 = iso.Db.GetPanelCells(outcome.PanelId).Single(c => c.CellNumber == "1");
+            Assert.Equal("R1R1", cell1.RhPhenotype);
+            Assert.Equal("+", cell1.GetTypedValue("c"));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Activate_MakesPanelAvailableForInventory()
     {
         using var iso = new IsolatedDatabase();
