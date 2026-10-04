@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 37 — snapshot operator identity).
+Last updated: 2026-10-04 (iteration 38 — never-imported specificity classifiers).
 
 ## Capability matrix
 
@@ -27,7 +27,7 @@ Last updated: 2026-10-04 (iteration 37 — snapshot operator identity).
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, and pattern candidates | Never-imported specificities; pattern classifiers |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable (never imported), and pattern candidates | Pattern classifiers |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | HTLA titer plus Dil/1:n grid endpoint; Preferences can add Dil1–Dil128; Neut/Inhib vs IAT | More ISBT alleles later |
@@ -35,7 +35,7 @@ Last updated: 2026-10-04 (iteration 37 — snapshot operator identity).
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce is case-sensitive; CeRN/HAR/C^w variant-C notes; GATA still does not support anti-Fya | More RHD/RHCE alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | Never-imported specificities later |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | Pattern classifiers later |
 | Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
 
 ## Iteration 1 (this change)
@@ -576,9 +576,29 @@ auto-identified.
 **Not in this tick:** Never-imported specificity classifiers,
 authenticated APIs.
 
+## Iteration 38 (this change)
+
+**Deficiency:** Antigens missing from imported sheets were listed as a
+flat “not tested” name list. Antibodies such as anti-Kpa or anti-Cw
+never appeared in Explain Analysis, so a reviewer could not see that
+the current panels cannot type those specificities.
+
+**Bounded improvement:** Classify standard-catalog antibodies whose
+antigens were never imported. Explain Analysis, Summary, and
+suggestions state that they cannot be typed (not a rule-out, not an
+identification). Clinically significant antigens keep the existing
+untreated list. Historical antibodies without a typed column are
+labeled historical and untypeable. Warehouse antigens stay silent
+unless a panel types them. Nothing is auto-identified.
+
+**Not in this tick:** Pattern classifiers (HTLA/HFA/LFA beyond titer),
+authenticated APIs.
+
 ## Likely next tick
 
-Never-imported specificity classifiers (antibodies the current panels
-cannot type). Authenticated vendor portals stay later and must not
-bypass auth, CAPTCHA, licensing, or terms.
+Pattern classifiers that distinguish panreactivity, cold vs warm,
+HTLA-like, autoantibody, and high-/low-frequency antigen patterns
+with explicit evidence (not a diagnosis). Authenticated vendor
+portals stay later and must not bypass auth, CAPTCHA, licensing, or
+terms.
 

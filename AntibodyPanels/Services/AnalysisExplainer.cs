@@ -18,6 +18,7 @@ namespace AntibodyPanels.Services
             foreach (var ab in result.Suspected.Keys) antibodies.Add(ab);
             foreach (var ev in result.RuleoutEvaluations) antibodies.Add(ev.Antibody);
             foreach (var pm in result.PatternMatches.Take(8)) antibodies.Add(pm.Antibody);
+            foreach (var u in result.UntypeableSpecificities) antibodies.Add(u.Antibody);
             foreach (var c in result.PatientTypingConsiderations.Where(x =>
                          x.Kind == PatientTypingKind.Historical))
                 antibodies.Add(c.Antibody);
@@ -60,10 +61,19 @@ namespace AntibodyPanels.Services
                     sb.AppendLine("  " + pattern.Explanation);
                 sb.AppendLine();
             }
+            if (result.UntypeableSpecificities.Count > 0)
+            {
+                sb.AppendLine("Specificities the current panels cannot type (antigen never imported):");
+                foreach (var u in result.UntypeableSpecificities)
+                    sb.AppendLine("  " + u.Explanation);
+                sb.AppendLine();
+            }
             foreach (var exp in result.CandidateExplanations.Count > 0
                          ? result.CandidateExplanations
                          : Build(result))
             {
+                if (exp.Status.Contains("Cannot type", StringComparison.OrdinalIgnoreCase))
+                    continue;
                 sb.AppendLine(exp.Narrative);
                 sb.AppendLine();
             }
@@ -86,6 +96,11 @@ namespace AntibodyPanels.Services
                 .ToList();
             var pattern = result.PatternMatches
                 .FirstOrDefault(p => string.Equals(p.Antibody, antibody, StringComparison.OrdinalIgnoreCase));
+
+            var untypeable = result.UntypeableSpecificities.FirstOrDefault(u =>
+                string.Equals(u.Antibody, antibody, StringComparison.OrdinalIgnoreCase));
+            if (untypeable != null)
+                return ExplainUntypeable(antibody, untypeable, phenotype);
 
             exp.Status = ResolveStatus(suspected, ruledOut, ruleEval, phenotype, pattern);
             if (ruleEval != null)
@@ -146,6 +161,30 @@ namespace AntibodyPanels.Services
                 exp.IdentificationNote = stats.IdentificationDetail;
 
             exp.Narrative = FormatNarrative(exp, score, suspected);
+            return exp;
+        }
+
+        private static CandidateExplanation ExplainUntypeable(
+            string antibody,
+            UntypeableSpecificity untypeable,
+            List<PatientTypingConsideration> phenotype)
+        {
+            var historical = phenotype.Any(p => p.Kind == PatientTypingKind.Historical);
+            var exp = new CandidateExplanation
+            {
+                Antibody = antibody,
+                Status = historical
+                    ? "Historical — cannot type from current panels"
+                    : "Cannot type from current panels",
+                RuleoutCriteria = untypeable.Explanation,
+                PhaseNote = "Phase scores were not computed because the antigen was never imported.",
+                PhenotypeNote = phenotype.Count == 0
+                    ? "No patient phenotype evidence was parsed for this antibody."
+                    : string.Join(" ", phenotype.Select(p => p.Explanation)),
+                AdditionalTesting =
+                    $"Import or select cells that type {untypeable.Antigen} before this antibody can be ruled out or supported.",
+            };
+            exp.Narrative = FormatNarrative(exp, score: 0, suspected: false);
             return exp;
         }
 
@@ -215,10 +254,12 @@ namespace AntibodyPanels.Services
             "Suspected and ruled out — review" => 0,
             "Suspected" => 1,
             "Rule-out in progress" => 2,
-            "Historical" => 3,
-            "Pattern only" => 4,
-            "Ruled out" => 5,
-            _ => 6
+            "Cannot type from current panels" => 3,
+            "Historical — cannot type from current panels" => 3,
+            "Historical" => 4,
+            "Pattern only" => 5,
+            "Ruled out" => 6,
+            _ => 7
         };
     }
 }

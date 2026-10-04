@@ -17,6 +17,7 @@ namespace AntibodyPanels.Models
         public List<DosageEffect> DosageEffects { get; set; } = new();
         public List<string> Suggestions { get; set; } = new();
         public List<string> UntypedClinicallySignificant { get; set; } = new();
+        public List<UntypeableSpecificity> UntypeableSpecificities { get; set; } = new();
         public List<SelectedCellRecommendation> SelectedCellRecommendations { get; set; } = new();
         public List<PatientTypingConsideration> PatientTypingConsiderations { get; set; } = new();
         public bool PatientPhenotypeUnreliable { get; set; }
@@ -52,6 +53,18 @@ namespace AntibodyPanels.Models
         /// Whether the specimen can result as All Clinically Significant Antibodies Ruled Out.
         /// </summary>
         public AcsEvaluation Acs { get; set; } = new();
+    }
+
+    /// <summary>
+    /// An antibody whose antigen was never imported or typed on the current
+    /// panels. Analytical gap evidence, not a rule-out or identification.
+    /// </summary>
+    public class UntypeableSpecificity
+    {
+        public string Antibody { get; set; } = string.Empty;
+        public string Antigen { get; set; } = string.Empty;
+        public bool IsClinicallySignificant { get; set; }
+        public string Explanation { get; set; } = string.Empty;
     }
 
     public class ReactionPatternNote

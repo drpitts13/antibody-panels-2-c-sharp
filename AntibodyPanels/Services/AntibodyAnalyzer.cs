@@ -56,6 +56,7 @@ namespace AntibodyPanels.Services
             var untypedCs = AntigenConstants.ClinicallySignificantAntigens
                 .Where(ag => !antigens.Contains(ag))
                 .ToList();
+            var untypeable = UntypeableSpecificityClassifier.Classify(antigens);
 
             var result = new AnalysisResult
             {
@@ -63,6 +64,7 @@ namespace AntibodyPanels.Services
                 RuledOut = ruledOut,
                 RuleoutEvaluations = evaluations,
                 UntypedClinicallySignificant = untypedCs,
+                UntypeableSpecificities = untypeable,
                 Suspected = suspected,
                 SuspectedStatistics = suspectedStats,
                 PatternMatches = patterns,
@@ -1029,6 +1031,20 @@ namespace AntibodyPanels.Services
                 informational.Add(
                     $"This panel does not type {shown}{more}. Those antibodies cannot be " +
                     "ruled out or supported from these cells because the antigen was not tested.");
+            }
+
+            var otherUntypeable = result.UntypeableSpecificities
+                .Where(u => !u.IsClinicallySignificant)
+                .Select(u => u.Antibody)
+                .ToList();
+            if (otherUntypeable.Count > 0)
+            {
+                var shown = string.Join(", ", otherUntypeable.Take(8));
+                var more = otherUntypeable.Count > 8
+                    ? $" (+{otherUntypeable.Count - 8} more)" : "";
+                informational.Add(
+                    $"Current panels also cannot type {shown}{more} because those antigens were " +
+                    "never imported. This is not a rule-out.");
             }
 
             foreach (var (ab, ev) in result.SuspectedEvidence)

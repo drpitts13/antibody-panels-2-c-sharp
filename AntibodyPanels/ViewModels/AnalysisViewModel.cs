@@ -718,7 +718,14 @@ namespace AntibodyPanels.ViewModels
                 sb.AppendLine();
             }
 
-            if (r.UntypedClinicallySignificant.Count > 0)
+            if (r.UntypeableSpecificities.Count > 0)
+            {
+                sb.AppendLine("SPECIFICITIES THE CURRENT PANELS CANNOT TYPE:");
+                foreach (var u in r.UntypeableSpecificities)
+                    sb.AppendLine("  " + u.Explanation);
+                sb.AppendLine();
+            }
+            else if (r.UntypedClinicallySignificant.Count > 0)
             {
                 sb.AppendLine("ANTIGENS NOT TESTED ON THESE PANELS:");
                 sb.AppendLine("  " + string.Join(", ", r.UntypedClinicallySignificant));
