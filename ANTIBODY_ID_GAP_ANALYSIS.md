@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-04 (iteration 42 — DTT vs untreated pattern comparison).
+Last updated: 2026-10-16 (iteration 43 — adsorption comparison in Explain Analysis).
 
 ## Capability matrix
 
@@ -27,7 +27,7 @@ Last updated: 2026-10-04 (iteration 42 — DTT vs untreated pattern comparison).
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, and DTT-comparison candidates | Absorption evidence in Explain |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out specificities they are expected to remove | Do not score an adsorbed aliquot as ordinary evidence for those specificities |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant; DTT lost/resistant vs untreated | More ISBT alleles later |
@@ -35,8 +35,8 @@ Last updated: 2026-10-04 (iteration 42 — DTT vs untreated pattern comparison).
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce case-sensitive; CeRN variant-C; RHD DAR/DVI/DNB partial D does not rule out anti-D; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login) | Absorption explain later |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Includes special-grade, extra-phase, and artifact-integrity cases | Expand case library |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login). Adsorption sentences are in the report and Explain text, not a separate snapshot field | Store adsorption comparison on the snapshot |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Includes adsorption removal, survival, mixed, residual, and autoadsorption cases with named cells | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -661,9 +661,35 @@ cells are not a diagnosis. Enzyme kinds stay separate from DTT kinds.
 **Not in this tick:** Cross-panel DTT pairing, absorption evidence in
 Explain, authenticated APIs.
 
+## Iteration 43 (this change)
+
+**Deficiency:** Adsorption conclusions labeled a suspected antibody
+“survived” when any cell on the aliquot was reactive. Explain Analysis
+did not name the antigen-positive cells that lost or kept reactivity,
+and a negative on an rr / R1R1 / R2R2 aliquot could count as a rule-out
+of the antibody that aliquot is expected to remove.
+
+**Bounded improvement:** Compare each adsorbed aliquot with the matching
+untreated run on the same panel. For allogeneic adsorption, name
+antigen-positive cells that lost reactivity (supporting removal), cells
+that stayed reactive (conflicting), and typed-negative cells whose
+remaining reactivity is not explained by the expected specificities.
+Autoadsorption names cells that lost panreactivity and cells that
+remained reactive. Homozygous cells are marked. Scores are analytical
+evidence. Explain Analysis, Summary, suggestions, the adsorption grid,
+and the clinical report show the sentences. Negatives on an aliquot do
+not rule out antibodies that aliquot is expected to remove. Nothing is
+auto-identified.
+
+**Not in this tick:** Using the adsorbed aliquot as ordinary probability
+evidence, cross-panel pairing, snapshot storage of the comparison,
+authenticated APIs.
+
 ## Likely next tick
 
-Surface absorption/adsorption conclusions in Explain Analysis with
-cell-level support/conflict wording (evidence only). Authenticated vendor
-portals stay later and must not bypass auth, CAPTCHA, licensing, or terms.
+Stop counting an adsorbed aliquot as ordinary panel evidence for
+specificities that aliquot is expected to remove (probability and
+pattern scores), and store the adsorption comparison on the analysis
+snapshot. Authenticated vendor portals stay later and must not bypass
+auth, CAPTCHA, licensing, or terms.
 

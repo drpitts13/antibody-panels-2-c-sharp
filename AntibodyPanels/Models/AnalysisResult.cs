@@ -144,6 +144,13 @@ namespace AntibodyPanels.Models
     public class AbsorptionConclusion
     {
         public string AbsorptionLabel { get; set; } = string.Empty;
+        public string Antibody { get; set; } = string.Empty;
+        public string Kind { get; set; } = string.Empty;
+        public string Explanation { get; set; } = string.Empty;
+        /// <summary>Analytical evidence 0–1, not a diagnosis.</summary>
+        public double EvidenceScore { get; set; }
+        public List<string> SupportingCells { get; set; } = new();
+        public List<string> ConflictingCells { get; set; } = new();
         public List<string> AbsorbedOut { get; set; } = new();
         public List<string> Surviving { get; set; } = new();
     }
@@ -279,6 +286,7 @@ namespace AntibodyPanels.Models
         public string DosageNote { get; set; } = string.Empty;
         public string PhaseNote { get; set; } = string.Empty;
         public string PhenotypeNote { get; set; } = string.Empty;
+        public string AbsorptionNote { get; set; } = string.Empty;
         public string AdditionalTesting { get; set; } = string.Empty;
         public string IdentificationNote { get; set; } = string.Empty;
     }

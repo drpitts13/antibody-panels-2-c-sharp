@@ -360,6 +360,12 @@ namespace AntibodyPanels.ViewModels
                 AbsorptionConclusionRows.Add(new AbsorptionConclusionRow
                 {
                     AbsorptionLabel = abs.AbsorptionLabel,
+                    Antibody = string.IsNullOrWhiteSpace(abs.Antibody) ? "—" : abs.Antibody,
+                    Finding = RuleoutRow.AbsorptionFinding(abs.Kind),
+                    SupportingCells = string.Join(", ", abs.SupportingCells),
+                    ConflictingCells = string.Join(", ", abs.ConflictingCells),
+                    EvidenceScore = abs.EvidenceScore.ToString("0.00"),
+                    Explanation = abs.Explanation,
                     AbsorbedOut = string.Join(", ", abs.AbsorbedOut),
                     Surviving = string.Join(", ", abs.Surviving),
                 });
@@ -759,14 +765,19 @@ namespace AntibodyPanels.ViewModels
 
             if (r.AbsorptionConclusions.Count > 0)
             {
-                sb.AppendLine("ABSORPTION CONCLUSIONS:");
+                sb.AppendLine("ABSORPTION COMPARISON (evidence only, not a diagnosis):");
                 foreach (var abs in r.AbsorptionConclusions)
                 {
-                    sb.AppendLine($"  {abs.AbsorptionLabel}:");
-                    if (abs.AbsorbedOut.Count > 0)
-                        sb.AppendLine($"    Absorbed out: {string.Join(", ", abs.AbsorbedOut)}");
-                    if (abs.Surviving.Count > 0)
-                        sb.AppendLine($"    Surviving: {string.Join(", ", abs.Surviving)}");
+                    if (!string.IsNullOrWhiteSpace(abs.Explanation))
+                        sb.AppendLine("  " + abs.Explanation);
+                    else
+                    {
+                        sb.AppendLine($"  {abs.AbsorptionLabel}:");
+                        if (abs.AbsorbedOut.Count > 0)
+                            sb.AppendLine($"    Absorbed out: {string.Join(", ", abs.AbsorbedOut)}");
+                        if (abs.Surviving.Count > 0)
+                            sb.AppendLine($"    Surviving: {string.Join(", ", abs.Surviving)}");
+                    }
                 }
                 sb.AppendLine();
             }
@@ -855,6 +866,18 @@ namespace AntibodyPanels.ViewModels
             return false;
         }
 
+        public static string AbsorptionFinding(string kind) => kind switch
+        {
+            AbsorptionPatternClassifier.RemovedKind => "Reactivity lost",
+            AbsorptionPatternClassifier.SurvivedKind => "Reactivity remained",
+            AbsorptionPatternClassifier.MixedKind => "Conflicting",
+            AbsorptionPatternClassifier.AutoRemovedKind => "Panreactivity lost",
+            AbsorptionPatternClassifier.AutoResidualKind => "Residual reactivity",
+            AbsorptionPatternClassifier.AutoSurvivedKind => "Reactivity remained",
+            AbsorptionPatternClassifier.ResidualKind => "Not explained by adsorbed specificities",
+            _ => kind
+        };
+
         public static string FormatStatus(int count, int required, bool clinicallySignificant)
         {
             if (required <= 0) return count.ToString();
@@ -902,6 +925,12 @@ namespace AntibodyPanels.ViewModels
     public class AbsorptionConclusionRow
     {
         public string AbsorptionLabel { get; set; } = string.Empty;
+        public string Antibody { get; set; } = string.Empty;
+        public string Finding { get; set; } = string.Empty;
+        public string SupportingCells { get; set; } = string.Empty;
+        public string ConflictingCells { get; set; } = string.Empty;
+        public string EvidenceScore { get; set; } = string.Empty;
+        public string Explanation { get; set; } = string.Empty;
         public string AbsorbedOut { get; set; } = string.Empty;
         public string Surviving { get; set; } = string.Empty;
     }

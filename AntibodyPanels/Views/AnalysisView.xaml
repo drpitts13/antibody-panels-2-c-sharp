@@ -358,15 +358,21 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <TextBlock Text="Absorption Conclusions" FontWeight="Bold" FontSize="14"
+                        <TextBlock Text="Absorption comparison" FontWeight="Bold" FontSize="14"
                                    Margin="0,0,0,4"/>
+                        <TextBlock Text="Untreated serum compared with an adsorbed aliquot on the same panel. Cell lists and scores are analytical evidence for review, not an identification."
+                                   FontStyle="Italic" Foreground="#555" Margin="0,0,0,6" TextWrapping="Wrap"/>
                         <DataGrid ItemsSource="{Binding AbsorptionConclusionRows}" IsReadOnly="True"
                                   AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
-                                  HeadersVisibility="Column" MaxHeight="180">
+                                  HeadersVisibility="Column" MaxHeight="260">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Absorption" Binding="{Binding AbsorptionLabel}" Width="160"/>
-                                <DataGridTextColumn Header="Absorbed Out" Binding="{Binding AbsorbedOut}" Width="*"/>
-                                <DataGridTextColumn Header="Surviving" Binding="{Binding Surviving}" Width="*"/>
+                                <DataGridTextColumn Header="Adsorption" Binding="{Binding AbsorptionLabel}" Width="140"/>
+                                <DataGridTextColumn Header="Antibody" Binding="{Binding Antibody}" Width="90"/>
+                                <DataGridTextColumn Header="Finding" Binding="{Binding Finding}" Width="130"/>
+                                <DataGridTextColumn Header="Supporting cells" Binding="{Binding SupportingCells}" Width="140"/>
+                                <DataGridTextColumn Header="Conflicting cells" Binding="{Binding ConflictingCells}" Width="140"/>
+                                <DataGridTextColumn Header="Score" Binding="{Binding EvidenceScore}" Width="55"/>
+                                <DataGridTextColumn Header="Explanation" Binding="{Binding Explanation}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>

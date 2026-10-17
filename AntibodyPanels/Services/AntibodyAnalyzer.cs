@@ -48,7 +48,6 @@ namespace AntibodyPanels.Services
             var phaseProbabilities = CalculatePhaseSpecificProbabilities(byRun, contexts, antigens, ruledOut);
             var dosageEffects = DetectDosageEffects(byRun, contexts, suspected);
             var inferences = BuildTreatmentInferences(byRun, contexts, suspected);
-            var absorptionConclusions = BuildAbsorptionConclusions(byRun, contexts, suspected);
 
             if (updateDb && _db.IsSpecimenLocked(specimenId))
                 throw new RecordLockedException(specimenId);
@@ -75,7 +74,6 @@ namespace AntibodyPanels.Services
                 DosageEffects = dosageEffects,
                 GatedRuleouts = gatedRuleouts,
                 TreatmentInferences = inferences,
-                AbsorptionConclusions = absorptionConclusions,
                 Acs = EvaluateAcs(observedRuleouts, allScores),
                 RuleEngineVersion = AnalysisRuleTrace.EngineVersion,
                 RuleConfigurationNote = AnalysisRuleTrace.Explain(rules, AppSettings.Current),
@@ -94,6 +92,7 @@ namespace AntibodyPanels.Services
                 .ToDictionary(id => id, id => _db.GetPanelCells(id));
             EnzymeTreatmentPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
             DttTreatmentPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
+            AbsorptionPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
 
@@ -228,6 +227,23 @@ namespace AntibodyPanels.Services
                         if (cell.GetAntigen(ag) != "+") continue;
                         var antibody = $"anti-{ag}";
 
+                        if (SerumRemovesAntibody(ctx, antibody))
+                        {
+                            var gateKey = $"{antibody}|serum|{ctx.Run.SerumTreatment}";
+                            if (gatedSeen.Add(gateKey))
+                                gatedRuleouts.Add(new GatedRuleout
+                                {
+                                    Antibody = antibody,
+                                    Antigen = ag,
+                                    CellTreatmentLabel =
+                                        AntigenTreatmentEffects.GetDisplayName(ctx.Run.SerumTreatment),
+                                    Reason =
+                                        $"{ctx.Run.DisplayLabel} is expected to remove {antibody}; " +
+                                        "a negative reaction on this aliquot cannot rule it out.",
+                                });
+                            continue;
+                        }
+
                         // Check whether the treatment destroys this antigen on the cell.
                         // If so, a negative reaction is uninformative for this antibody.
                         if (!ctx.CanContributeRuleout(ag, cell))
@@ -282,6 +298,8 @@ namespace AntibodyPanels.Services
                     {
                         if (!ctx.TypesAntigen(ag)) continue;
                         if (cell.GetAntigen(ag) != "+") continue;
+                        var antibodyForSerum = $"anti-{ag}";
+                        if (SerumRemovesAntibody(ctx, antibodyForSerum)) continue;
                         if (!ctx.CanContributeRuleout(ag, cell)) continue;
                         if (!CanRuleOut(ag, cell, rules)) continue;
 
@@ -315,6 +333,10 @@ namespace AntibodyPanels.Services
             }
             return result;
         }
+
+        private static bool SerumRemovesAntibody(RunContext ctx, string antibody) =>
+            ctx.AbsorbedAntibodies.Any(a =>
+                string.Equals(a, antibody, StringComparison.OrdinalIgnoreCase));
 
         private bool CanRuleOut(string antigen, PanelCell cell, List<Rule> rules)
         {
@@ -898,50 +920,6 @@ namespace AntibodyPanels.Services
             return inferences.DistinctBy(i => i.Observation).ToList();
         }
 
-        // ── Absorption conclusions ────────────────────────────────────────────
-
-        private List<AbsorptionConclusion> BuildAbsorptionConclusions(
-            Dictionary<int, List<Reaction>> byRun,
-            Dictionary<int, RunContext> contexts,
-            Dictionary<string, double> suspected)
-        {
-            var conclusions = new List<AbsorptionConclusion>();
-
-            foreach (var ctx in contexts.Values)
-            {
-                if (ctx.AbsorbedAntibodies.Count == 0 && !ctx.IsAutoAdsorbed) continue;
-                if (!byRun.TryGetValue(ctx.Run.RunId, out var runRxns)) continue;
-
-                var surviving = new List<string>();
-                var absorbedOut = new List<string>();
-
-                // Antibodies that are normally present in the untreated suspected set
-                foreach (var (ab, _) in suspected)
-                {
-                    // Was it absorbed?
-                    if (ctx.AbsorbedAntibodies.Contains(ab))
-                    {
-                        // Check if it's still reactive
-                        var cellDict = _db.GetPanelCells(ctx.Run.PanelId).ToDictionary(c => c.CellNumber);
-                        bool stillReactive = runRxns.Any(r =>
-                            r.CellNumber != "AC" &&
-                            ctx.IsPositive(r));
-                        if (stillReactive) surviving.Add(ab + " (survived absorption)");
-                        else absorbedOut.Add(ab);
-                    }
-                }
-
-                if (surviving.Count > 0 || absorbedOut.Count > 0)
-                    conclusions.Add(new AbsorptionConclusion
-                    {
-                        AbsorptionLabel = ctx.Run.DisplayLabel,
-                        AbsorbedOut = absorbedOut,
-                        Surviving = surviving,
-                    });
-            }
-            return conclusions;
-        }
-
         // ── Suggestions ───────────────────────────────────────────────────────
 
         public static AcsEvaluation EvaluateAcs(
@@ -1157,12 +1135,8 @@ namespace AntibodyPanels.Services
 
             foreach (var abs in result.AbsorptionConclusions)
             {
-                if (abs.Surviving.Count > 0)
-                    important.Add($"{abs.AbsorptionLabel}: " +
-                        $"these specificities survived: {string.Join(", ", abs.Surviving)}.");
-                if (abs.AbsorbedOut.Count > 0)
-                    informational.Add($"{abs.AbsorptionLabel}: " +
-                        $"absorbed out: {string.Join(", ", abs.AbsorbedOut)}.");
+                if (!string.IsNullOrWhiteSpace(abs.Explanation))
+                    important.Add(abs.Explanation);
             }
 
             if (result.PatternMatches.Count > 0)

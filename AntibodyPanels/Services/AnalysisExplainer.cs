@@ -22,6 +22,11 @@ namespace AntibodyPanels.Services
             foreach (var c in result.PatientTypingConsiderations.Where(x =>
                          x.Kind == PatientTypingKind.Historical))
                 antibodies.Add(c.Antibody);
+            foreach (var abs in result.AbsorptionConclusions)
+            {
+                if (!string.IsNullOrWhiteSpace(abs.Antibody))
+                    antibodies.Add(abs.Antibody);
+            }
 
             var list = antibodies
                 .Select(ab => Explain(ab, result))
@@ -66,6 +71,17 @@ namespace AntibodyPanels.Services
                 sb.AppendLine("Enzyme/treatment comparison (evidence only):");
                 foreach (var inf in result.TreatmentInferences)
                     sb.AppendLine("  " + inf.Observation);
+                sb.AppendLine();
+            }
+            if (result.AbsorptionConclusions.Count > 0)
+            {
+                sb.AppendLine("Absorption comparison (evidence only):");
+                foreach (var abs in result.AbsorptionConclusions)
+                {
+                    sb.AppendLine("  " + (string.IsNullOrWhiteSpace(abs.Explanation)
+                        ? $"{abs.AbsorptionLabel}: absorbed out {string.Join(", ", abs.AbsorbedOut)}; surviving {string.Join(", ", abs.Surviving)}"
+                        : abs.Explanation));
+                }
                 sb.AppendLine();
             }
             if (result.UntypeableSpecificities.Count > 0)
@@ -154,6 +170,19 @@ namespace AntibodyPanels.Services
             exp.PhenotypeNote = phenotype.Count == 0
                 ? "No patient phenotype evidence was parsed for this antibody."
                 : string.Join(" ", phenotype.Select(p => p.Explanation));
+
+            var absorption = result.AbsorptionConclusions
+                .Where(a => string.Equals(a.Antibody, antibody, StringComparison.OrdinalIgnoreCase)
+                            && !string.IsNullOrWhiteSpace(a.Explanation))
+                .Select(a => a.Explanation)
+                .ToList();
+            if (absorption.Count > 0)
+            {
+                exp.AbsorptionNote = string.Join(" ", absorption);
+                if (!suspected && !ruledOut && ruleEval == null && pattern == null
+                    && !phenotype.Any(p => p.Kind == PatientTypingKind.Historical))
+                    exp.Status = "Absorption evidence";
+            }
 
             var extra = result.SelectedCellRecommendations
                 .Where(r => r.Explanation.Contains(antibody, StringComparison.OrdinalIgnoreCase) ||
@@ -252,6 +281,8 @@ namespace AntibodyPanels.Services
             if (!string.IsNullOrWhiteSpace(exp.PhaseNote))
                 sb.Append(' ').Append(exp.PhaseNote);
             sb.Append(' ').Append(exp.PhenotypeNote);
+            if (!string.IsNullOrWhiteSpace(exp.AbsorptionNote))
+                sb.Append(' ').Append(exp.AbsorptionNote);
             sb.Append(" Additional useful testing: ").Append(exp.AdditionalTesting);
             return sb.ToString();
         }
@@ -264,9 +295,10 @@ namespace AntibodyPanels.Services
             "Cannot type from current panels" => 3,
             "Historical — cannot type from current panels" => 3,
             "Historical" => 4,
-            "Pattern only" => 5,
-            "Ruled out" => 6,
-            _ => 7
+            "Absorption evidence" => 5,
+            "Pattern only" => 6,
+            "Ruled out" => 7,
+            _ => 8
         };
     }
 }
