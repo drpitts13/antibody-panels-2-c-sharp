@@ -302,7 +302,7 @@ namespace AntibodyPanels.Services
             if (analysis.AdsorptionScoreExclusions.Count > 0)
             {
                 sb.AppendLine();
-                sb.AppendLine("Ordinary probability and pattern scores excluded these adsorbed aliquots:");
+                sb.AppendLine("Ordinary probability and pattern scores excluded these reactions:");
                 foreach (var exclusion in analysis.AdsorptionScoreExclusions)
                     sb.AppendLine("  " + exclusion);
             }

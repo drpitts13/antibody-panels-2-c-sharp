@@ -86,7 +86,7 @@ namespace AntibodyPanels.Services
             }
             if (result.AdsorptionScoreExclusions.Count > 0)
             {
-                sb.AppendLine("Ordinary scores excluded adsorbed aliquots (evidence only):");
+                sb.AppendLine("Ordinary scores excluded these reactions (evidence only):");
                 foreach (var exclusion in result.AdsorptionScoreExclusions)
                     sb.AppendLine("  " + exclusion);
                 sb.AppendLine();
@@ -185,6 +185,11 @@ namespace AntibodyPanels.Services
                 .ToList();
             absorption.AddRange(result.AdsorptionScoreExclusions.Where(s =>
                 s.Contains($"remove {antibody};", StringComparison.Ordinal)));
+            if (suspected || absorption.Count > 0)
+            {
+                absorption.AddRange(result.AdsorptionScoreExclusions.Where(s =>
+                    s.Contains("is panreactive", StringComparison.Ordinal)));
+            }
             if (absorption.Count > 0)
             {
                 exp.AbsorptionNote = string.Join(" ", absorption);

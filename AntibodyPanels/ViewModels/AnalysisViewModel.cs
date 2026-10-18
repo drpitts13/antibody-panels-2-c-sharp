@@ -796,7 +796,7 @@ namespace AntibodyPanels.ViewModels
 
             if (r.AdsorptionScoreExclusions.Count > 0)
             {
-                sb.AppendLine("ORDINARY SCORES EXCLUDED ADSORBED ALIQUOTS (not a diagnosis):");
+                sb.AppendLine("ORDINARY SCORES EXCLUDED THESE REACTIONS (not a diagnosis):");
                 foreach (var exclusion in r.AdsorptionScoreExclusions)
                     sb.AppendLine("  " + exclusion);
                 sb.AppendLine();

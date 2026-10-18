@@ -278,7 +278,7 @@ public class AbsorptionPatternTests
         Assert.Contains("excluded from ordinary probability and pattern scores", antiC.Narrative);
         Assert.Contains("1 (homozygous)", antiC.Narrative);
         var doc = AnalysisExplainer.FormatDocument(result);
-        Assert.Contains("Ordinary scores excluded adsorbed aliquots", doc);
+        Assert.Contains("Ordinary scores excluded these reactions", doc);
         Assert.DoesNotContain("identified as", doc, StringComparison.OrdinalIgnoreCase);
 
         var snap = iso.Db.GetLatestAnalysisSnapshot("ABS-SCORE");
@@ -405,15 +405,96 @@ public class AbsorptionPatternTests
         iso.Db.SaveReaction(adsorbed, "4", "0", "0", "0", "2+");
 
         var result = iso.Analyzer.AnalyzeSpecimen("ABS-AUTO", updateDb: false);
-        Assert.Empty(result.AdsorptionScoreExclusions);
         Assert.Contains(result.AbsorptionConclusions, n => n.Kind == AbsorptionPatternClassifier.AutoResidualKind);
+        Assert.Contains(result.AdsorptionScoreExclusions, s =>
+            s.Contains("Untreated is panreactive (4 of 4 evaluated cells)", StringComparison.Ordinal) &&
+            s.Contains("paired with Autoadsorbed", StringComparison.Ordinal) &&
+            s.Contains("excluded from ordinary probability and pattern scores", StringComparison.Ordinal) &&
+            s.Contains("Not a diagnosis", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.AdsorptionScoreExclusions, s =>
+            s.Contains("remove anti-c;", StringComparison.Ordinal));
         var pattern = Assert.Single(result.PatternMatches, p => p.Antibody == "anti-c");
-        Assert.Equal(4, pattern.Matches);
-        Assert.Equal(2, pattern.Mismatches);
+        Assert.Equal(2, pattern.Matches);
+        Assert.Equal(0, pattern.Mismatches);
+        Assert.True(result.Suspected.ContainsKey("anti-c"));
+        var evidence = result.SuspectedEvidence["anti-c"];
+        Assert.Equal(2, evidence.SupportingCells.Count);
+        Assert.All(evidence.SupportingCells, c => Assert.Equal("Autoadsorbed", c.RunLabel));
+        var antiC = Assert.Single(result.CandidateExplanations, e => e.Antibody == "anti-c");
+        Assert.Contains("is panreactive", antiC.Narrative);
+        Assert.Contains("Not a diagnosis", antiC.Narrative);
         var doc = AnalysisExplainer.FormatDocument(result);
         Assert.Contains("underlying alloantibody", doc);
+        Assert.Contains("is panreactive (4 of 4 evaluated cells)", doc);
         Assert.Contains("Not a diagnosis", doc);
-        Assert.DoesNotContain("excluded from ordinary probability", doc);
+    }
+
+    [Fact]
+    public void Autoadsorption_ThreeOfFourReactive_StillUsesTheUntreatedRun()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ABS-AUTO-3", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel("ABS-AUTO-3", panelId);
+        var cells = iso.Db.GetPanelCells(panelId);
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "c", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "c", "-");
+        var untreated = iso.Db.GetOrCreateDefaultRun("ABS-AUTO-3", panelId);
+        iso.Db.SaveReaction(untreated, "1", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "2", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "3", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "4", "0", "0", "0", "2+");
+        var adsorbed = iso.Db.AddPanelRun(
+            "ABS-AUTO-3", panelId, CellTreatment.None, SerumTreatment.AutoAdsorption, "Autoadsorbed");
+        iso.Db.SaveReaction(adsorbed, "1", "0", "0", "2+", "2+");
+        iso.Db.SaveReaction(adsorbed, "2", "0", "0", "2+", "2+");
+        iso.Db.SaveReaction(adsorbed, "3", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(adsorbed, "4", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ABS-AUTO-3", updateDb: false);
+        Assert.DoesNotContain(result.AdsorptionScoreExclusions, s => s.Contains("is panreactive", StringComparison.Ordinal));
+        var pattern = Assert.Single(result.PatternMatches, p => p.Antibody == "anti-c");
+        Assert.Equal(4, pattern.Matches);
+        Assert.Equal(1, pattern.Mismatches);
+        var evidence = result.SuspectedEvidence["anti-c"];
+        Assert.Contains(evidence.SupportingCells, c => c.RunLabel == "Untreated");
+        Assert.Contains(evidence.SupportingCells, c => c.RunLabel == "Autoadsorbed");
+    }
+
+    [Fact]
+    public void Autoadsorption_WhenAliquotStaysPanreactive_DoesNotDoubleCountTheUntreatedRun()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ABS-AUTO-BOTH", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel("ABS-AUTO-BOTH", panelId);
+        var cells = iso.Db.GetPanelCells(panelId);
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "c", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "c", "-");
+        var untreated = iso.Db.GetOrCreateDefaultRun("ABS-AUTO-BOTH", panelId);
+        var adsorbed = iso.Db.AddPanelRun(
+            "ABS-AUTO-BOTH", panelId, CellTreatment.None, SerumTreatment.AutoAdsorption, "Autoadsorbed");
+        foreach (var runId in new[] { untreated, adsorbed })
+        {
+            iso.Db.SaveReaction(runId, "1", "0", "0", "2+", "NT");
+            iso.Db.SaveReaction(runId, "2", "0", "0", "2+", "NT");
+            iso.Db.SaveReaction(runId, "3", "0", "0", "2+", "NT");
+            iso.Db.SaveReaction(runId, "4", "0", "0", "2+", "NT");
+        }
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ABS-AUTO-BOTH", updateDb: false);
+        Assert.Contains(result.AbsorptionConclusions, n => n.Kind == AbsorptionPatternClassifier.AutoSurvivedKind);
+        Assert.Contains(result.AdsorptionScoreExclusions, s => s.Contains("is panreactive (4 of 4", StringComparison.Ordinal));
+        var pattern = Assert.Single(result.PatternMatches, p => p.Antibody == "anti-c");
+        Assert.Equal(2, pattern.Matches);
+        Assert.Equal(2, pattern.Mismatches);
+        var doc = AnalysisExplainer.FormatDocument(result);
+        Assert.Contains("argues against a readily adsorbed autoantibody", doc);
+        Assert.Contains("Not a diagnosis", doc);
     }
 
     private static AnalysisResult AnalyzeAllo(

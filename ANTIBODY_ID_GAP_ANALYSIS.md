@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-18 (iteration 44 — adsorbed aliquots excluded from ordinary scores).
+Last updated: 2026-10-18 (iteration 45 — panreactive untreated run excluded beside autoadsorption).
 
 ## Capability matrix
 
@@ -27,7 +27,7 @@ Last updated: 2026-10-18 (iteration 44 — adsorbed aliquots excluded from ordin
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out, and do not enter ordinary probability or pattern scores for, specificities they are expected to remove | Do not treat an autoadsorbed aliquot's untreated panreactive run as ordinary alloantibody evidence |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out or enter ordinary scores for specificities they are expected to remove. A panreactive untreated run paired with autoadsorption is omitted from ordinary scores; the aliquot remains | Allogeneic panreactive untreated runs still enter ordinary scores |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant; DTT lost/resistant vs untreated | More ISBT alleles later |
@@ -36,7 +36,7 @@ Last updated: 2026-10-18 (iteration 44 — adsorbed aliquots excluded from ordin
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, operator, and the adsorption comparison (conclusions plus ordinary-score exclusions) | Cross-panel enzyme/DTT pairing later |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Adsorption cases include removal, survival, mixed, residual, autoadsorption, ordinary-score exclusion, and a specificity the aliquot does not remove | Expand case library |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Adsorption cases include removal, survival, mixed, residual, autoadsorption with a panreactive untreated run, a 3-of-4 run that still counts, and an aliquot that stays panreactive | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -710,10 +710,33 @@ untreated panreactive run as ordinary alloantibody evidence. Authenticated
 vendor portals stay later and must not bypass auth, CAPTCHA, licensing,
 or terms.
 
+## Iteration 45 (this change)
+
+**Deficiency:** Autoadsorption has no specific alloantibody list, so the
+aliquot stayed in ordinary scores. The paired untreated run, often
+panreactive, stayed in those scores too. Antigen-negative cells that
+reacted before adsorption looked like mismatches against an underlying
+alloantibody.
+
+**Bounded improvement:** When an untreated run is panreactive (at least 4
+evaluated cells and at least 80 percent reactive) and an autoadsorbed
+aliquot on the same panel and cell treatment has reactions, ordinary
+probability and pattern scores use the aliquot and omit that untreated
+run. A 3-of-4 reactive untreated run still counts. Explain Analysis,
+Summary, suggestions, and the clinical report name the excluded run and
+say this is not a diagnosis. The absorption comparison still uses both
+runs. Allogeneic adsorption is unchanged.
+
+**Not in this tick:** Applying the same omission to a panreactive
+untreated run paired only with rr / R1R1 / R2R2 adsorption. Authenticated
+vendor portals stay later and must not bypass auth, CAPTCHA, licensing,
+or terms.
+
 ## Likely next tick
 
-When an autoadsorbed aliquot is present, keep that aliquot in ordinary
-scores and stop counting the paired untreated panreactive run as ordinary
-alloantibody evidence. Authenticated vendor portals stay later and must
-not bypass auth, CAPTCHA, licensing, or terms.
+When allogeneic adsorption is present and the paired untreated run is
+panreactive, omit that untreated run from ordinary alloantibody scores
+while keeping removal and survival on the absorption comparison.
+Authenticated vendor portals stay later and must not bypass auth,
+CAPTCHA, licensing, or terms.
 

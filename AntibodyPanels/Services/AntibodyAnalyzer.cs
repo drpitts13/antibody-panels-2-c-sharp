@@ -17,6 +17,7 @@ namespace AntibodyPanels.Services
     public class AntibodyAnalyzer
     {
         private readonly DatabaseService _db;
+        private readonly HashSet<int> _panreactiveUntreatedRunIds = new();
 
         public AntibodyAnalyzer(DatabaseService db) => _db = db;
 
@@ -34,9 +35,10 @@ namespace AntibodyPanels.Services
             var byRun = GroupByRun(reactions);
 
             var rules = _db.GetAllRules();
+            var scoreExclusions = new HashSet<string>(StringComparer.Ordinal);
+            MarkPanreactiveUntreatedBesideAuto(byRun, contexts, scoreExclusions);
             var observedRuleouts = CalculateRuleouts(byRun, contexts, antigens, rules, out var gatedRuleouts);
             var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, antigens, rules);
-            var scoreExclusions = new HashSet<string>(StringComparer.Ordinal);
             var evaluations = BuildRuleoutEvaluations(
                 observedRuleouts, detailedRuleouts, rules, byRun, contexts, antigens, scoreExclusions);
             var ruledOut = evaluations
@@ -356,9 +358,11 @@ namespace AntibodyPanels.Services
         /// that aliquot is expected to remove. Removal and survival stay on the
         /// absorption comparison.
         /// </summary>
-        private static bool ExcludedFromOrdinaryScores(
+        private bool ExcludedFromOrdinaryScores(
             RunContext ctx, string antibody, ISet<string> exclusions)
         {
+            if (_panreactiveUntreatedRunIds.Contains(ctx.Run.RunId))
+                return true;
             if (!SerumRemovesAntibody(ctx, antibody)) return false;
             var label = string.IsNullOrWhiteSpace(ctx.Run.DisplayLabel)
                 ? ctx.Run.SerumTreatment.ToString()
@@ -368,6 +372,56 @@ namespace AntibodyPanels.Services
                 "excluded from ordinary probability and pattern scores. Review the absorption " +
                 "comparison for removal or survival. Not a diagnosis.");
             return true;
+        }
+
+        /// <summary>
+        /// A panreactive untreated run paired with autoadsorption is not ordinary
+        /// alloantibody evidence. The autoadsorbed aliquot stays in the scores.
+        /// </summary>
+        private void MarkPanreactiveUntreatedBesideAuto(
+            Dictionary<int, List<Reaction>> byRun,
+            Dictionary<int, RunContext> contexts,
+            ISet<string> exclusions)
+        {
+            _panreactiveUntreatedRunIds.Clear();
+            var autos = contexts.Values.Where(c => c.IsAutoAdsorbed).ToList();
+            if (autos.Count == 0) return;
+
+            foreach (var untreated in contexts.Values.Where(c => c.Run.SerumTreatment == SerumTreatment.None))
+            {
+                var paired = autos.Where(a =>
+                    a.Run.PanelId == untreated.Run.PanelId
+                    && a.Run.CellTreatment == untreated.Run.CellTreatment
+                    && a.Run.RunId != untreated.Run.RunId
+                    && byRun.ContainsKey(a.Run.RunId)).ToList();
+                if (paired.Count == 0) continue;
+                if (!byRun.TryGetValue(untreated.Run.RunId, out var reactions)) continue;
+                if (!IsPanreactive(untreated, reactions, out var reactive, out var evaluated)) continue;
+
+                _panreactiveUntreatedRunIds.Add(untreated.Run.RunId);
+                var autoLabels = string.Join(", ", paired.Select(a => a.Run.DisplayLabel).Distinct(StringComparer.Ordinal));
+                exclusions.Add(
+                    $"{untreated.Run.DisplayLabel} is panreactive ({reactive} of {evaluated} evaluated cells) " +
+                    $"and is paired with {autoLabels}. Reactions on this untreated run were excluded from " +
+                    "ordinary probability and pattern scores. Use the autoadsorbed aliquot for underlying " +
+                    "alloantibody evidence. Not a diagnosis.");
+            }
+        }
+
+        private static bool IsPanreactive(
+            RunContext ctx, List<Reaction> reactions, out int reactive, out int evaluated)
+        {
+            reactive = 0;
+            evaluated = 0;
+            foreach (var rxn in reactions)
+            {
+                if (string.Equals(rxn.CellNumber, "AC", StringComparison.OrdinalIgnoreCase)) continue;
+                var positive = ctx.IsPositive(rxn);
+                if (!positive && !ctx.IsNegative(rxn)) continue;
+                evaluated++;
+                if (positive) reactive++;
+            }
+            return evaluated >= 4 && reactive * 5 >= evaluated * 4;
         }
 
         private bool CanRuleOut(string antigen, PanelCell cell, List<Rule> rules)
