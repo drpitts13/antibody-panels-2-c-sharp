@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-18 (iteration 46 — panreactive untreated run excluded beside allogeneic adsorption).
+Last updated: 2026-10-18 (iteration 47 — unpaired enzyme and DTT runs are explained).
 
 ## Capability matrix
 
@@ -27,10 +27,10 @@ Last updated: 2026-10-18 (iteration 46 — panreactive untreated run excluded be
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out or enter ordinary scores for specificities they are expected to remove. A panreactive untreated run paired with autoadsorption or rr/R1R1/R2R2 adsorption is omitted from ordinary scores | Cross-panel enzyme and DTT pairing later |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out or enter ordinary scores for specificities they are expected to remove. A panreactive untreated run paired with autoadsorption or rr/R1R1/R2R2 adsorption is omitted from ordinary scores. Unpaired ficin, papain, and DTT runs are named and are not compared with another panel | Cross-panel enzyme and DTT pairing stays out of scope |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant; DTT lost/resistant vs untreated | More ISBT alleles later |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant; DTT lost/resistant vs untreated. A ficin, papain, or DTT run with no untreated run on the same panel says it was not compared | Same-panel pairs with fewer than 3 cells stay silent |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce case-sensitive; CeRN variant-C; RHD DAR/DVI/DNB partial D does not rule out anti-D; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
@@ -753,10 +753,28 @@ Explain Analysis names the excluded run and says this is not a diagnosis.
 Authenticated vendor portals stay later and must not bypass auth,
 CAPTCHA, licensing, or terms.
 
+## Iteration 47 (this change)
+
+**Deficiency:** A ficin, papain, or DTT run with no untreated run on the
+same panel was skipped without a sentence. An untreated run on a different
+panel was also ignored silently, so a reviewer could not tell that no
+enzyme or DTT comparison had been made.
+
+**Bounded improvement:** Those runs now produce an evidence note naming
+the treated run and panel, stating that no same-panel untreated run was
+available, and stating that a different panel was not paired. A same-panel
+comparison with fewer than three paired cells stays silent. Explain
+Analysis, Summary, suggestions, the clinical report, and the Special
+Panels tab show the note. Nothing is identified.
+
+**Not in this tick:** Explaining a same-panel comparison that has too few
+paired cells. Authenticated vendor portals stay later and must not bypass
+auth, CAPTCHA, licensing, or terms.
+
 ## Likely next tick
 
-When a ficin, papain, or DTT run has no untreated run on the same panel,
-say that the treated run was not compared. Do not pair it with a different
-panel. Authenticated vendor portals stay later and must not bypass auth,
-CAPTCHA, licensing, or terms.
+When a ficin, papain, or DTT run shares a panel with an untreated run but
+fewer than three cells can be paired, say that the comparison was
+incomplete. Authenticated vendor portals stay later and must not bypass
+auth, CAPTCHA, licensing, or terms.
 

@@ -79,6 +79,30 @@ public class DttTreatmentPatternTests
             });
         Assert.DoesNotContain(result.ReactionPatterns,
             n => n.Kind == DttTreatmentPatternClassifier.DestroyedKind);
+        var unpaired = Assert.Single(result.ReactionPatterns, n =>
+            n.Kind == DttTreatmentPatternClassifier.UnpairedKind);
+        Assert.Contains("DTT on panel 99 was not compared", unpaired.Explanation);
+        Assert.Contains("panel 1 were not used", unpaired.Explanation);
+        Assert.Contains("A different panel was not paired", unpaired.Explanation);
+        Assert.Contains("Not a diagnosis", unpaired.Explanation);
+        Assert.DoesNotContain(unpaired.Explanation, "anti-K", StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DttWithoutAnyUntreatedRun_SaysItWasNotCompared()
+    {
+        var dtt = Ctx(2, 4, CellTreatment.DTT);
+        var result = new AnalysisResult();
+        DttTreatmentPatternClassifier.Apply(
+            result,
+            new Dictionary<int, List<Reaction>> { [2] = Rxns("0", "0", "0", "0") },
+            new Dictionary<int, RunContext> { [2] = dtt },
+            new Dictionary<int, List<PanelCell>> { [4] = KCells(new[] { "+", "+", "+", "-" }) });
+
+        var unpaired = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(DttTreatmentPatternClassifier.UnpairedKind, unpaired.Kind);
+        Assert.Contains("No untreated run was recorded", unpaired.Explanation);
+        Assert.Contains("Not a diagnosis", unpaired.Explanation);
     }
 
     [Fact]

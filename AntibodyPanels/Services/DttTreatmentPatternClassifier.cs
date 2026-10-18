@@ -13,6 +13,7 @@ namespace AntibodyPanels.Services
     {
         public const string DestroyedKind = "DttDestroyed";
         public const string ResistantKind = "DttResistant";
+        public const string UnpairedKind = "DttUnpaired";
 
         public static void Apply(
             AnalysisResult result,
@@ -22,15 +23,23 @@ namespace AntibodyPanels.Services
         {
             var untreated = contexts.Values.Where(c => c.Run.IsUntreated).ToList();
             var dtt = contexts.Values.Where(c => c.Run.CellTreatment == CellTreatment.DTT).ToList();
-            if (untreated.Count == 0 || dtt.Count == 0) return;
+            if (dtt.Count == 0) return;
 
             foreach (var treatedCtx in dtt)
             {
-                if (!byRun.TryGetValue(treatedCtx.Run.RunId, out var treatedRxns)) continue;
+                if (!byRun.TryGetValue(treatedCtx.Run.RunId, out var treatedRxns))
+                {
+                    AddUnpaired(result, treatedCtx, untreated);
+                    continue;
+                }
                 var untreatedCtx = untreated.FirstOrDefault(c => c.Run.PanelId == treatedCtx.Run.PanelId);
-                if (untreatedCtx == null) continue;
-                if (!byRun.TryGetValue(untreatedCtx.Run.RunId, out var untreatedRxns)) continue;
-                if (!cellsByPanel.TryGetValue(treatedCtx.Run.PanelId, out var cells)) continue;
+                if (untreatedCtx == null
+                    || !byRun.TryGetValue(untreatedCtx.Run.RunId, out var untreatedRxns)
+                    || !cellsByPanel.TryGetValue(treatedCtx.Run.PanelId, out var cells))
+                {
+                    AddUnpaired(result, treatedCtx, untreated);
+                    continue;
+                }
 
                 var cellDict = cells.ToDictionary(c => c.CellNumber, StringComparer.OrdinalIgnoreCase);
                 var treatedByCell = treatedRxns.ToDictionary(r => r.CellNumber, StringComparer.OrdinalIgnoreCase);
@@ -120,6 +129,27 @@ namespace AntibodyPanels.Services
                     result.ReactionPatterns.Add(note);
                 }
             }
+        }
+
+        private static void AddUnpaired(
+            AnalysisResult result, RunContext treated, List<RunContext> untreated)
+        {
+            var otherPanels = untreated
+                .Select(c => c.Run.PanelId)
+                .Where(id => id != treated.Run.PanelId)
+                .Distinct()
+                .OrderBy(id => id)
+                .ToList();
+            var other = otherPanels.Count == 0
+                ? "No untreated run was recorded."
+                : $"Untreated run(s) on panel {string.Join(", ", otherPanels)} were not used.";
+            result.ReactionPatterns.Add(new ReactionPatternNote
+            {
+                Kind = UnpairedKind,
+                Explanation =
+                    $"{treated.Run.DisplayLabel} on panel {treated.Run.PanelId} was not compared with an untreated run " +
+                    $"on the same panel. {other} A different panel was not paired. Not a diagnosis."
+            });
         }
 
         private static IReadOnlyList<string> TypedAntigensWithEffect(PanelCell cell, AntigenEffect wanted)

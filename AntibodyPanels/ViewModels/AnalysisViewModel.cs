@@ -143,6 +143,13 @@ namespace AntibodyPanels.ViewModels
 
         public bool HasSuggestions => SuggestionItems.Count > 0;
 
+        private string _treatmentComparisonText = "";
+        public string TreatmentComparisonText
+        {
+            get => _treatmentComparisonText;
+            private set => SetField(ref _treatmentComparisonText, value);
+        }
+
         private string _adsorptionScoreExclusionText = "";
         public string AdsorptionScoreExclusionText
         {
@@ -266,6 +273,7 @@ namespace AntibodyPanels.ViewModels
             TreatmentInferenceRows.Clear();
             AbsorptionConclusionRows.Clear();
             AdsorptionScoreExclusionText = "";
+            TreatmentComparisonText = "";
             SupportingCells.Clear();
             ConflictingCells.Clear();
             RuleoutDetailRows.Clear();
@@ -363,6 +371,10 @@ namespace AntibodyPanels.ViewModels
                     Antibody = inf.Antibody,
                     Observation = inf.Observation,
                 });
+
+            TreatmentComparisonText = result.ReactionPatterns.Count == 0
+                ? ""
+                : string.Join(Environment.NewLine, result.ReactionPatterns.Select(p => p.Explanation));
 
             AdsorptionScoreExclusionText = result.AdsorptionScoreExclusions.Count == 0
                 ? ""

@@ -94,6 +94,81 @@ public class EnzymeTreatmentPatternTests
             });
         Assert.DoesNotContain(result.ReactionPatterns,
             n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        var unpaired = Assert.Single(result.ReactionPatterns, n =>
+            n.Kind == EnzymeTreatmentPatternClassifier.UnpairedKind);
+        Assert.Contains("Ficin on panel 99 was not compared", unpaired.Explanation);
+        Assert.Contains("panel 1 were not used", unpaired.Explanation);
+        Assert.Contains("A different panel was not paired", unpaired.Explanation);
+        Assert.Contains("Not a diagnosis", unpaired.Explanation);
+        var doc = AnalysisExplainer.FormatDocument(result);
+        Assert.Contains("was not compared", doc);
+        Assert.Contains("Not a diagnosis", doc);
+    }
+
+    [Fact]
+    public void FicinWithoutAnyUntreatedRun_SaysItWasNotCompared()
+    {
+        var ficin = Ctx(2, 5, CellTreatment.Ficin);
+        var result = new AnalysisResult();
+        EnzymeTreatmentPatternClassifier.Apply(
+            result,
+            new Dictionary<int, List<Reaction>> { [2] = Rxns("0", "0", "0", "0") },
+            new Dictionary<int, RunContext> { [2] = ficin },
+            new Dictionary<int, List<PanelCell>> { [5] = FyaCells(new[] { "+", "+", "+", "-" }) });
+
+        var unpaired = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.UnpairedKind, unpaired.Kind);
+        Assert.Contains("No untreated run was recorded", unpaired.Explanation);
+        Assert.Contains("Not a diagnosis", unpaired.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+    }
+
+    [Fact]
+    public void PapainOnAnotherPanel_IsNotPaired_AndSamePanelFicinStillCompares()
+    {
+        var untreated = Ctx(1, 1, CellTreatment.None);
+        var ficin = Ctx(2, 1, CellTreatment.Ficin);
+        var papain = new RunContext(new PanelRun
+        {
+            RunId = 3,
+            PanelId = 7,
+            CellTreatment = CellTreatment.Papain,
+            Label = "Papain"
+        });
+        var result = new AnalysisResult();
+        EnzymeTreatmentPatternClassifier.Apply(
+            result,
+            new Dictionary<int, List<Reaction>>
+            {
+                [1] = Rxns("2+", "2+", "2+", "0"),
+                [2] = Rxns("0", "0", "0", "0"),
+                [3] = Rxns("0", "0", "0", "0")
+            },
+            new Dictionary<int, RunContext> { [1] = untreated, [2] = ficin, [3] = papain },
+            new Dictionary<int, List<PanelCell>>
+            {
+                [1] = FyaCells(new[] { "+", "+", "+", "-" }),
+                [7] = FyaCells(new[] { "+", "+", "+", "-" })
+            });
+
+        Assert.Contains(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        var unpaired = Assert.Single(result.ReactionPatterns, n =>
+            n.Kind == EnzymeTreatmentPatternClassifier.UnpairedKind);
+        Assert.Contains("Papain on panel 7 was not compared", unpaired.Explanation);
+        Assert.Contains("panel 1 were not used", unpaired.Explanation);
+        Assert.DoesNotContain(unpaired.Explanation, "Fya", StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SamePanelWithTooFewPairedCells_IsNotCalledUnpaired()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "0" },
+            ficinAhg: new[] { "0", "0" },
+            fya: new[] { "+", "-" });
+
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.UnpairedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
     }
 
     [Fact]
@@ -125,6 +200,35 @@ public class EnzymeTreatmentPatternTests
         var doc = AnalysisExplainer.FormatDocument(result);
         Assert.Contains("Enzyme/treatment comparison", doc);
         Assert.Contains("Not a diagnosis", doc);
+    }
+
+    [Fact]
+    public void Analyzer_FicinOnAnotherPanel_ExplainsThatItWasNotCompared()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ENZ-UNP", "serum", null);
+        var panelA = iso.Db.AddPanel("A", "L1", "V", 4, null, false);
+        var panelB = iso.Db.AddPanel("B", "L2", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel("ENZ-UNP", panelA);
+        iso.Db.LinkSpecimenPanel("ENZ-UNP", panelB);
+        var untreated = iso.Db.GetOrCreateDefaultRun("ENZ-UNP", panelA);
+        foreach (var cell in new[] { "1", "2", "3", "4" })
+            iso.Db.SaveReaction(untreated, cell, "0", "0", cell == "4" ? "0" : "2+", "NT");
+        var ficin = iso.Db.AddPanelRun("ENZ-UNP", panelB, CellTreatment.Ficin, SerumTreatment.None, "Ficin");
+        foreach (var cell in new[] { "1", "2", "3", "4" })
+            iso.Db.SaveReaction(ficin, cell, "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ENZ-UNP", updateDb: false);
+        var unpaired = Assert.Single(result.ReactionPatterns, n =>
+            n.Kind == EnzymeTreatmentPatternClassifier.UnpairedKind);
+        Assert.Contains("was not compared", unpaired.Explanation);
+        Assert.Contains("A different panel was not paired", unpaired.Explanation);
+        Assert.Contains("Not a diagnosis", unpaired.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        Assert.Contains(result.Suggestions, s => s.Contains("was not compared") && s.Contains("Not a diagnosis"));
+        var report = iso.Reports.GeneratePreviewText(ReportType.ClinicalIdentification, "ENZ-UNP");
+        Assert.Contains("was not compared", report);
+        Assert.Contains("Not a diagnosis", report);
     }
 
     private static AnalysisResult AnalyzePairs(

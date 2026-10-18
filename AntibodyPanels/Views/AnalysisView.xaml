@@ -337,6 +337,12 @@
             <TabItem Header="Special Panels" help:Help.Topic="analysis-special">
                 <ScrollViewer>
                     <StackPanel Margin="8">
+                        <TextBlock Text="Treatment comparison" FontWeight="Bold" FontSize="14"
+                                   Margin="0,0,0,4"/>
+                        <TextBlock Text="Enzyme and DTT runs are compared only with an untreated run on the same panel. A note here means that comparison was not made. Scores are evidence, not a diagnosis."
+                                   FontStyle="Italic" Foreground="#555" Margin="0,0,0,6" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding TreatmentComparisonText}"
+                                   TextWrapping="Wrap" Margin="0,0,0,14"/>
                         <TextBlock Text="Gated Rule-outs" FontWeight="Bold" FontSize="14"
                                    Margin="0,0,0,4"/>
                         <TextBlock Text="These rule-outs were suppressed because the antigen is destroyed by the cell treatment used."
