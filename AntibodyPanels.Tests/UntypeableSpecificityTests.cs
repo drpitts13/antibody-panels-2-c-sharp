@@ -143,7 +143,7 @@ public class UntypeableSpecificityTests
     private static CandidateExplanation RequireExplanation(AnalysisResult result, string antibody)
     {
         var exp = result.CandidateExplanations
-            .SingleOrDefault(e => string.Equals(e.Antibody, antibody, StringComparison.OrdinalIgnoreCase));
+            .SingleOrDefault(e => string.Equals(e.Antibody, antibody, StringComparison.Ordinal));
         Assert.NotNull(exp);
         return exp!;
     }

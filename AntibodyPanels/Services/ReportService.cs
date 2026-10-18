@@ -299,6 +299,13 @@ namespace AntibodyPanels.Services
                 foreach (var abs in analysis.AbsorptionConclusions)
                     sb.AppendLine("  " + abs.Explanation);
             }
+            if (analysis.AdsorptionScoreExclusions.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("Ordinary probability and pattern scores excluded these adsorbed aliquots:");
+                foreach (var exclusion in analysis.AdsorptionScoreExclusions)
+                    sb.AppendLine("  " + exclusion);
+            }
             if (analysis.CandidateExplanations.Count > 0)
             {
                 sb.AppendLine();
@@ -336,7 +343,10 @@ namespace AntibodyPanels.Services
             var who = string.IsNullOrWhiteSpace(snap?.AnalyzedBy)
                 ? ""
                 : $"  Operator {snap!.AnalyzedBy}";
-            return $"Software {version}{rules}{who}  Settings: {settingsText}  Input fingerprint: {fingerprint}";
+            var absorption = string.IsNullOrWhiteSpace(snap?.AbsorptionJson)
+                ? ""
+                : "  Absorption comparison stored";
+            return $"Software {version}{rules}{who}{absorption}  Settings: {settingsText}  Input fingerprint: {fingerprint}";
         }
 
         private static string FormatSuspectedAntibodyLine(string antibody, double probability,

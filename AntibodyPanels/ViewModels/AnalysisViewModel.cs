@@ -143,6 +143,13 @@ namespace AntibodyPanels.ViewModels
 
         public bool HasSuggestions => SuggestionItems.Count > 0;
 
+        private string _adsorptionScoreExclusionText = "";
+        public string AdsorptionScoreExclusionText
+        {
+            get => _adsorptionScoreExclusionText;
+            private set => SetField(ref _adsorptionScoreExclusionText, value);
+        }
+
         public AnalysisViewModel(DatabaseService db, AntibodyAnalyzer analyzer, MainViewModel main)
         {
             _db = db;
@@ -258,6 +265,7 @@ namespace AntibodyPanels.ViewModels
             GatedRuleoutRows.Clear();
             TreatmentInferenceRows.Clear();
             AbsorptionConclusionRows.Clear();
+            AdsorptionScoreExclusionText = "";
             SupportingCells.Clear();
             ConflictingCells.Clear();
             RuleoutDetailRows.Clear();
@@ -355,6 +363,10 @@ namespace AntibodyPanels.ViewModels
                     Antibody = inf.Antibody,
                     Observation = inf.Observation,
                 });
+
+            AdsorptionScoreExclusionText = result.AdsorptionScoreExclusions.Count == 0
+                ? ""
+                : string.Join(Environment.NewLine, result.AdsorptionScoreExclusions);
 
             foreach (var abs in result.AbsorptionConclusions)
                 AbsorptionConclusionRows.Add(new AbsorptionConclusionRow
@@ -779,6 +791,14 @@ namespace AntibodyPanels.ViewModels
                             sb.AppendLine($"    Surviving: {string.Join(", ", abs.Surviving)}");
                     }
                 }
+                sb.AppendLine();
+            }
+
+            if (r.AdsorptionScoreExclusions.Count > 0)
+            {
+                sb.AppendLine("ORDINARY SCORES EXCLUDED ADSORBED ALIQUOTS (not a diagnosis):");
+                foreach (var exclusion in r.AdsorptionScoreExclusions)
+                    sb.AppendLine("  " + exclusion);
                 sb.AppendLine();
             }
 

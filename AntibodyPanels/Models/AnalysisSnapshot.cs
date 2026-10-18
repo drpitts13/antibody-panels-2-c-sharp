@@ -14,5 +14,18 @@ namespace AntibodyPanels.Models
         public string? RuleEngineVersion { get; set; }
         public string? RulesJson { get; set; }
         public string? AnalyzedBy { get; set; }
+        /// <summary>
+        /// Serialized adsorption comparison and ordinary-score exclusions.
+        /// </summary>
+        public string? AbsorptionJson { get; set; }
+    }
+
+    /// <summary>
+    /// Audit copy of the adsorption comparison stored on an analysis snapshot.
+    /// </summary>
+    public class AdsorptionAudit
+    {
+        public List<AbsorptionConclusion> Conclusions { get; set; } = new();
+        public List<string> OrdinaryScoreExclusions { get; set; } = new();
     }
 }

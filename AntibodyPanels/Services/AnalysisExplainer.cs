@@ -14,7 +14,7 @@ namespace AntibodyPanels.Services
     {
         public static List<CandidateExplanation> Build(AnalysisResult result)
         {
-            var antibodies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var antibodies = new HashSet<string>(StringComparer.Ordinal);
             foreach (var ab in result.Suspected.Keys) antibodies.Add(ab);
             foreach (var ev in result.RuleoutEvaluations) antibodies.Add(ev.Antibody);
             foreach (var pm in result.PatternMatches.Take(8)) antibodies.Add(pm.Antibody);
@@ -84,6 +84,13 @@ namespace AntibodyPanels.Services
                 }
                 sb.AppendLine();
             }
+            if (result.AdsorptionScoreExclusions.Count > 0)
+            {
+                sb.AppendLine("Ordinary scores excluded adsorbed aliquots (evidence only):");
+                foreach (var exclusion in result.AdsorptionScoreExclusions)
+                    sb.AppendLine("  " + exclusion);
+                sb.AppendLine();
+            }
             if (result.UntypeableSpecificities.Count > 0)
             {
                 sb.AppendLine("Specificities the current panels cannot type (antigen never imported):");
@@ -110,18 +117,18 @@ namespace AntibodyPanels.Services
             var suspected = result.Suspected.ContainsKey(antibody);
             var ruledOut = result.RuledOut.ContainsKey(antibody);
             var ruleEval = result.RuleoutEvaluations
-                .FirstOrDefault(e => string.Equals(e.Antibody, antibody, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(e => string.Equals(e.Antibody, antibody, StringComparison.Ordinal));
             result.SuspectedEvidence.TryGetValue(antibody, out var evidence);
             var dosage = result.DosageEffects
-                .FirstOrDefault(d => string.Equals(d.Antibody, antibody, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(d => string.Equals(d.Antibody, antibody, StringComparison.Ordinal));
             var phenotype = result.PatientTypingConsiderations
-                .Where(c => string.Equals(c.Antibody, antibody, StringComparison.OrdinalIgnoreCase))
+                .Where(c => string.Equals(c.Antibody, antibody, StringComparison.Ordinal))
                 .ToList();
             var pattern = result.PatternMatches
-                .FirstOrDefault(p => string.Equals(p.Antibody, antibody, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(p => string.Equals(p.Antibody, antibody, StringComparison.Ordinal));
 
             var untypeable = result.UntypeableSpecificities.FirstOrDefault(u =>
-                string.Equals(u.Antibody, antibody, StringComparison.OrdinalIgnoreCase));
+                string.Equals(u.Antibody, antibody, StringComparison.Ordinal));
             if (untypeable != null)
                 return ExplainUntypeable(antibody, untypeable, phenotype);
 
@@ -172,10 +179,12 @@ namespace AntibodyPanels.Services
                 : string.Join(" ", phenotype.Select(p => p.Explanation));
 
             var absorption = result.AbsorptionConclusions
-                .Where(a => string.Equals(a.Antibody, antibody, StringComparison.OrdinalIgnoreCase)
+                .Where(a => string.Equals(a.Antibody, antibody, StringComparison.Ordinal)
                             && !string.IsNullOrWhiteSpace(a.Explanation))
                 .Select(a => a.Explanation)
                 .ToList();
+            absorption.AddRange(result.AdsorptionScoreExclusions.Where(s =>
+                s.Contains($"remove {antibody};", StringComparison.Ordinal)));
             if (absorption.Count > 0)
             {
                 exp.AbsorptionNote = string.Join(" ", absorption);
@@ -185,8 +194,8 @@ namespace AntibodyPanels.Services
             }
 
             var extra = result.SelectedCellRecommendations
-                .Where(r => r.Explanation.Contains(antibody, StringComparison.OrdinalIgnoreCase) ||
-                            r.Distinguishes.Any(d => d.Contains(antibody, StringComparison.OrdinalIgnoreCase)))
+                .Where(r => r.Explanation.Contains(antibody, StringComparison.Ordinal) ||
+                            r.Distinguishes.Any(d => d.Contains(antibody, StringComparison.Ordinal)))
                 .Select(r => r.Explanation)
                 .ToList();
             exp.AdditionalTesting = extra.Count > 0

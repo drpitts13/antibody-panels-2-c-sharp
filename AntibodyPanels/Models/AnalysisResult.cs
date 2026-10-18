@@ -50,6 +50,13 @@ namespace AntibodyPanels.Models
         public List<AbsorptionConclusion> AbsorptionConclusions { get; set; } = new();
 
         /// <summary>
+        /// Sentences naming specificities whose ordinary probability and pattern
+        /// scores ignored an adsorbed aliquot because that aliquot is expected
+        /// to remove them. Analytical exclusion, not a diagnosis.
+        /// </summary>
+        public List<string> AdsorptionScoreExclusions { get; set; } = new();
+
+        /// <summary>
         /// Whether the specimen can result as All Clinically Significant Antibodies Ruled Out.
         /// </summary>
         public AcsEvaluation Acs { get; set; } = new();

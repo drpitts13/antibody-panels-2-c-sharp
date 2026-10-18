@@ -154,11 +154,27 @@ namespace AntibodyPanels.Tests
         // ── Scenario 5 — Warm autoantibody with allo anti-c ──────────────────
 
         [Fact]
-        public void Scenario5_AntiC_IsSuspectedAfterRrAbsorption()
+        public void Scenario5_RrSurvival_IsAbsorptionEvidenceNotAnOrdinaryAntiCScore()
         {
-            // After rr absorption c+ cells are still reactive → anti-c present
+            // Untreated serum is panreactive. c+ cells that stay reactive after rr
+            // adsorption are survival evidence, not a second ordinary panel score.
             var result = _analyzer.AnalyzeSpecimen(DemoDataSeeder.Scenario5Id);
-            Assert.Contains("anti-c", result.Suspected.Keys);
+            var note = Assert.Single(result.AbsorptionConclusions, n =>
+                n.Antibody == "anti-c" && n.Kind == AbsorptionPatternClassifier.SurvivedKind);
+            Assert.Contains(note.SupportingCells, s => s.StartsWith("1", StringComparison.Ordinal));
+            Assert.Contains(note.SupportingCells, s => s.StartsWith("3", StringComparison.Ordinal));
+            Assert.Contains(note.SupportingCells, s => s.StartsWith("5", StringComparison.Ordinal));
+            Assert.Contains("remained reactive", note.Explanation);
+            Assert.Contains("argues against", note.Explanation);
+            Assert.Contains("Not a diagnosis", note.Explanation);
+            Assert.Contains(result.AdsorptionScoreExclusions, s =>
+                s.Contains("remove anti-c;", StringComparison.Ordinal) &&
+                s.Contains("excluded from ordinary probability and pattern scores", StringComparison.Ordinal));
+            Assert.DoesNotContain(result.Suspected.Keys, k => k == "anti-c");
+            var antiC = Assert.Single(result.CandidateExplanations, e => e.Antibody == "anti-c");
+            Assert.Contains("remained reactive", antiC.Narrative);
+            Assert.Contains("excluded from ordinary probability and pattern scores", antiC.Narrative);
+            Assert.Contains("Not a diagnosis", antiC.Narrative);
         }
 
         [Fact]

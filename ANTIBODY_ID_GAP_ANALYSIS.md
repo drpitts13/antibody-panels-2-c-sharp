@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-16 (iteration 43 — adsorption comparison in Explain Analysis).
+Last updated: 2026-10-18 (iteration 44 — adsorbed aliquots excluded from ordinary scores).
 
 ## Capability matrix
 
@@ -27,7 +27,7 @@ Last updated: 2026-10-16 (iteration 43 — adsorption comparison in Explain Anal
 | Reaction entry | IS / 37°C / AHG / CC | Present | Keyboard 0–4, W/M/H, N, Enter | — |
 | Reaction entry | w+, MF, hemolysis | Present | Combo + keys; treated as reactive evidence | — |
 | Reaction entry | RT, PEG, gel, solid phase as phases | Partial | Extra JSON plus Preferences RT/PEG/Gel/Solid and titer-grid checkboxes; empty stays tube-only; Gel/Solid/PEG are IAT-like; Dil1–Dil128 are titer only | Custom method names later |
-| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out specificities they are expected to remove | Do not score an adsorbed aliquot as ordinary evidence for those specificities |
+| Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out, and do not enter ordinary probability or pattern scores for, specificities they are expected to remove | Do not treat an autoadsorbed aliquot's untreated panreactive run as ordinary alloantibody evidence |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
 | Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant; DTT lost/resistant vs untreated | More ISBT alleles later |
@@ -35,8 +35,8 @@ Last updated: 2026-10-16 (iteration 43 — adsorption comparison in Explain Anal
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce case-sensitive; CeRN variant-C; RHD DAR/DVI/DNB partial D does not rule out anti-D; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
-| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, and operator (lab initials, else Windows login). Adsorption sentences are in the report and Explain text, not a separate snapshot field | Store adsorption comparison on the snapshot |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Includes adsorption removal, survival, mixed, residual, and autoadsorption cases with named cells | Expand case library |
+| Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, operator, and the adsorption comparison (conclusions plus ordinary-score exclusions) | Cross-panel enzyme/DTT pairing later |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Adsorption cases include removal, survival, mixed, residual, autoadsorption, ordinary-score exclusion, and a specificity the aliquot does not remove | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -685,11 +685,35 @@ auto-identified.
 evidence, cross-panel pairing, snapshot storage of the comparison,
 authenticated APIs.
 
+## Iteration 44 (this change)
+
+**Deficiency:** An rr (or R1R1 / R2R2) aliquot no longer ruled out the
+antibodies it is expected to remove, but those same reactions still
+entered Fisher's exact test, pattern matches, phase scores, dosage, and
+combination counts. Antigen-positive cells that became negative after
+adsorption looked like evidence against anti-c. Cells that stayed
+reactive were listed again as ordinary supporting cells.
+
+**Bounded improvement:** For each specificity an aliquot is expected to
+remove, skip that aliquot in ordinary probability and pattern scores.
+Removal and survival stay on the absorption comparison. Explain Analysis,
+Summary, suggestions, and the clinical report say the aliquot was
+excluded and that this is not a diagnosis. The analysis snapshot stores
+the comparison and the exclusion sentences. Antibodies the aliquot is
+not expected to remove, including residual anti-K after rr adsorption,
+still use the aliquot. Autoadsorption has no specific allo list, so its
+aliquot remains ordinary evidence. Explain Analysis keeps anti-c and
+anti-C as separate candidates.
+
+**Not in this tick:** Once autoadsorption is present, stop using the
+untreated panreactive run as ordinary alloantibody evidence. Authenticated
+vendor portals stay later and must not bypass auth, CAPTCHA, licensing,
+or terms.
+
 ## Likely next tick
 
-Stop counting an adsorbed aliquot as ordinary panel evidence for
-specificities that aliquot is expected to remove (probability and
-pattern scores), and store the adsorption comparison on the analysis
-snapshot. Authenticated vendor portals stay later and must not bypass
-auth, CAPTCHA, licensing, or terms.
+When an autoadsorbed aliquot is present, keep that aliquot in ordinary
+scores and stop counting the paired untreated panreactive run as ordinary
+alloantibody evidence. Authenticated vendor portals stay later and must
+not bypass auth, CAPTCHA, licensing, or terms.
 

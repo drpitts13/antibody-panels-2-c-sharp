@@ -36,17 +36,22 @@ namespace AntibodyPanels.Services
             var rules = _db.GetAllRules();
             var observedRuleouts = CalculateRuleouts(byRun, contexts, antigens, rules, out var gatedRuleouts);
             var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, antigens, rules);
+            var scoreExclusions = new HashSet<string>(StringComparer.Ordinal);
             var evaluations = BuildRuleoutEvaluations(
-                observedRuleouts, detailedRuleouts, rules, byRun, contexts, antigens);
+                observedRuleouts, detailedRuleouts, rules, byRun, contexts, antigens, scoreExclusions);
             var ruledOut = evaluations
                 .Where(e => e.MeetsCriteria)
                 .ToDictionary(e => e.Antibody, e => e.ObservedCount);
-            var (suspected, suspectedStats, allScores) = CalculateProbabilities(byRun, contexts, antigens, ruledOut);
-            var patterns = PatternMatching(byRun, contexts, antigens, ruledOut);
-            var suspectedEvidence = GetSuspectedAntibodyEvidence(byRun, contexts, suspected);
-            var combinations = DetectAntibodyCombinations(byRun, contexts, suspected);
-            var phaseProbabilities = CalculatePhaseSpecificProbabilities(byRun, contexts, antigens, ruledOut);
-            var dosageEffects = DetectDosageEffects(byRun, contexts, suspected);
+            var (suspected, suspectedStats, allScores) = CalculateProbabilities(
+                byRun, contexts, antigens, ruledOut, scoreExclusions);
+            var patterns = PatternMatching(byRun, contexts, antigens, ruledOut, scoreExclusions);
+            var suspectedEvidence = GetSuspectedAntibodyEvidence(
+                byRun, contexts, suspected, scoreExclusions);
+            var combinations = DetectAntibodyCombinations(
+                byRun, contexts, suspected, scoreExclusions);
+            var phaseProbabilities = CalculatePhaseSpecificProbabilities(
+                byRun, contexts, antigens, ruledOut, scoreExclusions);
+            var dosageEffects = DetectDosageEffects(byRun, contexts, suspected, scoreExclusions);
             var inferences = BuildTreatmentInferences(byRun, contexts, suspected);
 
             if (updateDb && _db.IsSpecimenLocked(specimenId))
@@ -93,6 +98,9 @@ namespace AntibodyPanels.Services
             EnzymeTreatmentPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
             DttTreatmentPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
             AbsorptionPatternClassifier.Apply(result, byRun, contexts, cellsByPanel);
+            result.AdsorptionScoreExclusions = scoreExclusions
+                .OrderBy(s => s, StringComparer.Ordinal)
+                .ToList();
             result.CandidateExplanations = AnalysisExplainer.Build(result);
             result.Suggestions = GenerateSuggestions(result);
 
@@ -127,7 +135,12 @@ namespace AntibodyPanels.Services
                 }),
                 AnalysisRuleTrace.EngineVersion,
                 AnalysisRuleTrace.Serialize(_db.GetAllRules(), settings),
-                result.AnalyzedBy);
+                result.AnalyzedBy,
+                JsonSerializer.Serialize(new AdsorptionAudit
+                {
+                    Conclusions = result.AbsorptionConclusions,
+                    OrdinaryScoreExclusions = result.AdsorptionScoreExclusions
+                }));
         }
 
         public static string ComputeInputFingerprint(IEnumerable<Reaction> reactions, IEnumerable<PanelRun> runs)
@@ -338,6 +351,25 @@ namespace AntibodyPanels.Services
             ctx.AbsorbedAntibodies.Any(a =>
                 string.Equals(a, antibody, StringComparison.OrdinalIgnoreCase));
 
+        /// <summary>
+        /// An adsorbed aliquot is not ordinary panel evidence for specificities
+        /// that aliquot is expected to remove. Removal and survival stay on the
+        /// absorption comparison.
+        /// </summary>
+        private static bool ExcludedFromOrdinaryScores(
+            RunContext ctx, string antibody, ISet<string> exclusions)
+        {
+            if (!SerumRemovesAntibody(ctx, antibody)) return false;
+            var label = string.IsNullOrWhiteSpace(ctx.Run.DisplayLabel)
+                ? ctx.Run.SerumTreatment.ToString()
+                : ctx.Run.DisplayLabel;
+            exclusions.Add(
+                $"{label} is expected to remove {antibody}; reactions on this aliquot were " +
+                "excluded from ordinary probability and pattern scores. Review the absorption " +
+                "comparison for removal or survival. Not a diagnosis.");
+            return true;
+        }
+
         private bool CanRuleOut(string antigen, PanelCell cell, List<Rule> rules)
         {
             if (cell.GetAntigen(antigen) != "+") return false;
@@ -356,10 +388,11 @@ namespace AntibodyPanels.Services
             List<Rule> rules,
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
-            IReadOnlyList<string> antigens)
+            IReadOnlyList<string> antigens,
+            ISet<string> scoreExclusions)
         {
             var labDefault = AppSettings.Current.DefaultMinRuleoutCount;
-            var conflicts = CollectConflictingReactiveCells(byRun, contexts, antigens);
+            var conflicts = CollectConflictingReactiveCells(byRun, contexts, antigens, scoreExclusions);
             var list = new List<RuleoutEvaluation>();
 
             foreach (var (antibody, count) in observed.OrderBy(x => x.Key))
@@ -397,7 +430,8 @@ namespace AntibodyPanels.Services
         private Dictionary<string, List<string>> CollectConflictingReactiveCells(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
-            IReadOnlyList<string> antigens)
+            IReadOnlyList<string> antigens,
+            ISet<string> scoreExclusions)
         {
             var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (var (runId, runReactions) in byRun)
@@ -414,6 +448,7 @@ namespace AntibodyPanels.Services
                         if (!ctx.TypesAntigen(ag)) continue;
                         if (cell.GetAntigen(ag) != "+") continue;
                         var antibody = $"anti-{ag}";
+                        if (ExcludedFromOrdinaryScores(ctx, antibody, scoreExclusions)) continue;
                         if (!result.TryGetValue(antibody, out var cells))
                         {
                             cells = new List<string>();
@@ -434,7 +469,8 @@ namespace AntibodyPanels.Services
                 Dictionary<int, List<Reaction>> byRun,
                 Dictionary<int, RunContext> contexts,
                 IReadOnlyList<string> antigens,
-                Dictionary<string, int> ruledOut)
+                Dictionary<string, int> ruledOut,
+                ISet<string> scoreExclusions)
         {
             var suspected = new Dictionary<string, double>();
             var stats = new Dictionary<string, SuspectedStatistics>();
@@ -454,6 +490,8 @@ namespace AntibodyPanels.Services
                     // Skip this run for this antigen if the treatment destroys it
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
+                        continue;
+                    if (ExcludedFromOrdinaryScores(ctx, antibody, scoreExclusions))
                         continue;
 
                     var weight = ctx.EvidenceWeight;
@@ -533,7 +571,8 @@ namespace AntibodyPanels.Services
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
             IReadOnlyList<string> antigens,
-            Dictionary<string, int> ruledOut)
+            Dictionary<string, int> ruledOut,
+            ISet<string> scoreExclusions)
         {
             var patterns = new List<PatternMatch>();
 
@@ -549,6 +588,8 @@ namespace AntibodyPanels.Services
                     if (!ctx.TypesAntigen(ag)) continue;
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
+                        continue;
+                    if (ExcludedFromOrdinaryScores(ctx, antibody, scoreExclusions))
                         continue;
 
                     var cellDict = _db.GetPanelCells(ctx.Run.PanelId).ToDictionary(c => c.CellNumber);
@@ -581,7 +622,8 @@ namespace AntibodyPanels.Services
         private Dictionary<string, SuspectedEvidence> GetSuspectedAntibodyEvidence(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
-            Dictionary<string, double> suspected)
+            Dictionary<string, double> suspected,
+            ISet<string> scoreExclusions)
         {
             var evidence = new Dictionary<string, SuspectedEvidence>();
 
@@ -599,6 +641,8 @@ namespace AntibodyPanels.Services
                     if (!ctx.TypesAntigen(ag)) continue;
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
+                        continue;
+                    if (ExcludedFromOrdinaryScores(ctx, antibody, scoreExclusions))
                         continue;
 
                     var panel = _db.GetPanel(ctx.Run.PanelId);
@@ -652,7 +696,8 @@ namespace AntibodyPanels.Services
         private List<AntibodyCombination> DetectAntibodyCombinations(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
-            Dictionary<string, double> suspected)
+            Dictionary<string, double> suspected,
+            ISet<string> scoreExclusions)
         {
             var combos = new List<AntibodyCombination>();
             if (suspected.Count < 2) return combos;
@@ -675,6 +720,9 @@ namespace AntibodyPanels.Services
                     {
                         if (!contexts.TryGetValue(runId, out var ctx)) continue;
                         if (!ctx.TypesAntigen(ag1) || !ctx.TypesAntigen(ag2)) continue;
+                        if (ExcludedFromOrdinaryScores(ctx, ab1, scoreExclusions)
+                            || ExcludedFromOrdinaryScores(ctx, ab2, scoreExclusions))
+                            continue;
                         var cellDict = _db.GetPanelCells(ctx.Run.PanelId).ToDictionary(c => c.CellNumber);
                         foreach (var rxn in runReactions)
                         {
@@ -715,7 +763,8 @@ namespace AntibodyPanels.Services
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
             IReadOnlyList<string> antigens,
-            Dictionary<string, int> ruledOut)
+            Dictionary<string, int> ruledOut,
+            ISet<string> scoreExclusions)
         {
             var result = new Dictionary<string, Dictionary<string, double>>();
             // CC is a check-cell control, not an antibody reactivity phase
@@ -736,6 +785,8 @@ namespace AntibodyPanels.Services
                         if (!ctx.TypesAntigen(ag)) continue;
                         if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                                 == AntigenEffect.Destroyed)
+                            continue;
+                        if (ExcludedFromOrdinaryScores(ctx, antibody, scoreExclusions))
                             continue;
 
                         var cellDict = _db.GetPanelCells(ctx.Run.PanelId).ToDictionary(c => c.CellNumber);
@@ -782,7 +833,8 @@ namespace AntibodyPanels.Services
         private List<DosageEffect> DetectDosageEffects(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
-            Dictionary<string, double> suspected)
+            Dictionary<string, double> suspected,
+            ISet<string> scoreExclusions)
         {
             var warnings = new List<DosageEffect>();
 
@@ -802,6 +854,8 @@ namespace AntibodyPanels.Services
                     // Use only untreated (or enhanced) runs for dosage analysis
                     if (AntigenTreatmentEffects.GetCellEffect(ctx.Run.CellTreatment, ag)
                             == AntigenEffect.Destroyed)
+                        continue;
+                    if (ExcludedFromOrdinaryScores(ctx, antibody, scoreExclusions))
                         continue;
 
                     var cellDict = _db.GetPanelCells(ctx.Run.PanelId).ToDictionary(c => c.CellNumber);
@@ -1138,6 +1192,9 @@ namespace AntibodyPanels.Services
                 if (!string.IsNullOrWhiteSpace(abs.Explanation))
                     important.Add(abs.Explanation);
             }
+
+            foreach (var exclusion in result.AdsorptionScoreExclusions)
+                important.Add(exclusion);
 
             if (result.PatternMatches.Count > 0)
             {
