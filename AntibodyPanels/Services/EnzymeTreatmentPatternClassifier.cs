@@ -15,6 +15,8 @@ namespace AntibodyPanels.Services
         public const string EnhancedKind = "EnzymeEnhanced";
         public const string ResistantKind = "EnzymeResistant";
         public const string UnpairedKind = "EnzymeUnpaired";
+        public const string IncompleteKind = "EnzymeIncomplete";
+        public const int MinimumPairedCells = 3;
 
         public static void Apply(
             AnalysisResult result,
@@ -84,7 +86,11 @@ namespace AntibodyPanels.Services
                 }
 
                 var paired = lost.Count + gained.Count + persisted.Count;
-                if (paired < 3) continue;
+                if (paired < MinimumPairedCells)
+                {
+                    AddIncomplete(result, treatedCtx, paired, lost, gained, persisted);
+                    continue;
+                }
 
                 var treatment = AntigenTreatmentEffects.GetDisplayName(treatedCtx.Run.CellTreatment);
 
@@ -166,6 +172,28 @@ namespace AntibodyPanels.Services
                 Explanation =
                     $"{treated.Run.DisplayLabel} on panel {treated.Run.PanelId} was not compared with an untreated run " +
                     $"on the same panel. {other} A different panel was not paired. Not a diagnosis."
+            });
+        }
+
+        private static void AddIncomplete(
+            AnalysisResult result, RunContext treated, int paired,
+            IReadOnlyList<string> lost, IReadOnlyList<string> gained, IReadOnlyList<string> persisted)
+        {
+            var cells = lost.Concat(gained).Concat(persisted).ToList();
+            var which = cells.Count == 0 ? "none" : string.Join(", ", cells);
+            result.ReactionPatterns.Add(new ReactionPatternNote
+            {
+                Kind = IncompleteKind,
+                MatchingCells = 0,
+                EvaluatedCells = paired,
+                SupportingCells = cells,
+                Explanation =
+                    $"{treated.Run.DisplayLabel} on panel {treated.Run.PanelId} was compared with an untreated run " +
+                    $"on the same panel. {paired} cell(s) could be paired ({which}): {lost.Count} lost reactivity, " +
+                    $"{gained.Count} gained reactivity, and {persisted.Count} stayed reactive. " +
+                    $"{MinimumPairedCells} paired cells are required before an enzyme pattern is assigned. " +
+                    "The comparison is incomplete. No enzyme-destroyed, enzyme-enhanced, or enzyme-resistant " +
+                    "pattern was assigned. Not a diagnosis."
             });
         }
 

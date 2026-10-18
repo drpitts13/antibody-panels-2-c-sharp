@@ -7,7 +7,7 @@ rule-outs are analytical evidence, not a diagnosis.
 Status: **Present** (usable), **Partial** (exists but incomplete or silent),
 **Missing**.
 
-Last updated: 2026-10-18 (iteration 47 — unpaired enzyme and DTT runs are explained).
+Last updated: 2026-10-18 (iteration 48 — short enzyme and DTT comparisons are named incomplete).
 
 ## Capability matrix
 
@@ -30,13 +30,13 @@ Last updated: 2026-10-18 (iteration 47 — unpaired enzyme and DTT runs are expl
 | Analysis | Transparent candidate evidence | Partial | Explain Analysis lists suspected, in-progress, historical, untypeable, pattern, enzyme, DTT, and cell-level adsorption comparisons. Adsorbed aliquots do not rule out or enter ordinary scores for specificities they are expected to remove. A panreactive untreated run paired with autoadsorption or rr/R1R1/R2R2 adsorption is omitted from ordinary scores. Unpaired ficin, papain, and DTT runs are named and are not compared with another panel | Cross-panel enzyme and DTT pairing stays out of scope |
 | Analysis | Configurable visible rule-out | Partial | `Rule.MinRuleoutCount` is now applied; lab default + explanation sentences | Watch seeded anti-D/anti-k rules; ACS remains separate |
 | Analysis | Single / multiple / dosage scoring | Partial | Fisher + pattern; pairwise combinations; dosage averages | Label as evidence, not diagnosis |
-| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant; DTT lost/resistant vs untreated. A ficin, papain, or DTT run with no untreated run on the same panel says it was not compared | Same-panel pairs with fewer than 3 cells stay silent |
+| Analysis | Panreactive / cold / warm / HTLA / auto / HFA / LFA models | Partial | DAT scores; named LFA/pan cells; enzyme lost/gained/resistant; DTT lost/resistant vs untreated. A ficin, papain, or DTT run with no untreated run on the same panel says it was not compared. A same-panel comparison with fewer than 3 paired cells says it is incomplete | Same-panel pairs of 3 or more that fit no pattern stay silent |
 | Analysis | Selected-cell recommendations with “why” | Partial | Unused in-date vials preferred; P1−/Ch−/Sd(a−) selected cells ranked when neutralization favors soluble substance | More ISBT alleles later |
 | Analysis | Patient phenotype / genotype / transfusion limits | Partial | GYPA null/Mk En(a); RHCE*Ce vs ce case-sensitive; CeRN variant-C; RHD DAR/DVI/DNB partial D does not rule out anti-D; GATA still does not support anti-Fya | More ISBT alleles later |
 | UI | Antigram freeze / slashes / run compare | Partial | Frozen cell; slashes; compare extras; Show dosage; filter/sort; panel lot compare | — |
 | UI | Explain Analysis panel | Present | Explain tab + Summary + clinical report assemble rule-out, support, conflict, phenotype, additional testing | Keep wording as evidence, not diagnosis |
 | Audit | Panel, reactions, rules, settings, final ID | Partial | Snapshots store rule-engine version, rules JSON, operator, and the adsorption comparison (conclusions plus ordinary-score exclusions) | Cross-panel enzyme/DTT pairing later |
-| Tests | Synthetic cases with intermediate reasoning | Partial | Adsorption cases include allogeneic panreactive untreated runs, a 3-of-4 run that still counts, anti-c survival that is not an ordinary score, and residual anti-K on the aliquot | Expand case library |
+| Tests | Synthetic cases with intermediate reasoning | Partial | Adsorption cases include allogeneic panreactive untreated runs. Enzyme and DTT cases cover unpaired runs, two-cell loss that is not called destroyed, mixed loss and gain, and all-nonreactive pairs | Expand case library |
 
 ## Iteration 1 (this change)
 
@@ -771,10 +771,30 @@ Panels tab show the note. Nothing is identified.
 paired cells. Authenticated vendor portals stay later and must not bypass
 auth, CAPTCHA, licensing, or terms.
 
+## Iteration 48 (this change)
+
+**Deficiency:** A ficin, papain, or DTT run that shared a panel with an
+untreated run, but had fewer than three cells that could be paired, was
+skipped. Two cells that lost reactivity looked like an enzyme-destroyed
+or DTT-destroyed pattern and were not distinguished from a comparison
+that never happened.
+
+**Bounded improvement:** Those comparisons now produce an evidence note
+naming the treated run, how many cells were paired, which cells, and how
+many lost, gained, or kept reactivity. The note says three paired cells
+are required and that no destroyed, enhanced, or resistant pattern was
+assigned. Explain Analysis, Summary, suggestions, the clinical report,
+and the Special Panels tab show the note. Nothing is identified.
+
+**Not in this tick:** A same-panel comparison with three or more paired
+cells that still fits no pattern. Authenticated vendor portals stay later
+and must not bypass auth, CAPTCHA, licensing, or terms.
+
 ## Likely next tick
 
-When a ficin, papain, or DTT run shares a panel with an untreated run but
-fewer than three cells can be paired, say that the comparison was
-incomplete. Authenticated vendor portals stay later and must not bypass
-auth, CAPTCHA, licensing, or terms.
+When a ficin, papain, or DTT run shares a panel with an untreated run and
+three or more cells are paired, but the lost, gained, and resistant
+thresholds are not met, say that the comparison was made and no pattern
+fit. Authenticated vendor portals stay later and must not bypass auth,
+CAPTCHA, licensing, or terms.
 

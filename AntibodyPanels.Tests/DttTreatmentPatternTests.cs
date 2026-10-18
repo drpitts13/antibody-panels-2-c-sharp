@@ -124,6 +124,58 @@ public class DttTreatmentPatternTests
     }
 
     [Fact]
+    public void TwoCellsThatLookDestroyed_StayIncomplete()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "2+" },
+            dttAhg: new[] { "0", "0" },
+            k: new[] { "+", "+" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(DttTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("DTT on panel 1", note.Explanation);
+        Assert.Contains("2 cell(s) could be paired (1, 2)", note.Explanation);
+        Assert.Contains("2 lost reactivity", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.Contains("No DTT-destroyed or DTT-resistant pattern was assigned", note.Explanation);
+        Assert.Contains("Not a diagnosis", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(note.Explanation, "consistent with antibodies", StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AllNonreactivePairs_AreIncompleteWithNoCells()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "0", "0", "0" },
+            dttAhg: new[] { "0", "0", "0" },
+            k: new[] { "+", "+", "-" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(DttTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("0 cell(s) could be paired (none)", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.ResistantKind);
+    }
+
+    [Fact]
+    public void NewlyReactiveCellAlone_IsIncomplete_NotDestroyed()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "0", "0" },
+            dttAhg: new[] { "2+", "0" },
+            k: new[] { "+", "-" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(DttTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("1 cell(s) could be paired (1)", note.Explanation);
+        Assert.Contains("1 became reactive", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.ResistantKind);
+    }
+
+    [Fact]
     public void Analyzer_DttVsUntreated_SurfacesPatternWithoutIdentifying()
     {
         using var iso = new IsolatedDatabase();

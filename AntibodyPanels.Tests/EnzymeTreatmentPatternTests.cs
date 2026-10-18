@@ -160,14 +160,102 @@ public class EnzymeTreatmentPatternTests
     }
 
     [Fact]
-    public void SamePanelWithTooFewPairedCells_IsNotCalledUnpaired()
+    public void SamePanelWithTooFewPairedCells_IsIncomplete_NotUnpairedOrDestroyed()
     {
         var result = AnalyzePairs(
             untreatedAhg: new[] { "2+", "0" },
             ficinAhg: new[] { "0", "0" },
             fya: new[] { "+", "-" });
 
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("1 cell(s) could be paired (1)", note.Explanation);
+        Assert.Contains("1 lost reactivity", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.Contains("No enzyme-destroyed, enzyme-enhanced, or enzyme-resistant pattern was assigned", note.Explanation);
+        Assert.Contains("Not a diagnosis", note.Explanation);
         Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.UnpairedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        var doc = AnalysisExplainer.FormatDocument(result);
+        Assert.Contains("comparison is incomplete", doc);
+        Assert.Contains("Not a diagnosis", doc);
+    }
+
+    [Fact]
+    public void TwoCellsThatLookDestroyed_StayIncomplete()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "2+" },
+            ficinAhg: new[] { "0", "0" },
+            fya: new[] { "+", "+" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("2 cell(s) could be paired (1, 2)", note.Explanation);
+        Assert.Contains("2 lost reactivity", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(note.Explanation, "consistent with antibodies", StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MixedLossAndGainOnTwoCells_IsIncomplete_NotAPattern()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "0" },
+            ficinAhg: new[] { "0", "2+" },
+            fya: new[] { "+", "-" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("1 lost reactivity", note.Explanation);
+        Assert.Contains("1 gained reactivity", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.EnhancedKind);
+    }
+
+    [Fact]
+    public void AllNonreactivePairs_AreIncompleteWithNoCells()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "0", "0", "0" },
+            ficinAhg: new[] { "0", "0", "0" },
+            fya: new[] { "+", "+", "-" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("0 cell(s) could be paired (none)", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.ResistantKind);
+    }
+
+    [Fact]
+    public void PapainWithTwoPairedCells_IsIncomplete()
+    {
+        var untreated = Ctx(1, 1, CellTreatment.None);
+        var papain = new RunContext(new PanelRun
+        {
+            RunId = 2,
+            PanelId = 1,
+            CellTreatment = CellTreatment.Papain,
+            Label = "Papain"
+        });
+        var result = new AnalysisResult();
+        EnzymeTreatmentPatternClassifier.Apply(
+            result,
+            new Dictionary<int, List<Reaction>>
+            {
+                [1] = Rxns("2+", "2+"),
+                [2] = Rxns("0", "0")
+            },
+            new Dictionary<int, RunContext> { [1] = untreated, [2] = papain },
+            new Dictionary<int, List<PanelCell>> { [1] = FyaCells(new[] { "+", "+" }) });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.IncompleteKind, note.Kind);
+        Assert.Contains("Papain on panel 1", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
         Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
     }
 
@@ -228,6 +316,34 @@ public class EnzymeTreatmentPatternTests
         Assert.Contains(result.Suggestions, s => s.Contains("was not compared") && s.Contains("Not a diagnosis"));
         var report = iso.Reports.GeneratePreviewText(ReportType.ClinicalIdentification, "ENZ-UNP");
         Assert.Contains("was not compared", report);
+        Assert.Contains("Not a diagnosis", report);
+    }
+
+    [Fact]
+    public void Analyzer_TwoPairedFicinCells_ExplainsIncompleteComparison()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ENZ-SHORT", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 2, null, false);
+        iso.Db.LinkSpecimenPanel("ENZ-SHORT", panelId);
+        var untreated = iso.Db.GetOrCreateDefaultRun("ENZ-SHORT", panelId);
+        iso.Db.SaveReaction(untreated, "1", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "2", "0", "0", "2+", "NT");
+        var ficin = iso.Db.AddPanelRun("ENZ-SHORT", panelId, CellTreatment.Ficin, SerumTreatment.None, "Ficin");
+        iso.Db.SaveReaction(ficin, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(ficin, "2", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ENZ-SHORT", updateDb: false);
+        var note = Assert.Single(result.ReactionPatterns, n =>
+            n.Kind == EnzymeTreatmentPatternClassifier.IncompleteKind);
+        Assert.Contains("2 cell(s) could be paired", note.Explanation);
+        Assert.Contains("2 lost reactivity", note.Explanation);
+        Assert.Contains("The comparison is incomplete", note.Explanation);
+        Assert.Contains("Not a diagnosis", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        Assert.Contains(result.Suggestions, s => s.Contains("comparison is incomplete") && s.Contains("Not a diagnosis"));
+        var report = iso.Reports.GeneratePreviewText(ReportType.ClinicalIdentification, "ENZ-SHORT");
+        Assert.Contains("comparison is incomplete", report);
         Assert.Contains("Not a diagnosis", report);
     }
 

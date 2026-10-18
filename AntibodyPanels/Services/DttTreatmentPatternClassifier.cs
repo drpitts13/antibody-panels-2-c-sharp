@@ -14,6 +14,8 @@ namespace AntibodyPanels.Services
         public const string DestroyedKind = "DttDestroyed";
         public const string ResistantKind = "DttResistant";
         public const string UnpairedKind = "DttUnpaired";
+        public const string IncompleteKind = "DttIncomplete";
+        public const int MinimumPairedCells = 3;
 
         public static void Apply(
             AnalysisResult result,
@@ -47,6 +49,7 @@ namespace AntibodyPanels.Services
 
                 var lost = new List<string>();
                 var persisted = new List<string>();
+                var gained = new List<string>();
                 var destroyedOnLost = new HashSet<string>(StringComparer.Ordinal);
                 var destroyedOnPersisted = new HashSet<string>(StringComparer.Ordinal);
 
@@ -83,10 +86,17 @@ namespace AntibodyPanels.Services
                     if (!untreatedByCell.TryGetValue(cellNum, out var untreatedRxn)) continue;
                     if (untreatedCtx.IsPositive(untreatedRxn)) continue;
                     if (treatedCtx.IsPositive(treatedRxn))
+                    {
                         paired++;
+                        gained.Add(cellNum);
+                    }
                 }
 
-                if (paired < 3) continue;
+                if (paired < MinimumPairedCells)
+                {
+                    AddIncomplete(result, treatedCtx, paired, lost, gained, persisted);
+                    continue;
+                }
 
                 var treatment = AntigenTreatmentEffects.GetDisplayName(CellTreatment.DTT);
 
@@ -149,6 +159,28 @@ namespace AntibodyPanels.Services
                 Explanation =
                     $"{treated.Run.DisplayLabel} on panel {treated.Run.PanelId} was not compared with an untreated run " +
                     $"on the same panel. {other} A different panel was not paired. Not a diagnosis."
+            });
+        }
+
+        private static void AddIncomplete(
+            AnalysisResult result, RunContext treated, int paired,
+            IReadOnlyList<string> lost, IReadOnlyList<string> gained, IReadOnlyList<string> persisted)
+        {
+            var cells = lost.Concat(gained).Concat(persisted).ToList();
+            var which = cells.Count == 0 ? "none" : string.Join(", ", cells);
+            result.ReactionPatterns.Add(new ReactionPatternNote
+            {
+                Kind = IncompleteKind,
+                MatchingCells = 0,
+                EvaluatedCells = paired,
+                SupportingCells = cells,
+                Explanation =
+                    $"{treated.Run.DisplayLabel} on panel {treated.Run.PanelId} was compared with an untreated run " +
+                    $"on the same panel. {paired} cell(s) could be paired ({which}): {lost.Count} lost reactivity, " +
+                    $"{gained.Count} became reactive, and {persisted.Count} stayed reactive. " +
+                    $"{MinimumPairedCells} paired cells are required before a DTT pattern is assigned. " +
+                    "The comparison is incomplete. No DTT-destroyed or DTT-resistant pattern was assigned. " +
+                    "Not a diagnosis."
             });
         }
 
