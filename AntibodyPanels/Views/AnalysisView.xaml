@@ -339,7 +339,7 @@
                     <StackPanel Margin="8">
                         <TextBlock Text="Treatment comparison" FontWeight="Bold" FontSize="14"
                                    Margin="0,0,0,4"/>
-                        <TextBlock Text="Enzyme and DTT runs are compared only with an untreated run on the same panel. A note names a run that was not compared, or a same-panel comparison with fewer than three paired cells. Scores are evidence, not a diagnosis."
+                        <TextBlock Text="Enzyme and DTT runs are compared only with an untreated run on the same panel. A note names a run that was not compared, a comparison with fewer than three paired cells, or a comparison that fit no pattern. Scores are evidence, not a diagnosis."
                                    FontStyle="Italic" Foreground="#555" Margin="0,0,0,6" TextWrapping="Wrap"/>
                         <TextBlock Text="{Binding TreatmentComparisonText}"
                                    TextWrapping="Wrap" Margin="0,0,0,14"/>

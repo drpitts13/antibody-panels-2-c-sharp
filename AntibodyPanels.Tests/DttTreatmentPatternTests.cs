@@ -236,6 +236,76 @@ public class DttTreatmentPatternTests
             i.Antibody == "anti-Lub" && i.InferenceType == TreatmentInferenceType.ReactivityLostOnDTT);
     }
 
+    [Fact]
+    public void MixedLossGainAndPersistence_FitsNoDttPattern()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "0", "2+" },
+            dttAhg: new[] { "0", "2+", "2+" },
+            k: new[] { "+", "-", "+" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(DttTreatmentPatternClassifier.NoFitKind, note.Kind);
+        Assert.Contains("DTT on panel 1", note.Explanation);
+        Assert.Contains("3 cells were paired (1, 2, 3)", note.Explanation);
+        Assert.Contains("1 lost reactivity (1)", note.Explanation);
+        Assert.Contains("1 became reactive (2)", note.Explanation);
+        Assert.Contains("1 stayed reactive (3)", note.Explanation);
+        Assert.Contains("do not form a DTT pattern", note.Explanation);
+        Assert.Contains("No pattern was assigned", note.Explanation);
+        Assert.Contains("Not a diagnosis", note.Explanation);
+        Assert.DoesNotContain(note.Explanation, "consistent with antibodies", StringComparison.Ordinal);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.ResistantKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.IncompleteKind);
+    }
+
+    [Fact]
+    public void ThreeNewlyReactiveCells_AreNotADttPattern()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "0", "0", "0" },
+            dttAhg: new[] { "2+", "2+", "2+" },
+            k: new[] { "+", "+", "-" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(DttTreatmentPatternClassifier.NoFitKind, note.Kind);
+        Assert.Contains("0 lost reactivity (none)", note.Explanation);
+        Assert.Contains("3 became reactive (1, 2, 3)", note.Explanation);
+        Assert.Contains("0 stayed reactive (none)", note.Explanation);
+        Assert.Contains("No pattern was assigned", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.ResistantKind);
+    }
+
+    [Fact]
+    public void TwoPersistentAndOneNewCell_AreNotCalledResistant()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "0", "2+", "2+" },
+            dttAhg: new[] { "2+", "2+", "2+" },
+            k: new[] { "-", "+", "+" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(DttTreatmentPatternClassifier.NoFitKind, note.Kind);
+        Assert.Contains("1 became reactive (1)", note.Explanation);
+        Assert.Contains("2 stayed reactive (2, 3)", note.Explanation);
+        Assert.Contains("No pattern was assigned", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.ResistantKind);
+    }
+
+    [Fact]
+    public void TwoLossesAndOnePersistentCell_StayDestroyed_NotNoFit()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "2+", "2+" },
+            dttAhg: new[] { "0", "0", "2+" },
+            k: new[] { "+", "+", "+" });
+
+        Assert.Contains(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == DttTreatmentPatternClassifier.NoFitKind);
+    }
+
     private static AnalysisResult AnalyzePairs(string[] untreatedAhg, string[] dttAhg, string[] k)
     {
         var untreated = Ctx(1, 1, CellTreatment.None);

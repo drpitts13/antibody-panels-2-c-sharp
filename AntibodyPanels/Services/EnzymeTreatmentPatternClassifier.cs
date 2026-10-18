@@ -16,6 +16,7 @@ namespace AntibodyPanels.Services
         public const string ResistantKind = "EnzymeResistant";
         public const string UnpairedKind = "EnzymeUnpaired";
         public const string IncompleteKind = "EnzymeIncomplete";
+        public const string NoFitKind = "EnzymeNoFit";
         public const int MinimumPairedCells = 3;
 
         public static void Apply(
@@ -93,6 +94,7 @@ namespace AntibodyPanels.Services
                 }
 
                 var treatment = AntigenTreatmentEffects.GetDisplayName(treatedCtx.Run.CellTreatment);
+                var assigned = false;
 
                 if (lost.Count >= 2 && lost.Count >= gained.Count)
                 {
@@ -107,6 +109,7 @@ namespace AntibodyPanels.Services
                     result.ReactionPatterns.Add(note);
                     AddInference(result, treatedCtx.Run.DisplayLabel, destroyedOnLost,
                         TreatmentInferenceType.ReactivityLostOnEnzyme, note.Explanation);
+                    assigned = true;
                 }
                 else if (lost.Count >= 1 && persisted.Count >= 2)
                 {
@@ -120,6 +123,7 @@ namespace AntibodyPanels.Services
                         $"({string.Join(", ", persisted)}). Enzyme-destroyed antigens ({antigens}) are only a partial " +
                         "fit; consider multiple antibodies or an enzyme-resistant specificity. Not a diagnosis.");
                     result.ReactionPatterns.Add(note);
+                    assigned = true;
                 }
 
                 if (gained.Count >= 2 && gained.Count > lost.Count)
@@ -135,6 +139,7 @@ namespace AntibodyPanels.Services
                     result.ReactionPatterns.Add(note);
                     AddInference(result, treatedCtx.Run.DisplayLabel, enhancedOnGained,
                         TreatmentInferenceType.ReactivityGainedOnEnzyme, note.Explanation);
+                    assigned = true;
                 }
                 else if (persisted.Count >= 3 && lost.Count == 0 && gained.Count == 0)
                 {
@@ -147,7 +152,11 @@ namespace AntibodyPanels.Services
                         $"({string.Join(", ", persisted)}). Survival of reactivity argues against antibodies to " +
                         $"enzyme-destroyed antigens ({antigens}) as the sole explanation. Not a diagnosis.");
                     result.ReactionPatterns.Add(note);
+                    assigned = true;
                 }
+
+                if (!assigned)
+                    AddNoFit(result, treatedCtx, paired, lost, gained, persisted);
             }
         }
 
@@ -196,6 +205,32 @@ namespace AntibodyPanels.Services
                     "pattern was assigned. Not a diagnosis."
             });
         }
+
+        private static void AddNoFit(
+            AnalysisResult result, RunContext treated, int paired,
+            IReadOnlyList<string> lost, IReadOnlyList<string> gained, IReadOnlyList<string> persisted)
+        {
+            var which = string.Join(", ", lost.Concat(gained).Concat(persisted));
+            result.ReactionPatterns.Add(new ReactionPatternNote
+            {
+                Kind = NoFitKind,
+                MatchingCells = 0,
+                EvaluatedCells = paired,
+                SupportingCells = lost.Concat(gained).Concat(persisted).ToList(),
+                Explanation =
+                    $"{treated.Run.DisplayLabel} on panel {treated.Run.PanelId} was compared with an untreated run " +
+                    $"on the same panel. {paired} cells were paired ({which}): {lost.Count} lost reactivity " +
+                    $"({ListOrNone(lost)}), {gained.Count} gained reactivity ({ListOrNone(gained)}), and " +
+                    $"{persisted.Count} stayed reactive ({ListOrNone(persisted)}). " +
+                    "Enzyme-destroyed needs at least 2 cells that lost reactivity, or 1 lost and 2 that stayed reactive. " +
+                    "Enzyme-enhanced needs at least 2 cells that gained reactivity and more gains than losses. " +
+                    "Enzyme-resistant needs at least 3 cells that stayed reactive and no losses or gains. " +
+                    "No pattern was assigned. Not a diagnosis."
+            });
+        }
+
+        private static string ListOrNone(IReadOnlyList<string> cells) =>
+            cells.Count == 0 ? "none" : string.Join(", ", cells);
 
         private static IReadOnlyList<string> TypedAntigensWithEffect(
             PanelCell cell, CellTreatment treatment, AntigenEffect wanted)

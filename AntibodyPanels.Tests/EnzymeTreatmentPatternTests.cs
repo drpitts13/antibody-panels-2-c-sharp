@@ -347,6 +347,120 @@ public class EnzymeTreatmentPatternTests
         Assert.Contains("Not a diagnosis", report);
     }
 
+    [Fact]
+    public void MixedLossGainAndPersistence_FitsNoEnzymePattern()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "0", "2+" },
+            ficinAhg: new[] { "0", "2+", "2+" },
+            fya: new[] { "+", "-", "+" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.NoFitKind, note.Kind);
+        Assert.Contains("3 cells were paired (1, 2, 3)", note.Explanation);
+        Assert.Contains("1 lost reactivity (1)", note.Explanation);
+        Assert.Contains("1 gained reactivity (2)", note.Explanation);
+        Assert.Contains("1 stayed reactive (3)", note.Explanation);
+        Assert.Contains("No pattern was assigned", note.Explanation);
+        Assert.Contains("Not a diagnosis", note.Explanation);
+        Assert.DoesNotContain(note.Explanation, "consistent with antibodies", StringComparison.Ordinal);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.EnhancedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.ResistantKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.IncompleteKind);
+        var doc = AnalysisExplainer.FormatDocument(result);
+        Assert.Contains("No pattern was assigned", doc);
+    }
+
+    [Fact]
+    public void OneGainAndTwoPersistentCells_AreNotCalledResistant()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "0", "2+", "2+" },
+            ficinAhg: new[] { "2+", "2+", "2+" },
+            fya: new[] { "-", "+", "+" });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.NoFitKind, note.Kind);
+        Assert.Contains("1 gained reactivity (1)", note.Explanation);
+        Assert.Contains("2 stayed reactive (2, 3)", note.Explanation);
+        Assert.Contains("0 lost reactivity (none)", note.Explanation);
+        Assert.Contains("No pattern was assigned", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.ResistantKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.EnhancedKind);
+    }
+
+    [Fact]
+    public void OneLossAndTwoPersistentCells_StayPartialDestroyed_NotNoFit()
+    {
+        var result = AnalyzePairs(
+            untreatedAhg: new[] { "2+", "2+", "2+" },
+            ficinAhg: new[] { "0", "2+", "2+" },
+            fya: new[] { "+", "+", "+" });
+
+        Assert.Contains(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.NoFitKind);
+    }
+
+    [Fact]
+    public void PapainMixedPattern_FitsNoEnzymePattern()
+    {
+        var untreated = Ctx(1, 1, CellTreatment.None);
+        var papain = new RunContext(new PanelRun
+        {
+            RunId = 2,
+            PanelId = 1,
+            CellTreatment = CellTreatment.Papain,
+            Label = "Papain"
+        });
+        var result = new AnalysisResult();
+        EnzymeTreatmentPatternClassifier.Apply(
+            result,
+            new Dictionary<int, List<Reaction>>
+            {
+                [1] = Rxns("2+", "0", "2+"),
+                [2] = Rxns("0", "2+", "2+")
+            },
+            new Dictionary<int, RunContext> { [1] = untreated, [2] = papain },
+            new Dictionary<int, List<PanelCell>> { [1] = FyaCells(new[] { "+", "-", "+" }) });
+
+        var note = Assert.Single(result.ReactionPatterns);
+        Assert.Equal(EnzymeTreatmentPatternClassifier.NoFitKind, note.Kind);
+        Assert.Contains("Papain on panel 1", note.Explanation);
+        Assert.Contains("No pattern was assigned", note.Explanation);
+        Assert.Contains("Not a diagnosis", note.Explanation);
+    }
+
+    [Fact]
+    public void Analyzer_MixedFicinComparison_ExplainsThatNoPatternFit()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ENZ-MIX", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 3, null, false);
+        iso.Db.LinkSpecimenPanel("ENZ-MIX", panelId);
+        var untreated = iso.Db.GetOrCreateDefaultRun("ENZ-MIX", panelId);
+        iso.Db.SaveReaction(untreated, "1", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "2", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(untreated, "3", "0", "0", "2+", "NT");
+        var ficin = iso.Db.AddPanelRun("ENZ-MIX", panelId, CellTreatment.Ficin, SerumTreatment.None, "Ficin");
+        iso.Db.SaveReaction(ficin, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(ficin, "2", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(ficin, "3", "0", "0", "2+", "NT");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ENZ-MIX", updateDb: false);
+        var note = Assert.Single(result.ReactionPatterns, n =>
+            n.Kind == EnzymeTreatmentPatternClassifier.NoFitKind);
+        Assert.Contains("3 cells were paired", note.Explanation);
+        Assert.Contains("No pattern was assigned", note.Explanation);
+        Assert.Contains("Not a diagnosis", note.Explanation);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.DestroyedKind);
+        Assert.DoesNotContain(result.ReactionPatterns, n => n.Kind == EnzymeTreatmentPatternClassifier.EnhancedKind);
+        Assert.Contains(result.Suggestions, s => s.Contains("No pattern was assigned") && s.Contains("Not a diagnosis"));
+        var report = iso.Reports.GeneratePreviewText(ReportType.ClinicalIdentification, "ENZ-MIX");
+        Assert.Contains("No pattern was assigned", report);
+        Assert.Contains("Not a diagnosis", report);
+    }
+
     private static AnalysisResult AnalyzePairs(
         string[] untreatedAhg, string[] ficinAhg, string[] fya, string[]? e = null)
     {

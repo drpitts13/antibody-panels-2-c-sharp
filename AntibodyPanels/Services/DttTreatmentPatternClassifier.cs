@@ -15,6 +15,7 @@ namespace AntibodyPanels.Services
         public const string ResistantKind = "DttResistant";
         public const string UnpairedKind = "DttUnpaired";
         public const string IncompleteKind = "DttIncomplete";
+        public const string NoFitKind = "DttNoFit";
         public const int MinimumPairedCells = 3;
 
         public static void Apply(
@@ -99,6 +100,7 @@ namespace AntibodyPanels.Services
                 }
 
                 var treatment = AntigenTreatmentEffects.GetDisplayName(CellTreatment.DTT);
+                var assigned = false;
 
                 if (lost.Count >= 2 && lost.Count >= persisted.Count)
                 {
@@ -112,6 +114,7 @@ namespace AntibodyPanels.Services
                         $"antigens ({antigens}). Do not rule those antibodies out from the DTT run. Not a diagnosis.");
                     result.ReactionPatterns.Add(note);
                     AddInference(result, treatedCtx.Run.DisplayLabel, destroyedOnLost, note.Explanation);
+                    assigned = true;
                 }
                 else if (lost.Count >= 1 && persisted.Count >= 2)
                 {
@@ -125,6 +128,7 @@ namespace AntibodyPanels.Services
                         $"({string.Join(", ", persisted)}). DTT-destroyed antigens ({antigens}) are only a partial " +
                         "fit; consider multiple antibodies or a DTT-resistant specificity. Not a diagnosis.");
                     result.ReactionPatterns.Add(note);
+                    assigned = true;
                 }
                 else if (persisted.Count >= 3 && lost.Count == 0)
                 {
@@ -137,7 +141,11 @@ namespace AntibodyPanels.Services
                         $"({string.Join(", ", persisted)}). Survival of reactivity argues against antibodies to " +
                         $"DTT-destroyed antigens ({antigens}) as the sole explanation. Not a diagnosis.");
                     result.ReactionPatterns.Add(note);
+                    assigned = true;
                 }
+
+                if (!assigned)
+                    AddNoFit(result, treatedCtx, paired, lost, gained, persisted);
             }
         }
 
@@ -183,6 +191,32 @@ namespace AntibodyPanels.Services
                     "Not a diagnosis."
             });
         }
+
+        private static void AddNoFit(
+            AnalysisResult result, RunContext treated, int paired,
+            IReadOnlyList<string> lost, IReadOnlyList<string> gained, IReadOnlyList<string> persisted)
+        {
+            var which = string.Join(", ", lost.Concat(gained).Concat(persisted));
+            result.ReactionPatterns.Add(new ReactionPatternNote
+            {
+                Kind = NoFitKind,
+                MatchingCells = 0,
+                EvaluatedCells = paired,
+                SupportingCells = lost.Concat(gained).Concat(persisted).ToList(),
+                Explanation =
+                    $"{treated.Run.DisplayLabel} on panel {treated.Run.PanelId} was compared with an untreated run " +
+                    $"on the same panel. {paired} cells were paired ({which}): {lost.Count} lost reactivity " +
+                    $"({ListOrNone(lost)}), {gained.Count} became reactive ({ListOrNone(gained)}), and " +
+                    $"{persisted.Count} stayed reactive ({ListOrNone(persisted)}). " +
+                    "DTT-destroyed needs at least 2 cells that lost reactivity and at least as many losses as cells that stayed reactive, " +
+                    "or 1 lost and 2 that stayed reactive. DTT-resistant needs at least 3 cells that stayed reactive and no losses. " +
+                    "Cells that became reactive are counted but do not form a DTT pattern. " +
+                    "No pattern was assigned. Not a diagnosis."
+            });
+        }
+
+        private static string ListOrNone(IReadOnlyList<string> cells) =>
+            cells.Count == 0 ? "none" : string.Join(", ", cells);
 
         private static IReadOnlyList<string> TypedAntigensWithEffect(PanelCell cell, AntigenEffect wanted)
         {
