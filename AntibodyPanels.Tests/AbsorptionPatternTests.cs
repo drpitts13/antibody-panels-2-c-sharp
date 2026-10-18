@@ -497,6 +497,124 @@ public class AbsorptionPatternTests
         Assert.Contains("Not a diagnosis", doc);
     }
 
+    [Fact]
+    public void RrAdsorption_PanreactiveUntreated_LeavesAntiKOnTheAliquot()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ABS-RR-PAN", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel("ABS-RR-PAN", panelId);
+        var cells = iso.Db.GetPanelCells(panelId);
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "c", "++");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "c", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "c", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "K", "+");
+        var untreated = iso.Db.GetOrCreateDefaultRun("ABS-RR-PAN", panelId);
+        var adsorbed = iso.Db.AddPanelRun(
+            "ABS-RR-PAN", panelId, CellTreatment.None, SerumTreatment.AlloAdsorptionRr, "Absorbed: rr");
+        foreach (var cell in new[] { "1", "2", "3", "4" })
+            iso.Db.SaveReaction(untreated, cell, "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(adsorbed, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(adsorbed, "2", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(adsorbed, "3", "0", "0", "2+", "2+");
+        iso.Db.SaveReaction(adsorbed, "4", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ABS-RR-PAN", updateDb: false);
+        Assert.Contains(result.AbsorptionConclusions, n =>
+            n.Antibody == "anti-c" && n.Kind == AbsorptionPatternClassifier.RemovedKind);
+        Assert.Contains(result.AdsorptionScoreExclusions, s =>
+            s.Contains("Untreated is panreactive (4 of 4 evaluated cells)", StringComparison.Ordinal) &&
+            s.Contains("paired with Absorbed: rr", StringComparison.Ordinal) &&
+            s.Contains("not expected to remove", StringComparison.Ordinal) &&
+            s.Contains("Not a diagnosis", StringComparison.Ordinal));
+        Assert.Contains(result.AdsorptionScoreExclusions, s =>
+            s.Contains("remove anti-c;", StringComparison.Ordinal));
+        var kPattern = Assert.Single(result.PatternMatches, p => p.Antibody == "anti-K");
+        Assert.Equal(1, kPattern.Matches);
+        Assert.Equal(0, kPattern.Mismatches);
+        var kEvidence = result.SuspectedEvidence["anti-K"];
+        Assert.Single(kEvidence.SupportingCells);
+        Assert.Equal("Absorbed: rr", kEvidence.SupportingCells[0].RunLabel);
+        Assert.Equal("3", kEvidence.SupportingCells[0].CellNumber);
+        Assert.DoesNotContain(result.PatternMatches, p => p.Antibody == "anti-c");
+        var antiK = Assert.Single(result.CandidateExplanations, e => e.Antibody == "anti-K");
+        Assert.Contains("is panreactive", antiK.Narrative);
+        Assert.Contains("Not a diagnosis", antiK.Narrative);
+    }
+
+    [Fact]
+    public void RrAdsorption_ThreeOfFourReactive_StillUsesTheUntreatedRun()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ABS-RR-3", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel("ABS-RR-3", panelId);
+        var cells = iso.Db.GetPanelCells(panelId);
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "c", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "c", "-");
+        var untreated = iso.Db.GetOrCreateDefaultRun("ABS-RR-3", panelId);
+        iso.Db.SaveReaction(untreated, "1", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "2", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "3", "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(untreated, "4", "0", "0", "0", "2+");
+        var adsorbed = iso.Db.AddPanelRun(
+            "ABS-RR-3", panelId, CellTreatment.None, SerumTreatment.AlloAdsorptionRr, "Absorbed: rr");
+        iso.Db.SaveReaction(adsorbed, "1", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(adsorbed, "2", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(adsorbed, "3", "0", "0", "0", "2+");
+        iso.Db.SaveReaction(adsorbed, "4", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ABS-RR-3", updateDb: false);
+        Assert.DoesNotContain(result.AdsorptionScoreExclusions, s => s.Contains("is panreactive", StringComparison.Ordinal));
+        var pattern = Assert.Single(result.PatternMatches, p => p.Antibody == "anti-c");
+        Assert.Equal(2, pattern.Matches);
+        Assert.Equal(1, pattern.Mismatches);
+        Assert.Contains(result.AdsorptionScoreExclusions, s =>
+            s.Contains("remove anti-c;", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RrAdsorption_PanreactiveUntreated_SurvivalIsNotAnOrdinaryAntiCScore()
+    {
+        using var iso = new IsolatedDatabase();
+        iso.Db.AddSpecimen("ABS-RR-SURV", "serum", null);
+        var panelId = iso.Db.AddPanel("P", "L", "V", 4, null, false);
+        iso.Db.LinkSpecimenPanel("ABS-RR-SURV", panelId);
+        var cells = iso.Db.GetPanelCells(panelId);
+        iso.Db.UpdatePanelCellAntigen(cells[0].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[1].Id, "c", "+");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "c", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[3].Id, "c", "-");
+        iso.Db.UpdatePanelCellAntigen(cells[2].Id, "K", "+");
+        var untreated = iso.Db.GetOrCreateDefaultRun("ABS-RR-SURV", panelId);
+        var adsorbed = iso.Db.AddPanelRun(
+            "ABS-RR-SURV", panelId, CellTreatment.None, SerumTreatment.AlloAdsorptionRr, "Absorbed: rr");
+        foreach (var cell in new[] { "1", "2", "3", "4" })
+            iso.Db.SaveReaction(untreated, cell, "0", "0", "2+", "NT");
+        iso.Db.SaveReaction(adsorbed, "1", "0", "0", "2+", "2+");
+        iso.Db.SaveReaction(adsorbed, "2", "0", "0", "2+", "2+");
+        iso.Db.SaveReaction(adsorbed, "3", "0", "0", "2+", "2+");
+        iso.Db.SaveReaction(adsorbed, "4", "0", "0", "0", "2+");
+
+        var result = iso.Analyzer.AnalyzeSpecimen("ABS-RR-SURV", updateDb: false);
+        var survived = Assert.Single(result.AbsorptionConclusions, n =>
+            n.Antibody == "anti-c" && n.Kind == AbsorptionPatternClassifier.SurvivedKind);
+        Assert.Contains("remained reactive", survived.Explanation);
+        Assert.Contains("Not a diagnosis", survived.Explanation);
+        Assert.DoesNotContain(result.Suspected.Keys, k => k == "anti-c");
+        Assert.DoesNotContain(result.PatternMatches, p => p.Antibody == "anti-c");
+        var kPattern = Assert.Single(result.PatternMatches, p => p.Antibody == "anti-K");
+        Assert.Equal(1, kPattern.Matches);
+        Assert.Equal(2, kPattern.Mismatches);
+        var antiC = Assert.Single(result.CandidateExplanations, e => e.Antibody == "anti-c");
+        Assert.Contains("is panreactive", antiC.Narrative);
+        Assert.Contains("remained reactive", antiC.Narrative);
+        Assert.Contains("Not a diagnosis", antiC.Narrative);
+    }
+
     private static AnalysisResult AnalyzeAllo(
         SerumTreatment serum, string label, string[] untreatedAhg, string[] adsorbedAhg, string[] c, string[] e)
     {

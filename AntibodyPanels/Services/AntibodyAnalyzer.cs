@@ -36,7 +36,7 @@ namespace AntibodyPanels.Services
 
             var rules = _db.GetAllRules();
             var scoreExclusions = new HashSet<string>(StringComparer.Ordinal);
-            MarkPanreactiveUntreatedBesideAuto(byRun, contexts, scoreExclusions);
+            MarkPanreactiveUntreatedBesideAdsorption(byRun, contexts, scoreExclusions);
             var observedRuleouts = CalculateRuleouts(byRun, contexts, antigens, rules, out var gatedRuleouts);
             var detailedRuleouts = GetDetailedRuleouts(byRun, contexts, antigens, rules);
             var evaluations = BuildRuleoutEvaluations(
@@ -375,21 +375,22 @@ namespace AntibodyPanels.Services
         }
 
         /// <summary>
-        /// A panreactive untreated run paired with autoadsorption is not ordinary
-        /// alloantibody evidence. The autoadsorbed aliquot stays in the scores.
+        /// A panreactive untreated run paired with autoadsorption or allogeneic
+        /// adsorption is not ordinary alloantibody evidence. The aliquot stays
+        /// in the scores except for specificities that aliquot is expected to remove.
         /// </summary>
-        private void MarkPanreactiveUntreatedBesideAuto(
+        private void MarkPanreactiveUntreatedBesideAdsorption(
             Dictionary<int, List<Reaction>> byRun,
             Dictionary<int, RunContext> contexts,
             ISet<string> exclusions)
         {
             _panreactiveUntreatedRunIds.Clear();
-            var autos = contexts.Values.Where(c => c.IsAutoAdsorbed).ToList();
-            if (autos.Count == 0) return;
+            var adsorbed = contexts.Values.Where(IsAdsorptionRun).ToList();
+            if (adsorbed.Count == 0) return;
 
             foreach (var untreated in contexts.Values.Where(c => c.Run.SerumTreatment == SerumTreatment.None))
             {
-                var paired = autos.Where(a =>
+                var paired = adsorbed.Where(a =>
                     a.Run.PanelId == untreated.Run.PanelId
                     && a.Run.CellTreatment == untreated.Run.CellTreatment
                     && a.Run.RunId != untreated.Run.RunId
@@ -399,13 +400,32 @@ namespace AntibodyPanels.Services
                 if (!IsPanreactive(untreated, reactions, out var reactive, out var evaluated)) continue;
 
                 _panreactiveUntreatedRunIds.Add(untreated.Run.RunId);
-                var autoLabels = string.Join(", ", paired.Select(a => a.Run.DisplayLabel).Distinct(StringComparer.Ordinal));
-                exclusions.Add(
-                    $"{untreated.Run.DisplayLabel} is panreactive ({reactive} of {evaluated} evaluated cells) " +
-                    $"and is paired with {autoLabels}. Reactions on this untreated run were excluded from " +
-                    "ordinary probability and pattern scores. Use the autoadsorbed aliquot for underlying " +
-                    "alloantibody evidence. Not a diagnosis.");
+                AddPanreactiveExclusion(exclusions, untreated, paired.Where(a => a.IsAutoAdsorbed).ToList(), reactive, evaluated, auto: true);
+                AddPanreactiveExclusion(exclusions, untreated, paired.Where(a => !a.IsAutoAdsorbed).ToList(), reactive, evaluated, auto: false);
             }
+        }
+
+        private static bool IsAdsorptionRun(RunContext ctx) =>
+            ctx.IsAutoAdsorbed || ctx.AbsorbedAntibodies.Count > 0;
+
+        private static void AddPanreactiveExclusion(
+            ISet<string> exclusions,
+            RunContext untreated,
+            List<RunContext> paired,
+            int reactive,
+            int evaluated,
+            bool auto)
+        {
+            if (paired.Count == 0) return;
+            var labels = string.Join(", ", paired.Select(a => a.Run.DisplayLabel).Distinct(StringComparer.Ordinal));
+            var guidance = auto
+                ? "Use the autoadsorbed aliquot for underlying alloantibody evidence."
+                : "Use the adsorbed aliquot for specificities it is not expected to remove. " +
+                  "Removal or survival of the expected specificities stays on the absorption comparison.";
+            exclusions.Add(
+                $"{untreated.Run.DisplayLabel} is panreactive ({reactive} of {evaluated} evaluated cells) " +
+                $"and is paired with {labels}. Reactions on this untreated run were excluded from " +
+                $"ordinary probability and pattern scores. {guidance} Not a diagnosis.");
         }
 
         private static bool IsPanreactive(

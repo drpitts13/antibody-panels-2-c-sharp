@@ -170,6 +170,9 @@ namespace AntibodyPanels.Tests
             Assert.Contains(result.AdsorptionScoreExclusions, s =>
                 s.Contains("remove anti-c;", StringComparison.Ordinal) &&
                 s.Contains("excluded from ordinary probability and pattern scores", StringComparison.Ordinal));
+            Assert.Contains(result.AdsorptionScoreExclusions, s =>
+                s.Contains("is panreactive (6 of 6 evaluated cells)", StringComparison.Ordinal) &&
+                s.Contains("Not a diagnosis", StringComparison.Ordinal));
             Assert.DoesNotContain(result.Suspected.Keys, k => k == "anti-c");
             var antiC = Assert.Single(result.CandidateExplanations, e => e.Antibody == "anti-c");
             Assert.Contains("remained reactive", antiC.Narrative);
