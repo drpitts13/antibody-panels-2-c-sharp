@@ -1,7 +1,9 @@
 <UserControl x:Class="AntibodyPanels.Views.AnalyticsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:scottplot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF">
+             xmlns:scottplot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+             xmlns:help="clr-namespace:AntibodyPanels.Help"
+             help:Help.Topic="analytics">
     <UserControl.Resources>
         <Style x:Key="StatCard" TargetType="Border">
             <Setter Property="Margin" Value="0,0,8,0"/>
@@ -33,7 +35,11 @@
                 <Button Content="All time" Command="{Binding AllTimeCommand}" Padding="8,2" Margin="0,0,12,0"
                         ToolTip="Every confirmed identification, including those without a date"/>
                 <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="8,2" Margin="0,0,6,0"/>
-                <Button Content="Export CSV" Command="{Binding ExportCsvCommand}" Padding="8,2"/>
+                <Button Content="Export CSV" Command="{Binding ExportCsvCommand}" Padding="8,2" Margin="0,0,6,0"/>
+                <Button Content="Help" Padding="8,2"
+                        Command="{x:Static help:HelpCommands.ShowContext}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                        ToolTip="Open help for this section (F1)"/>
             </StackPanel>
         </DockPanel>
 

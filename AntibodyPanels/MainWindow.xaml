@@ -35,7 +35,10 @@
                           ToolTip="Seeds seven real-world scenarios for testing"/>
             </MenuItem>
             <MenuItem Header="_Help">
-                <MenuItem Header="Keyboard _Shortcuts" Command="{Binding ShowShortcutsCommand}" InputGestureText="F1"/>
+                <MenuItem Header="_User Manual" Command="{Binding ShowManualCommand}"/>
+                <MenuItem Header="_Topics" x:Name="HelpTopicsMenu"/>
+                <Separator/>
+                <MenuItem Header="Keyboard _Shortcuts" Command="{Binding ShowShortcutsCommand}"/>
                 <Separator/>
                 <MenuItem Header="_About" Command="{Binding ShowAboutCommand}"/>
             </MenuItem>

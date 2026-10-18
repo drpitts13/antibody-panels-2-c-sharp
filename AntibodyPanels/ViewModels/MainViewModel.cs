@@ -27,6 +27,7 @@ namespace AntibodyPanels.ViewModels
         public ICommand? SaveCurrentCommand { get; set; }
         public ICommand? RefreshAllCommand { get; set; }
         public ICommand? NewItemCommand { get; set; }
+        public ICommand? ShowManualCommand { get; set; }
         public ICommand? ShowShortcutsCommand { get; set; }
         public ICommand? ShowAboutCommand { get; set; }
         public ICommand? LoadDemoDataCommand { get; set; }

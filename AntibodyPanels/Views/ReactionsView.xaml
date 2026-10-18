@@ -2,7 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:AntibodyPanels.ViewModels"
-             xmlns:views="clr-namespace:AntibodyPanels.Views">
+             xmlns:views="clr-namespace:AntibodyPanels.Views"
+             xmlns:help="clr-namespace:AntibodyPanels.Help"
+             help:Help.Topic="reactions">
     <UserControl.Resources>
         <!-- Header template for antigen columns — binds to AntigenColumnHeader objects -->
         <DataTemplate x:Key="AntigenHeaderTemplate" DataType="{x:Type views:AntigenColumnHeader}">
@@ -71,6 +73,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Label Content="Run:" Grid.Column="0" VerticalAlignment="Center"/>
             <ComboBox Grid.Column="1" ItemsSource="{Binding Runs}"
@@ -109,6 +112,10 @@
                     Margin="0,0,4,0" Padding="8,2"
                     ToolTip="Set remaining NT phases to 0. Check cells become 2+ when AHG is 0. Does not overwrite grades already entered."/>
             <Button Grid.Column="9" Content="Clear" Command="{Binding ClearCommand}" Padding="8,2"/>
+            <Button Grid.Column="10" Content="Help" Margin="8,0,0,0" Padding="8,2"
+                    Command="{x:Static help:HelpCommands.ShowContext}"
+                    CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                    ToolTip="Open help for this section (F1)"/>
         </Grid>
 
         <!-- Treatment banner (visible only for special runs) -->

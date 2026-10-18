@@ -15,6 +15,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Help\Topics\*.md">
+      <LogicalName>AntibodyPanels.Help.Topics.%(Filename).md</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="blood_bag_icon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

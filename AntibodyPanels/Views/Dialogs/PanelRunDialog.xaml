@@ -1,6 +1,8 @@
 <Window x:Class="AntibodyPanels.Views.Dialogs.PanelRunDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:help="clr-namespace:AntibodyPanels.Help"
+        help:Help.Topic="panel-run"
         Title="Add Panel Run" SizeToContent="WidthAndHeight" Width="400"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <StackPanel Margin="16,12,16,12">
@@ -37,6 +39,10 @@
                    FontSize="11" Margin="0,8,0,4" TextWrapping="Wrap"/>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Help" Width="84" Margin="0,0,8,0"
+                    Command="{x:Static help:HelpCommands.ShowContext}"
+                    CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                    ToolTip="Open help for this section (F1)"/>
             <Button Content="Add Run" Width="90" Margin="0,0,8,0"
                     Click="SaveClick" IsDefault="True"/>
             <Button Content="Cancel" Width="84" IsCancel="True"/>

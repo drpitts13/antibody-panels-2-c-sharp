@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using AntibodyPanels.Help;
 using AntibodyPanels.Models;
 using AntibodyPanels.Services;
 using AntibodyPanels.ViewModels;
@@ -22,16 +23,15 @@ namespace AntibodyPanels
             vm.SaveCurrentCommand = new RelayCommand(SaveCurrent);
             vm.RefreshAllCommand = new RelayCommand(vm.RefreshAll);
             vm.NewItemCommand = new RelayCommand(NewItem);
+            vm.ShowManualCommand = new RelayCommand(HelpService.ShowManual);
             vm.ShowShortcutsCommand = new RelayCommand(ShowShortcuts);
+            BuildHelpTopicsMenu();
             vm.ShowAboutCommand = new RelayCommand(ShowAbout);
             vm.LoadDemoDataCommand = new RelayCommand(LoadDemoData);
             vm.ShowSettingsCommand = new RelayCommand(ShowSettings);
             vm.ShowPurgeDatabaseCommand = new RelayCommand(ShowPurgeDatabase);
             vm.ShowOpenArchiveCommand = new RelayCommand(ShowOpenArchive);
             vm.ShowAuditLogCommand = new RelayCommand(ShowAuditLog);
-
-            // F1 shortcut
-            InputBindings.Add(new KeyBinding(vm.ShowShortcutsCommand, Key.F1, ModifierKeys.None));
 
             Loaded += MainWindow_Loaded;
 
@@ -41,7 +41,10 @@ namespace AntibodyPanels
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                     e.Cancel = true;
                 else
+                {
+                    HelpService.Close();
                     vm.Dispose();
+                }
             };
         }
 
@@ -146,33 +149,34 @@ namespace AntibodyPanels
             }
         }
 
-        private void ShowShortcuts()
+        private void ShowShortcuts() => HelpService.Show(HelpCatalog.ShortcutsId);
+
+        private void BuildHelpTopicsMenu()
         {
-            MessageBox.Show(
-                "Keyboard Shortcuts\n\n" +
-                SoftwareIdentity.IntendedUse + "\n\n" +
-                "Ctrl+S     Save current tab\n" +
-                "Ctrl+R     Refresh all tabs\n" +
-                "Ctrl+N     New item (context-aware)\n" +
-                "F1         Show this help\n\n" +
-                "Worklist:\n" +
-                "  Enter     open the selected item\n" +
-                "  Click a count card to filter that category\n\n" +
-                "Reports:\n" +
-                "  Ctrl+P    print the current report\n\n" +
-                "Analytics:\n" +
-                "  Use From/To dates or 30 days / 90 days / 12 months / All time\n\n" +
-                "Reaction Entry:\n" +
-                "  0–4     write grade (0, 1+, 2+, 3+, 4+)\n" +
-                "  N       write NT\n" +
-                "  Enter   next phase, then next cell\n" +
-                "  Ctrl+S  save grades without analyzing\n\n" +
-                "Panel Antigen Grid:\n" +
-                "  Press Edit to enter antigen edit mode\n" +
-                "  Click a cell, or press Enter / Space, to toggle + and −\n" +
-                "  Green = antigen present (+), light gray = antigen absent (−)\n" +
-                "  Save or Cancel to leave edit mode",
-                "Keyboard Shortcuts", MessageBoxButton.OK, MessageBoxImage.Information);
+            HelpTopicsMenu.Items.Clear();
+            foreach (var node in HelpCatalog.Tree())
+                HelpTopicsMenu.Items.Add(CreateTopicMenu(node));
+        }
+
+        private static MenuItem CreateTopicMenu(HelpTopicNode node)
+        {
+            var item = new MenuItem { Header = node.Title.Replace("_", "__") };
+            if (node.Children.Count == 0)
+            {
+                item.Command = HelpCommands.ShowTopic;
+                item.CommandParameter = node.Id;
+                return item;
+            }
+
+            item.Items.Add(new MenuItem
+            {
+                Header = node.Title.Replace("_", "__"),
+                Command = HelpCommands.ShowTopic,
+                CommandParameter = node.Id
+            });
+            foreach (var child in node.Children)
+                item.Items.Add(CreateTopicMenu(child));
+            return item;
         }
 
         private void LoadDemoData()

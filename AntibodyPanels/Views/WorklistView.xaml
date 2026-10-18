@@ -1,7 +1,9 @@
 <UserControl x:Class="AntibodyPanels.Views.WorklistView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:AntibodyPanels.Views">
+             xmlns:local="clr-namespace:AntibodyPanels.Views"
+             xmlns:help="clr-namespace:AntibodyPanels.Help"
+             help:Help.Topic="worklist">
     <UserControl.Resources>
         <Style x:Key="DashCard" TargetType="Button">
             <Setter Property="Margin" Value="0,0,8,0"/>
@@ -40,6 +42,10 @@
                         ToolTip="Show every worklist category"/>
                 <Button Content="Open" Command="{Binding OpenCommand}" Padding="10,2" Margin="0,0,8,0"/>
                 <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="10,2"/>
+                <Button Content="Help" Padding="10,2" Margin="8,0,0,0"
+                        Command="{x:Static help:HelpCommands.ShowContext}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                        ToolTip="Open help for this section (F1)"/>
             </StackPanel>
         </DockPanel>
 

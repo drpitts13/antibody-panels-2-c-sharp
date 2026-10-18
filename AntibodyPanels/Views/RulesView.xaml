@@ -1,6 +1,8 @@
 <UserControl x:Class="AntibodyPanels.Views.RulesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:help="clr-namespace:AntibodyPanels.Help"
+             help:Help.Topic="rules">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="360" MinWidth="200"/>
@@ -15,7 +17,11 @@
                 <Button Content="Add" Command="{Binding AddCommand}" Width="60" Margin="0,0,4,0"/>
                 <Button Content="Edit" Command="{Binding EditCommand}" Width="60" Margin="0,0,4,0"/>
                 <Button Content="Delete" Command="{Binding DeleteCommand}" Width="60" Margin="0,0,4,0"/>
-                <Button Content="Refresh" Command="{Binding RefreshCommand}" Width="65"/>
+                <Button Content="Refresh" Command="{Binding RefreshCommand}" Width="65" Margin="0,0,4,0"/>
+                <Button Content="Help" Width="60"
+                        Command="{x:Static help:HelpCommands.ShowContext}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                        ToolTip="Open help for this section (F1)"/>
             </StackPanel>
             <DataGrid ItemsSource="{Binding Rules}"
                       SelectedItem="{Binding SelectedRule}"

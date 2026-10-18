@@ -40,7 +40,7 @@ namespace AntibodyPanels.Services
             return $"{ProductName}\n\n" +
                    $"{VersionLabel} (C# / WPF)\n\n" +
                    $"{IntendedUse}\n\n" +
-                   "Press F1 for keyboard shortcuts.";
+                   "Press F1 for help on the current section.";
         }
     }
 }

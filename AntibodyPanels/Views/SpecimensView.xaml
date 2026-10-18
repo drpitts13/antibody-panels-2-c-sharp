@@ -1,6 +1,8 @@
 <UserControl x:Class="AntibodyPanels.Views.SpecimensView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:help="clr-namespace:AntibodyPanels.Help"
+             help:Help.Topic="specimens">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="340" MinWidth="200"/>
@@ -74,8 +76,12 @@
                         Margin="0,0,6,0" Padding="8,2"
                         ToolTip="Open this specimen on the Analysis tab"/>
                 <Button Content="Clinical Report" Command="{Binding OpenReportCommand}"
-                        Padding="8,2"
+                        Padding="8,2" Margin="0,0,6,0"
                         ToolTip="Open the clinical identification report for this specimen"/>
+                <Button Content="Help" Padding="8,2"
+                        Command="{x:Static help:HelpCommands.ShowContext}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource Self}}"
+                        ToolTip="Open help for this section (F1)"/>
             </StackPanel>
 
             <!-- Linked Panels -->

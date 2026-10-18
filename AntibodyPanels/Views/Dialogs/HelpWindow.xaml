@@ -1,0 +1,48 @@
+<Window x:Class="AntibodyPanels.Views.Dialogs.HelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:help="clr-namespace:AntibodyPanels.Help"
+        Title="User Manual" Height="720" Width="980"
+        MinHeight="480" MinWidth="720"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="12,8,12,12">
+            <Button Content="Print chapter" Width="110" Margin="0,0,8,0" Click="PrintChapterClick"/>
+            <Button Content="Print manual" Width="110" Margin="0,0,8,0" Click="PrintManualClick"/>
+            <Button Content="Close" Width="84" IsCancel="True"/>
+        </StackPanel>
+
+        <Grid Margin="12,12,12,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280" MinWidth="180"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,8,8">
+                    <TextBlock Text="Find:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#546E7A"/>
+                    <TextBox x:Name="SearchBox" TextChanged="SearchBox_TextChanged"
+                             ToolTip="Filter topics by title or text"/>
+                </DockPanel>
+                <TreeView x:Name="TopicTree"
+                          BorderThickness="1" BorderBrush="#CFD8DC"
+                          VirtualizingPanel.IsVirtualizing="False"
+                          SelectedItemChanged="TopicTree_SelectedItemChanged">
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type help:HelpTopicNode}"
+                                                  ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap"/>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+                </TreeView>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"/>
+
+            <FlowDocumentScrollViewer x:Name="Viewer" Grid.Column="2" Margin="8,0,0,0"
+                                      VerticalScrollBarVisibility="Auto"/>
+        </Grid>
+    </DockPanel>
+</Window>
